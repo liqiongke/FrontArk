@@ -1,0 +1,57 @@
+// MainLayout 样式文件
+.main-layout {
+  min-height: 100vh;
+  user-select: none;
+}
+
+// 左侧边栏
+.main-sider {
+  .logo {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+    .logo-text {
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+    }
+  }
+}
+
+// 顶部导航栏
+.main-header {
+  height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .trigger-button {
+    font-size: 16px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .tab-area {
+    flex: 1;
+    padding-left: 20px;
+
+    .tab-content {
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+  }
+
+  .user-area {
+    padding-right: 20px;
+  }
+}
+
+// 内容区域
+.main-content {
+  min-height: 280px;
+}
