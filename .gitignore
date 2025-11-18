@@ -1,0 +1,34 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+package-lock.json
+# pnpm-lock.yaml
+# yarn.lock
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+vite.config.ts.*.mjs
+__unconfig_vite.config.ts
+
+# 测试覆盖率
+coverage/
+
+stats.html
+.vite

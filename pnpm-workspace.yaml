@@ -1,0 +1,5 @@
+packages:
+  # 存放所有应用，例如 web, mobile, api
+  - 'apps/*'
+  # 存放所有共享库/组件库/工具函数等
+  - 'packages/*'
