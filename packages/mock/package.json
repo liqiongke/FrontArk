@@ -1,0 +1,31 @@
+{
+  "name": "mock-server",
+  "version": "1.0.0",
+  "description": "Mock server for providing test data",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev:mock": "ts-node src/index.ts",
+    "start": "node dist/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts"
+  },
+  "keywords": [
+    "mock",
+    "server",
+    "test",
+    "data"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "mockjs": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "@types/node": "^22.10.3",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

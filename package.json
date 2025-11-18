@@ -6,6 +6,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:mock": "turbo run dev:mock",
     "lint": "turbo run lint"
   },
   "keywords": [],
