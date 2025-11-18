@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Layout, Menu, Button, Avatar, Dropdown, Space, theme } from 'antd';
-import { MenuFoldOutlined, MenuUnfoldOutlined, FullscreenOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
+import { MenuFoldOutlined, MenuUnfoldOutlined, FullscreenOutlined, SettingOutlined, UserOutlined, BellOutlined } from '@ant-design/icons';
 import './styles.less';
 
 const { Header, Sider, Content } = Layout;
@@ -97,7 +97,8 @@ const MainLayout = () => {
           
           {/* 用户信息区域 */}
           <div className="user-area">
-            <Space size="middle">
+            <Space size="small">
+              <Button type="text" icon={<BellOutlined />} />
               <Button type="text" icon={<SettingOutlined />} />
               <Button type="text" icon={<FullscreenOutlined />} />
               <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
