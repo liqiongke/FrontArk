@@ -36,8 +36,10 @@ router.post('/', (req: Request, res: Response) => {
     },
   };
 
+  // 设置CORS头部，允许前端访问authorization响应头
+  res.setHeader('Access-Control-Expose-Headers', 'authorization, X-Rate-Limit');
   // 将token添加到响应头中
-  res.setHeader('Authorization', token);
+  res.setHeader('authorization', token);
   res.json(response);
 });
 

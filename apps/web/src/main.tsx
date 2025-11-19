@@ -3,10 +3,10 @@ import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, useRoutes } from 'react-router-dom';
 import routes from '~react-pages';
+import init from './init/init';
 import LoginLayout from './layouts/login/LoginLayout';
 import MainLayout from './layouts/main/MainLayout';
 import themeDefault from './theme/themeDefault';
-import init from './init/init';
 
 const routesWithRedirect = [
   {

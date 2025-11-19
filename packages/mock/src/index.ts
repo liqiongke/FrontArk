@@ -3,7 +3,7 @@ import { loginRouter } from './routes/login';
 import { repData } from './utils/dataUtils';
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT;
 
 // Middleware to handle JSON bodies
 app.use(express.json());

@@ -1,10 +1,12 @@
+import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { Button, Card, Form, Input, Typography, message } from 'antd';
+import { NetUtils } from 'framework';
+import { isUndefined } from 'lodash';
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, Typography, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import './styles.less';
 import { useNavigate } from 'react-router-dom';
 import Store from '../../init/stores';
-import { NetUtils } from 'framework';
+import type { User } from '../../interface/user';
+import './styles.less';
 
 const { Title, Text } = Typography;
 
@@ -17,18 +19,26 @@ const LoginLayout: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const user = Store.user((state) => state.user);
-  // const setUser = Store.user((state) => state.setUser);
+  const setUser = Store.user((state) => state.setUser);
   // const setMenu = Store.user((state) => state.setMenu);
 
   const onFinish = async (values: LoginForm) => {
     setLoading(true);
     try {
-      console.log(values);
-
       // 触发登录请求
-      const result = await NetUtils.login(values);
-
+      const result = await NetUtils.login<User>(values);
       console.log('result', result);
+
+      if (result.code !== 200) {
+        message.error(result.message || '登录失败，请检查用户名和密码');
+        return;
+      }
+      const data = result.data;
+      if (isUndefined(data)) {
+        message.error(result.message || '登录失败，未找到返回的用户信息');
+        return;
+      }
+      setUser(data);
 
       // 跳转到首页
       navigate('/');

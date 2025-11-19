@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance } from 'axios';
-import { isString } from 'lodash';
-import { type ErrorHandler, AUTH_TOKEN_KEY } from './interface';
+import { get, isString } from 'lodash';
+import { type ErrorHandler, type Result, AUTH_TOKEN_KEY } from './interface';
 
 class NetUtils {
   static service: AxiosInstance;
@@ -19,13 +19,12 @@ class NetUtils {
     // 添加请求拦截器
     this.service.interceptors.request.use(
       (config) => {
-        // 添加授权Token
         const token = NetUtils.getToken();
         if (!token) {
           errorHandler(401, '未找到授权Token', 'request');
           return Promise.reject(new Error('未找到授权Token'));
         }
-        config.headers.Authorization = `Bearer ${token}`;
+        config.headers.Authorization = token;
         return config;
       },
       (error) => {
@@ -51,8 +50,11 @@ class NetUtils {
       },
     );
 
+    this.checkToken();
+  };
+
+  static checkToken = () => {
     const token = this.getToken();
-    console.log('token', token);
     if (!token) {
       this.handleUnauthorized();
     }
@@ -63,35 +65,39 @@ class NetUtils {
     return localStorage.getItem(AUTH_TOKEN_KEY);
   };
 
-  // 跳转到登录页
+  // 清除本地token
   static handleUnauthorized = () => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
 
-    // 检查当前路径是否已经是登录页，如果是则不跳转
     const loginUrl = import.meta.env.VITE_LOGIN_URL;
     if (window.location.pathname !== loginUrl) {
+      // 清空历史记录
       window.history.replaceState(null, '', import.meta.env.VITE_LOGIN_URL);
+      // 跳转至登录页
       window.location.replace(loginUrl);
     }
   };
-
-  // 这里要单独处理登录请求，因为登录请求没有授权Token
   // 这里的登录地址需要去 .env 中配置 VITE_LOGIN_URL
-  static login = async (data: any) => {
+  static login = async <T>(data: any): Promise<Result<T>> => {
     const result = await axios.post(
       `${import.meta.env.VITE_BASE_URL}${import.meta.env.VITE_LOGIN_URL}`,
       data,
     );
 
     // 校验请求状态
-    if (result.status !== 200) {
-      return Promise.reject(new Error('登录失败'));
+    if (!result || result.status !== 200) {
+      return { code: result.status, message: '登录失败' };
     }
 
-    // 获取请求头部的token
-    const token = result.headers['authorization'];
+    const header = result.headers;
+    if (!header) {
+      return { code: 400, message: '获取请求头失败' };
+    }
+    // 获取请求头部的中的token,如果获取不到,是因为跨域资源共享 (CORS) 策略限制,需要在服务器端请求头添加
+    // Access-Control-Expose-Headers: Authorization, X-Rate-Limit
+    const token = result.headers.authorization || result.headers.Authorization;
     if (!isString(token) || token.length === 0) {
-      return Promise.reject(new Error('未找到授权Token'));
+      return { code: 400, message: '未找到授权Token' };
     }
     localStorage.setItem(AUTH_TOKEN_KEY, token);
     return result.data;

@@ -3,4 +3,6 @@ export interface User {
   name: string;
   // 权限列表
   auth: string[];
+  // 菜单列表
+  menu: [];
 }

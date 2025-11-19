@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Layout, Menu, Button, Avatar, Dropdown, Space, theme } from 'antd';
 import {
   MenuFoldOutlined,
@@ -10,12 +10,18 @@ import {
   BellOutlined,
 } from '@ant-design/icons';
 import './styles.less';
+import { NetUtils } from 'framework';
 
 const { Header, Sider, Content } = Layout;
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [selectedKey, setSelectedKey] = useState('home');
+  const location = useLocation();
+
+  useEffect(() => {
+    NetUtils.checkToken();
+  }, [location.pathname]);
 
   const {
     token: { colorBgContainer },

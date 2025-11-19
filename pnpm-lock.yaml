@@ -17,9 +17,6 @@ importers:
       '@ant-design/icons':
         specifier: ^6.1.0
         version: 6.1.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@types/lodash':
-        specifier: ^4.17.20
-        version: 4.17.20
       antd:
         specifier: 5.29.0
         version: 5.29.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -42,6 +39,9 @@ importers:
       '@eslint/js':
         specifier: ^9.39.1
         version: 9.39.1
+      '@types/lodash':
+        specifier: ^4.17.20
+        version: 4.17.20
       '@types/node':
         specifier: ^24.10.0
         version: 24.10.1
