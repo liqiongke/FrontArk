@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {},
   "dependencies": {
-    "@types/react": "^19.2.5",
+    "axios": "^1.13.2",
+    "lodash": "^4.17.21",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zustand": "^5.0.8"
@@ -13,5 +14,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.13.1"
+  "packageManager": "pnpm@10.13.1",
+  "devDependencies": {
+    "@types/lodash": "^4.17.20",
+    "@types/react": "^19.2.5"
+  }
 }

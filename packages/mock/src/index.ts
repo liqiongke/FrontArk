@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { menuRouter } from './routes/menu';
+import { loginRouter } from './routes/login';
 
 const app = express();
 const port = 3001;
@@ -11,7 +11,10 @@ app.use(express.json());
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+  );
   next();
 });
 
@@ -20,7 +23,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method === 'OPTIONS') {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header(
+      'Access-Control-Allow-Headers',
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+    );
     res.sendStatus(200);
   } else {
     next();
@@ -28,7 +34,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // 注册路由
-app.use('/api/menu', menuRouter);
+app.use('/api/login', loginRouter);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
@@ -36,14 +42,8 @@ app.get('/', (req: Request, res: Response) => {
     code: 200,
     message: 'Mock Server is running',
     data: {
-      endpoints: [
-        '/api/menu',
-        '/api/menu/flat',
-        '/api/users',
-        '/api/products',
-        '/api/orders'
-      ]
-    }
+      endpoints: ['/api/menu', '/api/menu/flat', '/api/users', '/api/products', '/api/orders'],
+    },
   };
   res.json(response);
 });
