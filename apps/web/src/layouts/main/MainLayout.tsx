@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Layout, Menu, Button, Avatar, Dropdown, Space, theme } from 'antd';
-import { MenuFoldOutlined, MenuUnfoldOutlined, FullscreenOutlined, SettingOutlined, UserOutlined, BellOutlined } from '@ant-design/icons';
+import {
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  FullscreenOutlined,
+  SettingOutlined,
+  UserOutlined,
+  BellOutlined,
+} from '@ant-design/icons';
 import './styles.less';
 
 const { Header, Sider, Content } = Layout;
@@ -9,7 +16,7 @@ const { Header, Sider, Content } = Layout;
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [selectedKey, setSelectedKey] = useState('home');
-  
+
   const {
     token: { colorBgContainer },
   } = theme.useToken();
@@ -64,7 +71,7 @@ const MainLayout = () => {
         <div className="logo">
           <div className="logo-text">WMS</div>
         </div>
-        
+
         {/* 菜单区域 */}
         <Menu
           theme="dark"
@@ -74,7 +81,7 @@ const MainLayout = () => {
           items={menuItems}
         />
       </Sider>
-      
+
       {/* 右侧布局 */}
       <Layout>
         {/* 右上角标题栏 */}
@@ -86,15 +93,13 @@ const MainLayout = () => {
             onClick={() => setCollapsed(!collapsed)}
             className="trigger-button"
           />
-          
+
           {/* Tab 标签页占位 */}
           <div className="tab-area">
             {/* 这里可以放置 Tabs 组件 */}
-            <div className="tab-content">
-              Tab 标签页区域
-            </div>
+            <div className="tab-content">Tab 标签页区域</div>
           </div>
-          
+
           {/* 用户信息区域 */}
           <div className="user-area">
             <Space size="small">
@@ -107,7 +112,7 @@ const MainLayout = () => {
             </Space>
           </div>
         </Header>
-        
+
         {/* 路由页面区域 */}
         <Content
           className="main-content"

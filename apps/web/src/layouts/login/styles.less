@@ -1,0 +1,189 @@
+// 登录页面容器
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100vw;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+// 登录卡片样式
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border: none;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+
+  .ant-card-body {
+    padding: 40px;
+  }
+}
+
+// 登录头部
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+  user-select: none;
+
+  .ant-typography {
+    margin-bottom: 8px;
+  }
+
+  h2 {
+    color: #1890ff;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .ant-typography.ant-typography-secondary {
+    color: #8c8c8c;
+    font-size: 14px;
+  }
+}
+
+// 表单样式
+.ant-form {
+  .ant-form-item {
+    margin-bottom: 24px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .ant-form-item-label {
+    padding-bottom: 8px;
+
+    label {
+      font-weight: 500;
+      color: #262626;
+    }
+  }
+
+  // 输入框样式
+  .ant-input,
+  .ant-input-affix-wrapper {
+    padding: 12px 16px;
+    font-size: 14px;
+    transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+
+    &:hover {
+      border-color: #40a9ff;
+    }
+
+    &:focus,
+    &.ant-input-focused,
+    &.ant-input-affix-wrapper-focused {
+      border-color: #1890ff;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    }
+  }
+
+  .ant-input-prefix {
+    color: #8c8c8c;
+    margin-right: 12px;
+
+    .anticon {
+      font-size: 16px;
+    }
+  }
+}
+
+// 登录按钮样式
+.login-button {
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+  transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(24, 144, 255, 0.4);
+    background: linear-gradient(135deg, #40a9ff 0%, #1890ff 100%);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    background: #f5f5f5;
+    color: #bfbfbf;
+    border: none;
+    box-shadow: none;
+    transform: none;
+  }
+}
+
+// 响应式设计
+@media (max-width: 576px) {
+  .login-container {
+    padding: 16px;
+  }
+
+  .login-card {
+    .ant-card-body {
+      padding: 24px;
+    }
+  }
+
+  .login-header {
+    margin-bottom: 24px;
+
+    h2 {
+      font-size: 20px;
+    }
+  }
+
+  .login-button {
+    height: 44px;
+    font-size: 14px;
+  }
+}
+
+// 动画效果
+.login-card {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 输入框聚焦动画
+.ant-input,
+.ant-input-affix-wrapper {
+  animation: inputFocus 0.3s ease-out;
+}
+
+@keyframes inputFocus {
+  from {
+    transform: scale(0.98);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+// 按钮加载状态
+.ant-btn-loading {
+  position: relative;
+  pointer-events: none;
+}

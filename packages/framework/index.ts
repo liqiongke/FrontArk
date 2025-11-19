@@ -1,3 +1,5 @@
-const title = "framework";
+import createUserStore from './stores/user/userStore';
 
-export default title;
+// store 数据
+// store 用户类型
+export { createUserStore };

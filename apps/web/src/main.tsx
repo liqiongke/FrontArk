@@ -1,11 +1,11 @@
-import { StrictMode, Suspense } from 'react'
-import { createRoot } from 'react-dom/client'
-import { BrowserRouter, useRoutes } from 'react-router-dom'
-import routes from '~react-pages'
-import MainLayout from './layouts/main/MainLayout'
-import LoginLayout from './layouts/login/LoginLayout'
-import { ConfigProvider } from 'antd'
-import themeDefault from './theme/themeDefault'
+import { ConfigProvider } from 'antd';
+import { StrictMode, Suspense } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, useRoutes } from 'react-router-dom';
+import routes from '~react-pages';
+import LoginLayout from './layouts/login/LoginLayout';
+import MainLayout from './layouts/main/MainLayout';
+import themeDefault from './theme/themeDefault';
 
 const routesWithRedirect = [
   {
@@ -15,21 +15,18 @@ const routesWithRedirect = [
   {
     path: '/',
     element: <MainLayout />,
-    children: [
-      ...routes
-    ]
-  }
+    children: [...routes],
+  },
 ];
-
 export const App: React.FC = () => {
   const element = useRoutes(routesWithRedirect);
 
   return (
     <Suspense fallback={<p>Loading...</p>}>
-      {element}
+      <ConfigProvider theme={themeDefault}>{element}</ConfigProvider>
     </Suspense>
   );
-}
+};
 
 const container = document.getElementById('root')!;
 const root = createRoot(container);
@@ -44,9 +41,7 @@ if (import.meta.hot) {
 root.render(
   <StrictMode>
     <BrowserRouter>
-      <ConfigProvider theme={themeDefault}>
-        <App />
-      </ConfigProvider>
+      <App />
     </BrowserRouter>
-  </StrictMode>
+  </StrictMode>,
 );

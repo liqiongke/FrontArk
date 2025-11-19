@@ -15,5 +15,8 @@
   "packageManager": "pnpm@10.13.1",
   "devDependencies": {
     "turbo": "^2.6.1"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
   }
 }
