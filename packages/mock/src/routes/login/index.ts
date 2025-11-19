@@ -8,7 +8,7 @@ const router: Router = Router();
  * 用户登录
  * POST /api/login
  */
-router.post('/login', (req: Request, res: Response) => {
+router.post('/', (req: Request, res: Response) => {
   // 获取用户提交的用户名和密码
   const { username, password } = req.body;
 
@@ -30,6 +30,7 @@ router.post('/login', (req: Request, res: Response) => {
     data: {
       user: {
         name: username,
+        auth: [username == 'admin' ? 'worker' : 'admin'],
       },
       menu: menuData,
     },

@@ -10,7 +10,7 @@ class NetUtils {
    * @param baseURL - 基础URL
    * @param errorHandler - 错误处理函数，用于处理请求和响应拦截器中的异常
    */
-  static init(baseURL: string, errorHandler: ErrorHandler) {
+  static init = (baseURL: string, errorHandler: ErrorHandler) => {
     this.service = axios.create({
       baseURL: baseURL,
       timeout: 15000,
@@ -20,7 +20,7 @@ class NetUtils {
     this.service.interceptors.request.use(
       (config) => {
         // 添加授权Token
-        const token = localStorage.getItem(AUTH_TOKEN_KEY);
+        const token = NetUtils.getToken();
         if (!token) {
           errorHandler(401, '未找到授权Token', 'request');
           return Promise.reject(new Error('未找到授权Token'));
@@ -50,11 +50,38 @@ class NetUtils {
         return Promise.reject(error);
       },
     );
-  }
+
+    const token = this.getToken();
+    console.log('token', token);
+    if (!token) {
+      this.handleUnauthorized();
+    }
+  };
+
+  // 获取token的值
+  static getToken = () => {
+    return localStorage.getItem(AUTH_TOKEN_KEY);
+  };
+
+  // 跳转到登录页
+  static handleUnauthorized = () => {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+
+    // 检查当前路径是否已经是登录页，如果是则不跳转
+    const loginUrl = import.meta.env.VITE_LOGIN_URL;
+    if (window.location.pathname !== loginUrl) {
+      window.history.replaceState(null, '', import.meta.env.VITE_LOGIN_URL);
+      window.location.replace(loginUrl);
+    }
+  };
 
   // 这里要单独处理登录请求，因为登录请求没有授权Token
-  static login = async (url: string, data: any) => {
-    const result = await axios.post(url, data);
+  // 这里的登录地址需要去 .env 中配置 VITE_LOGIN_URL
+  static login = async (data: any) => {
+    const result = await axios.post(
+      `${import.meta.env.VITE_BASE_URL}${import.meta.env.VITE_LOGIN_URL}`,
+      data,
+    );
 
     // 校验请求状态
     if (result.status !== 200) {

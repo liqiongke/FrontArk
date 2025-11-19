@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { loginRouter } from './routes/login';
+import { repData } from './utils/dataUtils';
 
 const app = express();
 const port = 3001;
@@ -38,21 +39,10 @@ app.use('/api/login', loginRouter);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
-  const response = {
-    code: 200,
-    message: 'Mock Server is running',
-    data: {
-      endpoints: ['/api/menu', '/api/menu/flat', '/api/users', '/api/products', '/api/orders'],
-    },
-  };
-  res.json(response);
+  res.json(repData({}));
 });
 
 app.listen(port, () => {
   // 使用标准输出而不是 console.log
   process.stdout.write(`Mock server running at http://localhost:${port}\n`);
-  process.stdout.write(`API endpoints:\n`);
-  process.stdout.write(`  - http://localhost:${port}/api/users\n`);
-  process.stdout.write(`  - http://localhost:${port}/api/products\n`);
-  process.stdout.write(`  - http://localhost:${port}/api/orders\n`);
 });

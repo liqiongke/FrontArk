@@ -6,10 +6,11 @@ import routes from '~react-pages';
 import LoginLayout from './layouts/login/LoginLayout';
 import MainLayout from './layouts/main/MainLayout';
 import themeDefault from './theme/themeDefault';
+import init from './init/init';
 
 const routesWithRedirect = [
   {
-    path: '/login',
+    path: import.meta.env.VITE_LOGIN_URL,
     element: <LoginLayout />,
   },
   {
@@ -18,6 +19,7 @@ const routesWithRedirect = [
     children: [...routes],
   },
 ];
+
 export const App: React.FC = () => {
   const element = useRoutes(routesWithRedirect);
 
@@ -27,6 +29,9 @@ export const App: React.FC = () => {
     </Suspense>
   );
 };
+
+// 初始化界面通用配置
+init();
 
 const container = document.getElementById('root')!;
 const root = createRoot(container);

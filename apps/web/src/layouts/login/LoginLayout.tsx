@@ -3,7 +3,8 @@ import { Form, Input, Button, Card, Typography, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import './styles.less';
 import { useNavigate } from 'react-router-dom';
-import Store from '../../stores';
+import Store from '../../init/stores';
+import { NetUtils } from 'framework';
 
 const { Title, Text } = Typography;
 
@@ -16,17 +17,18 @@ const LoginLayout: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const user = Store.user((state) => state.user);
-  const setUser = Store.user((state) => state.setUser);
+  // const setUser = Store.user((state) => state.setUser);
+  // const setMenu = Store.user((state) => state.setMenu);
 
   const onFinish = async (values: LoginForm) => {
     setLoading(true);
     try {
       console.log(values);
-      // 模拟登录请求
-      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // 设置用户名
-      setUser({ name: 'user' + new Date().getTime() });
+      // 触发登录请求
+      const result = await NetUtils.login(values);
+
+      console.log('result', result);
 
       // 跳转到首页
       navigate('/');

@@ -1,6 +1,6 @@
 import { createUserStore } from 'framework';
-import type { User } from './interface/user';
-import type { MenuItem } from './interface/menu';
+import type { User } from '../interface/user';
+import type { MenuItem } from '../interface/menu';
 
 // 通用的store类型
 class Store {
