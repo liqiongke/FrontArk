@@ -4,14 +4,29 @@ import { type ErrorHandler, type Result } from './interface';
 import TokenUtils from './tokenUtils';
 
 class NetUtils {
+  // 基础url
+  static baseUrl: string;
+  // 登录页地址
+  static loginUrl: string;
+  // 请求接口
   static service: AxiosInstance;
+  // 过期时间
+  static tokenExpireTime: number;
 
   /**
    * 初始化网络请求
    * @param baseURL - 基础URL
    * @param errorHandler - 错误处理函数，用于处理请求和响应拦截器中的异常
    */
-  static init = (baseURL: string, errorHandler: ErrorHandler) => {
+  static init = (
+    baseURL: string,
+    loginUrl: string,
+    errorHandler: ErrorHandler,
+    tokenExpireTime: number = 7200000,
+  ) => {
+    this.baseUrl = baseURL;
+    this.loginUrl = loginUrl;
+    this.tokenExpireTime = tokenExpireTime;
     this.service = axios.create({
       baseURL: baseURL,
       timeout: 15000,
@@ -49,15 +64,12 @@ class NetUtils {
       },
     );
 
-    TokenUtils.checkToken();
+    TokenUtils.checkToken(this.loginUrl);
   };
 
   // 这里的登录接口需要从 .env 中配置 VITE_API_LOGIN
   static login = async <T>(data: any): Promise<Result<T>> => {
-    const result = await axios.post(
-      `${import.meta.env.VITE_BASE_URL}${import.meta.env.VITE_API_LOGIN}`,
-      data,
-    );
+    const result = await axios.post(`${this.baseUrl}${this.loginUrl || 'login'}`, data);
 
     // 校验请求状态
     if (!result || result.status !== 200) {
@@ -75,25 +87,25 @@ class NetUtils {
     if (!isString(token) || token.length === 0) {
       return { code: 400, message: '未找到授权Token' };
     }
-    TokenUtils.setToken(token);
+    TokenUtils.setToken(token, this.tokenExpireTime);
 
     return result.data;
   };
 
   static checkToken = () => {
-    TokenUtils.checkToken();
+    TokenUtils.checkToken(this.loginUrl);
   };
 
   static handleUnauthorized = () => {
-    TokenUtils.clearTokenAndJumpToLogin();
+    TokenUtils.clearTokenAndJumpToLogin(this.loginUrl);
   };
 
   static get = async (url: string, params?: any) => {
-    return this.service.get(`${import.meta.env.VITE_BASE_URL}${url}`, { params });
+    return this.service.get(`${this.baseUrl}${url}`, { params });
   };
 
   static post = async (url: string, data?: any) => {
-    return this.service.post(`${import.meta.env.VITE_BASE_URL}${url}`, data);
+    return this.service.post(`${this.baseUrl}${url}`, data);
   };
 }
 

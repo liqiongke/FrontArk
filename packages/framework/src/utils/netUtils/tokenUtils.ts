@@ -2,13 +2,12 @@ import { AUTH_TOKEN_KEY, AUTH_TOKEN_EXPIRE_KEY } from './interface';
 
 class TokenUtils {
   // 设置token和过期时间
-  static setToken = (token: string) => {
+  static setToken = (token: string, expireTime: number) => {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
 
     // 保存token过期时间
-    const expireTime = import.meta.env.VITE_AUTH_TOKEN_EXPIRE_TIME;
     if (expireTime) {
-      const expireTimestamp = Date.now() + parseInt(expireTime, 10);
+      const expireTimestamp = Date.now() + expireTime;
       localStorage.setItem(AUTH_TOKEN_EXPIRE_KEY, expireTimestamp.toString());
     }
   };
@@ -41,23 +40,22 @@ class TokenUtils {
   };
 
   // 处理未授权情况
-  static clearTokenAndJumpToLogin = () => {
+  static clearTokenAndJumpToLogin = (loginUrl: string) => {
     this.clearToken();
 
-    const loginUrl = import.meta.env.VITE_LOGIN_URL;
     if (window.location.pathname !== loginUrl) {
       // 清空历史记录
-      window.history.replaceState(null, '', import.meta.env.VITE_LOGIN_URL);
+      window.history.replaceState(null, '', loginUrl);
       // 跳转至登录页
       window.location.replace(loginUrl);
     }
   };
 
   // 检查token是否存在
-  static checkToken = () => {
+  static checkToken = (loginUrl: string) => {
     const token = this.getToken();
     if (!token) {
-      this.clearTokenAndJumpToLogin();
+      this.clearTokenAndJumpToLogin(loginUrl);
     }
   };
 }
