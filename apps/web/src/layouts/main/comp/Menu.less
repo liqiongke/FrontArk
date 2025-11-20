@@ -1,0 +1,30 @@
+// 左侧边栏
+.main-sider {
+  max-height: 100vh;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  .logo {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+    .logo-text {
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+    }
+  }
+
+  .menu {
+    flex: 1;
+    overflow: hidden;
+
+    .simplebar-scrollbar::before {
+      background: #ffffffc0;
+    }
+  }
+}

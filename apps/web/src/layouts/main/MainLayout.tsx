@@ -9,7 +9,7 @@ import AvatarComponent from './comp/Avatar';
 import MenuComponent from './comp/Menu';
 import './styles.less';
 
-const { Header, Sider, Content } = Layout;
+const { Header, Content } = Layout;
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -43,13 +43,7 @@ const MainLayout = () => {
 
   return (
     <Layout className="main-layout">
-      <Sider trigger={null} collapsible collapsed={collapsed} width={240} className="main-sider">
-        <div className="logo">
-          <div className="logo-text">WMS</div>
-        </div>
-
-        <MenuComponent collapsed={collapsed} menuItems={menuItems} />
-      </Sider>
+      <MenuComponent collapsed={collapsed} menuItems={menuItems} />
 
       <Layout>
         <Header className="main-header" style={{ background: colorBgContainer }}>
