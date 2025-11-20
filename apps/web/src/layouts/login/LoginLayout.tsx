@@ -16,35 +16,33 @@ interface LoginForm {
 }
 
 const LoginLayout: React.FC = () => {
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [messageApi, contextHolder] = message.useMessage();
+  const [loading, setLoading] = useState(false);
   const user = Store.user((state) => state.user);
   const setUser = Store.user((state) => state.setUser);
-  // const setMenu = Store.user((state) => state.setMenu);
-
   const onFinish = async (values: LoginForm) => {
     setLoading(true);
     try {
       // 触发登录请求
       const result = await NetUtils.login<User>(values);
-      console.log('result', result);
 
       if (result.code !== 200) {
-        message.error(result.message || '登录失败，请检查用户名和密码');
+        messageApi.error(result.message || '登录失败，请检查用户名和密码');
         return;
       }
       const data = result.data;
       if (isUndefined(data)) {
-        message.error(result.message || '登录失败，未找到返回的用户信息');
+        messageApi.error(result.message || '登录失败，未找到返回的用户信息');
         return;
       }
       setUser(data);
 
       // 跳转到首页
       navigate('/');
-      message.success('登录成功!');
+      messageApi.success('登录成功!');
     } catch {
-      message.error('登录失败，请检查用户名和密码');
+      messageApi.error('登录失败，请检查用户名和密码');
     } finally {
       setLoading(false);
     }
@@ -52,6 +50,7 @@ const LoginLayout: React.FC = () => {
 
   return (
     <div className="login-container">
+      {contextHolder}
       <Card className="login-card">
         <div className="login-header">
           <Title level={2}>欢迎登录:{user?.name}</Title>

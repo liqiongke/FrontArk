@@ -1,98 +1,58 @@
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { useMemoizedFn } from 'ahooks';
+import type { MenuProps } from 'antd';
+import { Button, Layout, message, theme } from 'antd';
+import { NetUtils } from 'framework';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, theme } from 'antd';
-import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  FullscreenOutlined,
-  SettingOutlined,
-  UserOutlined,
-  BellOutlined,
-} from '@ant-design/icons';
+import AvatarComponent from './comp/Avatar';
+import MenuComponent from './comp/Menu';
 import './styles.less';
-import { NetUtils } from 'framework';
 
 const { Header, Sider, Content } = Layout;
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [selectedKey, setSelectedKey] = useState('home');
+  const [menuItems, setMenuItems] = useState<MenuProps['items']>([]);
   const location = useLocation();
+
+  // 获取菜单数据
+  const fetchMenuData = useMemoizedFn(async () => {
+    try {
+      const result = await NetUtils.get(import.meta.env.VITE_API_MENU);
+      if (result.data && result.data.code === 200) {
+        setMenuItems(result.data.data || []);
+      } else {
+        message.error(result.data?.message || '获取菜单数据失败');
+      }
+    } catch (error) {
+      console.error('获取菜单数据失败:', error);
+      message.error('获取菜单数据失败');
+    }
+  });
 
   useEffect(() => {
     NetUtils.checkToken();
+    fetchMenuData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   const {
     token: { colorBgContainer },
   } = theme.useToken();
 
-  // 菜单数据示例
-  const menuItems = [
-    {
-      key: 'home',
-      label: '首页',
-    },
-    {
-      key: 'dashboard',
-      label: '仓储管理系统',
-    },
-    {
-      key: 'system',
-      label: '系统管理',
-      children: [
-        {
-          key: 'users',
-          label: '用户管理',
-        },
-        {
-          key: 'roles',
-          label: '角色管理',
-        },
-      ],
-    },
-  ];
-
-  // 用户菜单
-  const userMenuItems = [
-    {
-      key: 'profile',
-      label: '个人中心',
-    },
-    {
-      key: 'settings',
-      label: '设置',
-    },
-    {
-      key: 'logout',
-      label: '退出登录',
-    },
-  ];
-
   return (
     <Layout className="main-layout">
-      {/* 左侧布局 */}
       <Sider trigger={null} collapsible collapsed={collapsed} width={240} className="main-sider">
-        {/* Logo 区域 */}
         <div className="logo">
           <div className="logo-text">WMS</div>
         </div>
 
-        {/* 菜单区域 */}
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          onSelect={({ key }) => setSelectedKey(key)}
-          items={menuItems}
-        />
+        <MenuComponent collapsed={collapsed} menuItems={menuItems} />
       </Sider>
 
-      {/* 右侧布局 */}
       <Layout>
-        {/* 右上角标题栏 */}
         <Header className="main-header" style={{ background: colorBgContainer }}>
-          {/* 折叠展开按钮 */}
           <Button
             type="text"
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
@@ -100,32 +60,15 @@ const MainLayout = () => {
             className="trigger-button"
           />
 
-          {/* Tab 标签页占位 */}
           <div className="tab-area">
-            {/* 这里可以放置 Tabs 组件 */}
             <div className="tab-content">Tab 标签页区域</div>
           </div>
 
-          {/* 用户信息区域 */}
-          <div className="user-area">
-            <Space size="small">
-              <Button type="text" icon={<BellOutlined />} />
-              <Button type="text" icon={<SettingOutlined />} />
-              <Button type="text" icon={<FullscreenOutlined />} />
-              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-                <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} />
-              </Dropdown>
-            </Space>
-          </div>
+          <AvatarComponent />
         </Header>
 
         {/* 路由页面区域 */}
-        <Content
-          className="main-content"
-          style={{
-            background: colorBgContainer,
-          }}
-        >
+        <Content className="main-content" style={{ background: colorBgContainer }}>
           <Outlet />
         </Content>
       </Layout>

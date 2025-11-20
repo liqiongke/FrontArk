@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { loginRouter } from './routes/login';
 import { repData } from './utils/dataUtils';
+import loginRouter from './routes/login';
+import menuRouter from './routes/sys';
 
 const app = express();
 const port = process.env.PORT;
@@ -36,6 +37,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // 注册路由
 app.use('/api/login', loginRouter);
+app.use('/api/menu', menuRouter);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
