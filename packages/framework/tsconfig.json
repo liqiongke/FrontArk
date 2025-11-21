@@ -1,35 +1,49 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
-    "target": "ESNext",
+    /* --- 基础配置 --- */
+    "target": "ESNext", // 目标语言版本，Vite 会在构建时根据 targets 处理降级，这里可以设高点
     "useDefineForClassFields": true,
     "lib": [
       "DOM",
       "DOM.Iterable",
       "ESNext"
-    ],
-    "allowJs": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
+    ], // 包含浏览器环境和最新 JS 特性的类型定义
+    "allowJs": false, // 组件库建议严格使用 TS，不混用 JS
+    "skipLibCheck": true, // 跳过 node_modules 的类型检查，提高性能
+    "esModuleInterop": true, // 允许默认导入非 ES 模块 (CommonJS)
     "allowSyntheticDefaultImports": true,
+    /* --- 严格模式 (强烈建议组件库开启) --- */
     "strict": true,
     "forceConsistentCasingInFileNames": true,
+    /* --- 模块解析 --- */
     "module": "ESNext",
-    "moduleResolution": "Node",
+    // 'bundler' 是 TS 5.0+ 为 Vite/Webpack 等打包工具设计的最佳模式
+    // 如果你的 TS 版本较低，可以使用 'NodeNext' 或 'Node'
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "isolatedModules": true, // 必须开启，因为 Vite 使用 esbuild 进行转译，要求单文件可转译
+    /* --- React 相关 --- */
+    "jsx": "react-jsx", // React 17+ 的新转换模式 (不需要在每个文件 import React)
+    /* --- 输出控制 --- */
+    // 设为 true，因为我们不希望 tsc 生成 .js 文件，构建工作交给 Vite 做。
+    // 类型生成工作交给 vite-plugin-dts 插件做。
     "noEmit": true,
-    "jsx": "react-jsx"
+    /* --- 路径别名 (可选，但推荐) --- */
+    // 如果你在 vite.config.ts 也配置了 alias，这里要同步配置，以便编辑器识别
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    }
   },
   "include": [
-    "src/**/*",
-    "index.ts"
-  ],
+    "src"
+  ], // 仅编译 src 下的文件
   "exclude": [
     "node_modules",
     "dist",
-    "build"
-  ]
+    "**/*.test.tsx",
+    "**/*.stories.tsx"
+  ] // 排除不需要的文件
 }

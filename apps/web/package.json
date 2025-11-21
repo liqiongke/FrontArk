@@ -15,9 +15,10 @@
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@jl/framework": "workspace:*",
     "ahooks": "^3.9.6",
     "antd": "5.29.0",
-    "framework": "workspace:*",
+    "axios": "^1.13.2",
     "lodash": "^4.17.21",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

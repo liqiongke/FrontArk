@@ -3,7 +3,7 @@ import { BellOutlined, FullscreenOutlined, SettingOutlined, UserOutlined } from 
 import type { MenuProps } from 'antd';
 import '../styles.less';
 import { useMemoizedFn } from 'ahooks';
-import { NetUtils } from 'framework';
+import { NetUtils } from '@jl/framework';
 
 const AvatarComponent = () => {
   const userMenuItems: MenuProps['items'] = [
