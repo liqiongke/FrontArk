@@ -1,5 +1,5 @@
-import useValue from '@/framework/store/useStoreValue';
 import { Input } from 'antd';
+import useValue from 'src/stores/store/useValue';
 import { ViewType } from '../../view/interface';
 import { TextAlign } from '../base/interface';
 import { SysCtrlProps } from '../interface';
@@ -14,14 +14,10 @@ const CtrlText: React.FC<SysCtrlProps<CtrlTextProps>> = (props) => {
 
   // 表单样式
   if (sourceView === ViewType.VIEW_FORM) {
-    return <Input value={value} disabled />
+    return <Input value={value} disabled />;
   }
 
-  return (
-    <div className={`ctrl-text align-${align}`}>
-      {value}
-    </div>
-  );
+  return <div className={`ctrl-text align-${align}`}>{value}</div>;
 };
 
 export default CtrlText;

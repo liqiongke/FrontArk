@@ -1,7 +1,7 @@
 import { Table } from 'antd';
 import { isArray } from 'lodash';
 import { useMemo } from 'react';
-import { useValue } from '../../../interface';
+import useValue from '../../../../src/stores/store/useValue';
 import { SysViewProps } from '../interface';
 import { ViewTableProps } from './interface';
 import './styles/table.less';

@@ -1,5 +1,7 @@
+import HandlerBase from 'src/handler/handlerBase';
 import { SysDataProps } from '../../data/interface';
-import { DataBase, HandlerBase, ViewBase } from '../../interface';
+import ViewBase from 'src/comp/viewBase';
+import DataBase from 'src/data/dataBase';
 
 // 视图在store中的存储类型
 export interface ViewStore {

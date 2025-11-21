@@ -1,7 +1,10 @@
-import { TableColumn, TableItemProps } from '../interface';
-import { isArray, isUndefined } from 'lodash';
+import { isArray } from 'lodash';
+import { CtrlType } from 'src/comp/control/interface';
+import CtrlFactory from 'src/comp/ctrlFactory';
+import { DPath } from 'src/stores/store/interface';
+import PathUtils from 'src/utils/pathUtils';
 import { ViewType } from '../../interface';
-import { CtrlFactory, CtrlType, DPath, PathUtils } from '../../../../interface';
+import { TableColumn, TableItemProps } from '../interface';
 
 export default class TableUtils {
   // 创建表格列

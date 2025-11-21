@@ -1,6 +1,6 @@
 import { cloneDeep, get, isArray, isObject, isString, isUndefined, set } from 'lodash';
+import DataBase from 'src/data/dataBase';
 import { DataReqStore, DataStore, DPath, IStoreBase } from '../interface';
-import { DataBase } from '../../../interface';
 
 // 初始化数据请求数据,返回数据请求接口和初始化的数据
 export const initDataReq = (data: DataBase): [DataStore, DataReqStore] => {

@@ -1,7 +1,7 @@
-import useValue from '@/framework/store/useStoreValue';
 import { useMemoizedFn } from 'ahooks';
 import { Input } from 'antd';
 import { ChangeEvent } from 'react';
+import useValue from 'src/stores/store/useValue';
 import { SysCtrlProps } from '../interface';
 import { CtrlInputProps } from './interface';
 
@@ -14,12 +14,7 @@ const CtrlInput: React.FC<SysCtrlProps<CtrlInputProps>> = (props) => {
     setValue(event.target.value);
   });
 
-  return (
-    <Input
-      value={value}
-      onChange={onChange}
-    />
-  );
+  return <Input value={value} onChange={onChange} />;
 };
 
 export default CtrlInput;

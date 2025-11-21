@@ -21,33 +21,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "paths": {
-      "@/*": [
-        "src/*"
-      ],
-      "@Interface": [
-        "src/interface.ts"
-      ],
-      "@control/*": [
-        "src/comp/control/*"
-      ],
-      "@view/*": [
-        "src/comp/view/*"
-      ],
-      "@data/*": [
-        "src/data/*"
-      ],
-      "@handler/*": [
-        "src/handler/*"
-      ],
-      "@stores/*": [
-        "src/stores/*"
-      ],
-      "@utils/*": [
-        "src/utils/*"
-      ]
-    }
+    "jsx": "react-jsx"
   },
   "include": [
     "src/**/*",

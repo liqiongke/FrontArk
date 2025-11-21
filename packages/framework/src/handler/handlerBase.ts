@@ -1,6 +1,6 @@
 import fetch from 'axios';
 import { get, isFunction, isString, isUndefined } from 'lodash';
-import { DPath, IStoreBase } from '../interface';
+import { DPath, IStoreBase } from 'src/stores/store/interface';
 
 const BASE_URL = 'http://127.0.0.1:4523/m1/7233118-6959636-default';
 

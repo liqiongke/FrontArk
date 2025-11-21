@@ -1,5 +1,6 @@
+import DataBase from 'src/data/dataBase';
+import HandlerBase from 'src/handler/handlerBase';
 import ViewBase from '../../../comp/viewBase';
-import { DataBase, HandlerBase } from '../../../interface';
 import { IStoreBase } from '../interface';
 import { initDataReq } from './data';
 import { initView } from './view';

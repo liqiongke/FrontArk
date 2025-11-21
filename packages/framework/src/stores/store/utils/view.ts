@@ -1,6 +1,6 @@
 import { get, isFunction, isUndefined, set } from 'lodash';
 import { DPath, IStoreBase, ViewStore } from '../interface';
-import { ViewBase } from '../../../interface';
+import ViewBase from 'src/comp/viewBase';
 
 export const initView = (view: ViewBase<any>): ViewStore => {
   let viewStore = {};

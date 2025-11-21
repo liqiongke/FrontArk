@@ -1,4 +1,4 @@
-import HandlerBase from '@/handler/handlerBase';
+import HandlerBase from 'src/handler/handlerBase';
 
 abstract class ViewBase<HandlerClass extends HandlerBase> {
   public handler!: HandlerClass;

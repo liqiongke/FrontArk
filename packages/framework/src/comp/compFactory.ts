@@ -1,10 +1,10 @@
 import { isUndefined } from 'lodash';
 import React, { useContext } from 'react';
-import { StoreContext } from '../interface';
 import LayoutFlex from './view/flex/layoutFlex';
 import ViewForm from './view/form/viewForm';
 import { ViewType } from './view/interface';
 import ViewTable from './view/table/viewTable';
+import StoreContext from '../stores/store/storeContext';
 
 // 组件映射
 const ViewTypeMap = new Map<string, React.FC<any>>([

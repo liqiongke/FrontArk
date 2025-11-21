@@ -1,8 +1,8 @@
+import { DPath } from 'src/stores/store/interface';
+import { CtrlStructType } from '../control/interface';
 import { LayoutFlexProps } from './flex/interface';
 import { ViewFormProps } from './form/interface';
 import { ViewTableProps } from './table/interface';
-import { CtrlStructType } from '../control/interface';
-import { DPath } from '../../interface';
 
 /**
  * 视图结构类型

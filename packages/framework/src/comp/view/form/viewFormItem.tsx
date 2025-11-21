@@ -1,9 +1,9 @@
-import CtrlFactory from '../../ctrlFactory';
 import { Col } from 'antd';
+import { DPath } from 'src/stores/store/interface';
+import CtrlFactory from '../../ctrlFactory';
+import { ViewType } from '../interface';
 import { FormItemProps } from './interface';
 import './styles/formItem.less';
-import { ViewType } from '../interface';
-import { DPath } from '../../../interface';
 
 interface ViewFormItemProps {
   item: FormItemProps;

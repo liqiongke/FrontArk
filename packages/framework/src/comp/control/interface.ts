@@ -1,8 +1,8 @@
-import { ViewType } from '@/framework';
-import { DPath } from '@/framework/store/interface';
 import { CtrlButtonProps } from './button/interface';
 import { CtrlInputProps } from './input/interface';
 import { CtrlTextProps } from './text/interface';
+import { ViewType } from '../view/interface';
+import { DPath } from 'src/stores/store/interface';
 
 // 视图结构类型
 export type CtrlStructType = CtrlTextProps | CtrlInputProps | CtrlButtonProps;

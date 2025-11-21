@@ -1,10 +1,10 @@
+import { Row } from 'antd';
+import PathUtils from 'src/utils/pathUtils';
+import CtrlFactory from '../../ctrlFactory';
 import { SysViewProps, ViewType } from '../interface';
 import { ViewFormProps } from './interface';
-import ViewFormItem from './viewFormItem';
-import CtrlFactory from '../../ctrlFactory';
-import { Row } from 'antd';
 import './styles/form.less';
-import { PathUtils } from '../../../interface';
+import ViewFormItem from './viewFormItem';
 
 const ViewForm: React.FC<SysViewProps<ViewFormProps>> = (props) => {
   const { view } = props;

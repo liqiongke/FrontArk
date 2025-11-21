@@ -1,5 +1,6 @@
 import { isArray, isNull, isUndefined } from 'lodash';
-import type { DPath, ViewItem } from '@Interface';
+import { ViewItem } from 'src/comp/view/interface';
+import { DPath } from 'src/stores/store/interface';
 
 // 路径计算工具类
 export default class PathUtils {

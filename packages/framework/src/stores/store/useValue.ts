@@ -1,7 +1,7 @@
 import { useMemoizedFn } from 'ahooks';
-import { DPath } from './interface';
-import StoreContext from './storeContext';
 import { useContext } from 'react';
+import { type DPath } from './interface';
+import StoreContext from './storeContext';
 
 // 获取读取值
 const useValue = (path: DPath) => {
