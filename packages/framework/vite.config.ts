@@ -11,12 +11,23 @@ export default defineConfig({
       insertTypesEntry: true,
     }),
   ],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+      '@view': path.resolve(__dirname, 'src/comp/view'),
+      '@ctrl': path.resolve(__dirname, 'src/comp/control'),
+      '@store': path.resolve(__dirname, 'src/stores/store'),
+      '@data': path.resolve(__dirname, 'src/data'),
+      '@handler': path.resolve(__dirname, 'src/handler'),
+      '@utils': path.resolve(__dirname, 'src/utils'),
+    },
+  },
   build: {
     lib: {
       // 库的入口文件
       entry: path.resolve(__dirname, 'src/index.ts'),
       // 库的名称 (UMD 全局变量名)
-      name: 'framework',
+      name: '@jl/framework',
       // 输出文件名格式
       fileName: (format) => `framework.${format}.js`,
     },

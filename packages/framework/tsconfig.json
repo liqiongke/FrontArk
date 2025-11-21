@@ -34,6 +34,24 @@
     "paths": {
       "@/*": [
         "src/*"
+      ],
+      "@view/*": [
+        "src/comp/view/*"
+      ],
+      "@ctrl/*": [
+        "src/comp/control/*"
+      ],
+      "@store/*": [
+        "src/stores/store/*"
+      ],
+      "@data/*": [
+        "src/data/*"
+      ],
+      "@handler/*": [
+        "src/handler/*"
+      ],
+      "@utils/*": [
+        "src/utils/*"
       ]
     }
   },

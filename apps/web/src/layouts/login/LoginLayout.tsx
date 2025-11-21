@@ -1,6 +1,6 @@
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { NetUtils } from '@jl/framework';
 import { Button, Card, Form, Input, Typography, message } from 'antd';
-import { NetUtils } from 'framework';
 import { isUndefined } from 'lodash';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';

@@ -2,12 +2,12 @@ import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useMemoizedFn } from 'ahooks';
 import type { MenuProps } from 'antd';
 import { Button, Layout, message, theme } from 'antd';
-import { NetUtils } from 'framework';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import AvatarComponent from './comp/Avatar';
 import MenuComponent from './comp/Menu';
 import './styles.less';
+import { NetUtils } from '@jl/framework';
 
 const { Header, Content } = Layout;
 

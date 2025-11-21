@@ -11,9 +11,9 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/framework.es.js",
-      "require": "./dist/framework.umd.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/framework.umd.js"
     }
   },
   "scripts": {
@@ -36,11 +36,15 @@
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
-    "less": "^4.4.2",
     "globals": "^16.5.0",
+    "less": "^4.4.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
     "vite-plugin-dts": "^4.5.4"
+  },
+  "dependencies": {
+    "immer": "^10.2.0",
+    "zustand": "^5.0.8"
   }
 }

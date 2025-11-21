@@ -1,6 +1,6 @@
 // 网络请求初始化
+import { NetUtils } from '@jl/framework';
 import { message } from 'antd';
-import { NetUtils } from 'framework';
 
 const netInit = () => {
   NetUtils.init(
