@@ -3,6 +3,22 @@ import react from '@vitejs/plugin-react';
 import dts from 'vite-plugin-dts';
 import path from 'path';
 
+// 别名配置函数
+function getAliasConfig() {
+  return {
+    '@': path.resolve(__dirname, 'src'),
+    '@view': path.resolve(__dirname, 'src/comp/view'),
+    '@ctrl': path.resolve(__dirname, 'src/comp/control'),
+    '@store': path.resolve(__dirname, 'src/stores/store'),
+    '@data': path.resolve(__dirname, 'src/data'),
+    '@handler': path.resolve(__dirname, 'src/handler'),
+    '@utils': path.resolve(__dirname, 'src/utils'),
+  };
+}
+
+// 导出别名配置供其他项目使用
+export { getAliasConfig };
+
 export default defineConfig({
   plugins: [
     react(),
@@ -12,15 +28,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-      '@view': path.resolve(__dirname, 'src/comp/view'),
-      '@ctrl': path.resolve(__dirname, 'src/comp/control'),
-      '@store': path.resolve(__dirname, 'src/stores/store'),
-      '@data': path.resolve(__dirname, 'src/data'),
-      '@handler': path.resolve(__dirname, 'src/handler'),
-      '@utils': path.resolve(__dirname, 'src/utils'),
-    },
+    alias: getAliasConfig(),
   },
   build: {
     lib: {
