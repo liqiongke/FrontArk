@@ -1,5 +1,5 @@
-import { CtrlBase, CtrlType } from '@ctrl/interface';
+import { CtrlBase, Ctrl } from '@ctrl/interface';
 
 export interface CtrlInputProps extends CtrlBase {
-  type: CtrlType.CTRL_INPUT;
+  type: Ctrl.Input;
 }

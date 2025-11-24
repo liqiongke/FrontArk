@@ -1,11 +1,11 @@
-// import { CtrlType } from '@/framework/comp/control/interface';
-// import { ViewFormProps } from '@/framework/comp/view/form/interface';
-// import { ViewStructBase, ViewType } from '@/framework/comp/view/interface';
-// import { ViewTableProps } from '@/framework/comp/view/table/interface';
-// import ViewBase from '@/framework/comp/viewBase';
-import { CtrlType, ViewBase, ViewType } from '@jl/framework';
-import { type V } from '@jl/framework';
+import { C, ViewBase, ViewType, type V } from '@jl/framework';
 import Handler from './handler';
+
+const options = [
+  { label: '1', value: 'V1' },
+  { label: '2', value: 'V2' },
+  { label: '3', value: 'V3' },
+];
 
 class View extends ViewBase<Handler> {
   form1: V.Form = {
@@ -13,8 +13,45 @@ class View extends ViewBase<Handler> {
     type: ViewType.VIEW_FORM,
     path: ['form'],
     items: [
-      { title: '产品ID', field: 'id' },
-      { title: '产品名称', field: 'name' },
+      { title: '测试text', field: 'id' },
+      { title: '测试text', field: 'id', ctrl: { type: C.Text } },
+      { title: '测试input', field: 'name' },
+      { title: '测试input', field: 'name', ctrl: { type: C.Input } },
+      { title: '测试select', field: 'select' },
+      { title: '测试select', field: 'select', ctrl: { type: C.Select, items: options } },
+
+      { title: '测试switch', field: 'switch' },
+      { title: '测试switch', field: 'switch', ctrl: { type: C.Switch } },
+
+      { title: '测试radio', field: 'radio' },
+      { title: '测试radio', field: 'radio', ctrl: { type: C.Radio, items: options } },
+
+      { title: 'Checkbox', field: 'checkbox' },
+      { title: 'Checkbox', field: 'checkbox', ctrl: { type: C.Checkbox, items: options } },
+
+      { title: 'Date', field: 'date' },
+      { title: 'Date', field: 'date', ctrl: { type: C.Date } },
+
+      { title: 'DateRange', field: 'dateRange' },
+      { title: 'DateRange', field: 'dateRange', ctrl: { type: C.DateRange } },
+
+      { title: 'Time', field: 'time' },
+      { title: 'Time', field: 'time', ctrl: { type: C.Time } },
+
+      { title: 'TimeRange', field: 'timeRange' },
+      { title: 'TimeRange', field: 'timeRange', ctrl: { type: C.TimeRange } },
+
+      { title: 'Link', field: 'link' },
+      {
+        title: 'Link',
+        field: 'link',
+        ctrl: { type: C.Link, href: { label: '测试', value: '/demo/composite/formAndTable' } },
+      },
+
+      { title: 'Upload', field: 'upload' },
+      { title: 'Upload', field: 'upload', ctrl: { type: C.Upload } },
+
+      // 以下是表单默认字段
       { title: '产品描述', field: 'description' },
       { title: '价格', field: 'price' },
       { title: '产品类别', field: 'category' },
@@ -31,11 +68,11 @@ class View extends ViewBase<Handler> {
     ],
     toolList: [
       {
-        type: CtrlType.CTRL_BUTTON,
+        type: C.Button,
         onClick: this.handler.onGetData,
       },
       {
-        type: CtrlType.CTRL_BUTTON,
+        type: C.Button,
         onClick: this.handler.onSetData,
       },
     ],

@@ -26,7 +26,6 @@ export { default as ViewBase } from '@/comp/viewBase';
 import type { ViewStructBase } from '@view/interface';
 import type { ViewFormProps } from '@view/form/interface';
 import type { ViewTableProps } from '@view/table/interface';
-
 export namespace V {
   export type Base = ViewStructBase;
 
@@ -38,4 +37,4 @@ export namespace V {
 }
 
 // 控件类型
-export { CtrlType } from '@ctrl/interface';
+export { Ctrl as C } from '@ctrl/interface';

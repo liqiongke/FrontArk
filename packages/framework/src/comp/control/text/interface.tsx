@@ -1,12 +1,10 @@
-import { TextAlign } from '../base/interface';
-import { CtrlBase, CtrlType } from '../interface';
-
+import { CtrlBase, Ctrl } from '../interface';
 
 export interface CtrlTextProps extends CtrlBase {
-  type: CtrlType.CTRL_TEXT;
+  type: Ctrl.Text;
   /**
    * @name 文字对齐方式
    * @default left
    */
-  align?: TextAlign;
+  align?: 'left' | 'right' | 'center';
 }

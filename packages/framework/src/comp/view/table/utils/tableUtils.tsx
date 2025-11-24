@@ -1,5 +1,5 @@
 import CtrlFactory from '@/comp/ctrlFactory';
-import { CtrlType } from '@ctrl/interface';
+import { Ctrl } from '@ctrl/interface';
 import { DPath } from '@store/interface';
 import PathUtils from '@utils/pathUtils';
 import { ViewType } from '@view/interface';
@@ -31,7 +31,7 @@ export default class TableUtils {
     return (value: any, recoder: any, index: number) => {
       return (
         <CtrlFactory
-          ctrl={item.ctrl || { type: CtrlType.CTRL_TEXT }}
+          ctrl={item.ctrl || { type: Ctrl.Text }}
           path={PathUtils.itemPath(item, path, index)}
           sourceView={ViewType.VIEW_TABLE}
         />

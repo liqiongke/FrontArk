@@ -1,13 +1,15 @@
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { NetUtils } from '@jl/framework';
 import { useMemoizedFn } from 'ahooks';
 import type { MenuProps } from 'antd';
 import { Button, Layout, message, theme } from 'antd';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import SimpleBar from 'simplebar-react';
+import 'simplebar-react/dist/simplebar.min.css';
 import AvatarComponent from './comp/Avatar';
 import MenuComponent from './comp/Menu';
 import './styles.less';
-import { NetUtils } from '@jl/framework';
 
 const { Header, Content } = Layout;
 
@@ -62,7 +64,9 @@ const MainLayout = () => {
 
         {/* 路由页面区域 */}
         <Content className="main-content" style={{ background: colorBgContainer }}>
-          <Outlet />
+          <SimpleBar style={{ height: '100%', maxHeight: 'calc(100vh - 48px)' }}>
+            <Outlet />
+          </SimpleBar>
         </Content>
       </Layout>
     </Layout>

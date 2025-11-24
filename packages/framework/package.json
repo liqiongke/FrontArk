@@ -18,10 +18,12 @@
   },
   "scripts": {
     "build": "tsc -b && vite build",
+    "dev:watch": "tsc -b --watch & vite build --watch",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "peerDependencies": {
+    "@ant-design/icons": "^6.1.0",
     "ahooks": "^3.9.6",
     "antd": "5.29.0",
     "axios": "^1.13.2",
@@ -31,6 +33,7 @@
     "simplebar-react": "^3.3.2"
   },
   "devDependencies": {
+    "@ant-design/icons": "^6.1.0",
     "@types/lodash": "^4.17.20",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
