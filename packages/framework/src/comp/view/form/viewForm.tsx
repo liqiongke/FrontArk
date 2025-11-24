@@ -14,7 +14,7 @@ const ViewForm: React.FC<SysViewProps<ViewFormProps>> = (props) => {
       {toolList && toolList.length > 0 && (
         <div className="view-form-toolbar">
           {toolList.map((tool, index) => (
-            <CtrlFactory key={index} ctrl={tool} sourceView={ViewType.VIEW_FORM} />
+            <CtrlFactory key={index} ctrl={tool} sourceView={ViewType.Form} />
           ))}
         </div>
       )}

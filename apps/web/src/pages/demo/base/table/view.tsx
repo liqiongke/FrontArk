@@ -1,4 +1,4 @@
-import { C, ViewBase, ViewType, type V } from '@jl/framework';
+import { C, V, ViewBase, type VProps } from '@jl/framework';
 import Handler from './handler';
 
 const options = [
@@ -8,9 +8,9 @@ const options = [
 ];
 
 class View extends ViewBase<Handler> {
-  form1: V.Form = {
+  form1: VProps.Form = {
     id: 'form1',
-    type: ViewType.VIEW_FORM,
+    type: V.Form,
     path: ['form'],
     items: [
       { title: '测试text', field: 'id' },
@@ -78,9 +78,9 @@ class View extends ViewBase<Handler> {
     ],
   };
 
-  table1: V.Table = {
+  table1: VProps.Table = {
     id: 'table1',
-    type: ViewType.VIEW_TABLE,
+    type: V.Table,
     rowKey: 'id',
     path: ['table'],
     items: [
@@ -100,9 +100,9 @@ class View extends ViewBase<Handler> {
     ],
   };
 
-  layout: V.Base = {
+  layout: VProps.Base = {
     id: 'layout',
-    type: ViewType.LAYOUT_FLEX,
+    type: V.LayoutFlex,
     children: [this.form1.id, this.table1.id],
   };
 

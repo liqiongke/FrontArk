@@ -16,16 +16,31 @@ export enum ViewType {
   /**
    * @name 组件 表格
    */
-  VIEW_TABLE = 'VIEW_TABLE',
+  Table = 'VIEW_TABLE',
   /**
    * @name 组件 表单
    */
-  VIEW_FORM = 'VIEW_FORM',
+  Form = 'VIEW_FORM',
 
   /**
    * @name flex布局
    */
-  LAYOUT_FLEX = 'LAYOUT_FLEX',
+  LayoutFlex = 'LAYOUT_FLEX',
+
+  /**
+   * @name tab布局
+   */
+  LayoutTab = 'LAYOUT_TAB',
+
+  /**
+   * @name 弹出框
+   */
+  LayoutModal = 'LAYOUT_MODAL',
+
+  /**
+   * @name 侧边栏弹出框
+   */
+  LayoutDrawer = 'LAYOUT_DRAWER',
 }
 
 // 基础视图结构

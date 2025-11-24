@@ -9,10 +9,10 @@ import StoreContext from '../stores/store/storeContext';
 // 组件映射
 const ViewTypeMap = new Map<string, React.FC<any>>([
   // 布局类组件
-  [ViewType.LAYOUT_FLEX, LayoutFlex],
+  [ViewType.LayoutFlex, LayoutFlex],
   // 视图类组件
-  [ViewType.VIEW_TABLE, ViewTable],
-  [ViewType.VIEW_FORM, ViewForm],
+  [ViewType.Table, ViewTable],
+  [ViewType.Form, ViewForm],
 ]);
 
 /**

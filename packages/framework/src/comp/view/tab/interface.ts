@@ -4,7 +4,7 @@ import { ViewItem, ViewStructBase, ViewType } from '../interface';
 export type TableColumn = ColumnType<any>;
 
 export interface ViewTableProps extends ViewStructBase {
-  type: ViewType.Table;
+  type: ViewType.LayoutTab;
   /**
    * @ 表格行key
    */

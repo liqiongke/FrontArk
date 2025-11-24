@@ -6,7 +6,7 @@ export enum FlexDirection {
 }
 
 export interface LayoutFlexProps extends ViewStructBase {
-  type: ViewType.LAYOUT_FLEX;
+  type: ViewType.LayoutFlex;
   /**
    * @name 布局方向
    * @default row

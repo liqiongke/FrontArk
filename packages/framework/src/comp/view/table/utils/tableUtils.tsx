@@ -33,7 +33,7 @@ export default class TableUtils {
         <CtrlFactory
           ctrl={item.ctrl || { type: Ctrl.Text }}
           path={PathUtils.itemPath(item, path, index)}
-          sourceView={ViewType.VIEW_TABLE}
+          sourceView={ViewType.Table}
         />
       );
     };

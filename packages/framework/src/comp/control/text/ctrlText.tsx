@@ -12,7 +12,7 @@ const CtrlText: React.FC<SysCtrlProps<CtrlTextProps>> = (props) => {
   const [value] = useValue(path);
 
   // 在表单中展现的样式
-  if (sourceView === ViewType.VIEW_FORM) {
+  if (sourceView === ViewType.Form) {
     return (
       <Input
         className={`align-${align}`}

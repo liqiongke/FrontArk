@@ -18,7 +18,7 @@ const ViewFormItem: React.FC<ViewFormItemProps> = ({ item, path }) => {
       <div className="form-item-container">
         {title && <div className="form-item-label">{title}</div>}
         <div className="form-item-content">
-          <CtrlFactory ctrl={ctrl} path={path} sourceView={ViewType.VIEW_FORM} />
+          <CtrlFactory ctrl={ctrl} path={path} sourceView={ViewType.Form} />
         </div>
       </div>
     </Col>

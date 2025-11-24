@@ -2,7 +2,7 @@ import { CtrlButtonProps } from '@ctrl/button/interface';
 import { ViewItem, ViewStructBase, ViewType } from '@view/interface';
 
 export interface ViewFormProps extends ViewStructBase {
-  type: ViewType.VIEW_FORM;
+  type: ViewType.Form;
   toolList?: CtrlButtonProps[];
   items?: FormItemProps[];
 }
