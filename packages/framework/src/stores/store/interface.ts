@@ -8,6 +8,10 @@ export interface ViewStore {
   [key: string]: any;
 }
 
+export interface ViewParamsStore {
+  [key: string]: any;
+}
+
 // 数据在store中的存储类型
 export interface DataStore {
   [key: string]: any;
@@ -33,6 +37,8 @@ export interface IStoreData {
   req: DataReqStore;
   // 存储视图
   view: ViewStore;
+  // 存储视图参数
+  viewParams: ViewParamsStore;
   // 存储视图方法
   handler: HandlerStore;
 }
@@ -48,6 +54,10 @@ export interface IStoreActions {
   setView: (path: DPath, view: any) => void;
   // 获取视图
   getView: (path: DPath) => any;
+  // 设置视图参数
+  setViewParams: (path: DPath, view: any) => void;
+  // 获取视图参数
+  getViewParams: (path: DPath) => any;
   // 设置指定路径下的数据
   setData: (path: DPath, data: any) => void;
   // 获取指定路径下的数据

@@ -4,6 +4,9 @@ import DataBase from './data/dataBase';
 import HandlerBase from './handler/handlerBase';
 import { type IStoreBase } from './stores/store/interface';
 
+// 所有数据的键值
+export const KeyAttr = '@key';
+
 // 视图层传入参数
 export interface ViewHooksProps {
   useStore: UseBoundStore<StoreApi<IStoreBase>>;

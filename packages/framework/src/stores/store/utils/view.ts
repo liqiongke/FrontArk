@@ -33,3 +33,25 @@ export const setView = (
     return state;
   });
 };
+
+export const getViewParams = (id: DPath, zGet: () => IStoreBase) => {
+  if (isUndefined(id)) {
+    return undefined;
+  }
+  const { viewParams } = zGet();
+  return get(viewParams, id);
+};
+
+export const setViewParams = (
+  id: DPath,
+  params: any,
+  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
+) => {
+  if (isUndefined(id)) {
+    return;
+  }
+  zSet((state: IStoreBase) => {
+    set(state.viewParams, id, params);
+    return state;
+  });
+};

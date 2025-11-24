@@ -7,8 +7,12 @@ export default interface DataProps {
   url?: string;
   // 数据请求参数
   params?: DataParamType[];
+  // 默认数据
+  defaultData?: any;
   // 获取数据路径
   path?: DPath;
+  // 主键ID,支持属性的组合,如果未设置,则由系统分配唯一ID
+  keyAttr?: string | string[];
   // 数据初始化函数
   format?: (data: any) => any;
 }

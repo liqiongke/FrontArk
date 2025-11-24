@@ -19,15 +19,14 @@ const MainLayout = () => {
   // 获取菜单数据
   const fetchMenuData = useMemoizedFn(async () => {
     try {
-      const result = await NetUtils.get(import.meta.env.VITE_API_MENU);
-      if (result.data && result.data.code === 200) {
-        setMenuItems(result.data.data || []);
+      const data = await NetUtils.get(import.meta.env.VITE_API_MENU);
+      if (data && data.code === 200) {
+        setMenuItems(data.data || []);
       } else {
-        message.error(result.data?.message || '获取菜单数据失败');
+        message.error(data?.message || '获取菜单数据失败');
       }
     } catch (error) {
-      console.error('获取菜单数据失败:', error);
-      message.error('获取菜单数据失败');
+      message.error(`获取菜单数据失败:${error}`);
     }
   });
 

@@ -1,8 +1,8 @@
-import fetch from 'axios';
+import { SysDataProps } from '@/data/interface';
+import NetUtils from '@/utils/netUtils';
+import { DataUtils } from '@/utils/netUtils/dataUtils';
 import { get, isFunction, isString, isUndefined } from 'lodash';
 import { DPath, IStoreBase } from 'src/stores/store/interface';
-
-const BASE_URL = 'http://127.0.0.1:4523/m1/7233118-6959636-default';
 
 // 操作基类
 abstract class HandlerBase {
@@ -35,9 +35,14 @@ abstract class HandlerBase {
     return this.getStore().data;
   }
 
-  // 操作数据
+  // 保存数据
   public setData(path: DPath, value: any) {
     this.getStore().setData(path, value);
+  }
+
+  // 设置视图参数
+  public setViewParams(path: DPath, value: any) {
+    this.getStore().setViewParams(path, value);
   }
 
   // 发送数据请求
@@ -62,9 +67,7 @@ abstract class HandlerBase {
     const params = await this.buildRequestParams(dataReq);
 
     // 发送请求
-    if (dataReq.url) {
-      return this.sendRequest(dataReq.url, params, dataReq);
-    }
+    return this.getReqData(dataReq, params);
   }
 
   // 检查依赖数据
@@ -103,31 +106,48 @@ abstract class HandlerBase {
     return params;
   }
 
-  // 发送实际请求
-  private async sendRequest(url: string, params: Record<string, any>, dataReq: any): Promise<any> {
-    try {
-      // 使用全局配置的fetch发送请求
-      const result = await fetch({ url: `${BASE_URL}${url}`, method: 'GET', params });
-
-      // 处理数据格式化
-      let formattedData = get(result.data, 'data');
-      if (isFunction(dataReq.format)) {
-        formattedData = dataReq.format(formattedData);
-      }
-
-      // 存储数据
-      this.setData(dataReq.id, formattedData);
-
-      // 触发子节点请求
-      if (dataReq.childIds && dataReq.childIds.length > 0) {
-        await this.triggerChildRequests(dataReq.childIds);
-      }
-
-      return formattedData;
-    } catch (error) {
-      console.error(`数据请求${dataReq.id}失败:`, error);
-      throw error;
+  // 获取数据函数
+  private async getReqData(req: SysDataProps, params: Record<string, any>): Promise<any> {
+    // 1.如果path不为空,则根据path获取数据
+    if (!isUndefined(req.path)) {
+      const result = this.getData(req.path);
+      this.setData(req.id, DataUtils.initData(result, req));
+      return result;
     }
+
+    // 2.发送网络请求获取数据
+    if (isString(req.url) && req.url.length > 0) {
+      try {
+        const result = await NetUtils.get(req.url, params);
+
+        // 处理数据格式化
+        let data = get(result, 'data');
+        if (isFunction(req.format)) {
+          data = req.format(data);
+        }
+
+        // 提取关键数据
+        const coreData = DataUtils.extractCoreData(data);
+
+        // 存储数据
+        const cData = DataUtils.initData(coreData.data, req);
+        this.setData(req.id, cData);
+        this.setViewParams(req.id, coreData.params);
+
+        // 触发子节点请求
+        if (req.childIds && req.childIds.length > 0) {
+          await this.triggerChildRequests(req.childIds);
+        }
+
+        return cData;
+      } catch (error) {
+        console.error(`数据请求${req.id}失败:`, error);
+        throw error;
+      }
+    }
+
+    this.setData(req.id, DataUtils.initData(req.defaultData, req));
+    return req.defaultData;
   }
 
   // 触发子节点请求

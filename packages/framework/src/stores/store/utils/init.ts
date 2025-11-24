@@ -13,7 +13,6 @@ export const initStore = <H extends HandlerBase>(
   zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
   zGet: () => IStoreBase,
 ): [ViewBase<H> | undefined, H | undefined] => {
-  console.log('开始数据初始化工作');
 
   const handler = new HandlerClass();
   handler.init(zGet);
@@ -22,7 +21,7 @@ export const initStore = <H extends HandlerBase>(
   const view = new ViewClass(handler);
   const viewStore = initView(view);
 
-  // 初始化数据
+  // 初始化数据源
   const [dataStore, dataReqStore] = initDataReq(new DataClass());
   zSet((state) => {
     state.req = dataReqStore;
@@ -30,5 +29,6 @@ export const initStore = <H extends HandlerBase>(
     state.view = viewStore;
     return state;
   });
+
   return [view, handler];
 };

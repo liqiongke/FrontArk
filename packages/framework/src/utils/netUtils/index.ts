@@ -100,12 +100,12 @@ class NetUtils {
     TokenUtils.clearTokenAndJumpToLogin(this.loginUrl);
   };
 
-  static get = async (url: string, params?: any) => {
-    return this.service.get(`${this.baseUrl}${url}`, { params });
+  static get = async (url: string, params?: any): Promise<Result<any>> => {
+    return (await this.service.get(`${this.baseUrl}${url}`, params)).data;
   };
 
-  static post = async (url: string, data?: any) => {
-    return this.service.post(`${this.baseUrl}${url}`, data);
+  static post = async (url: string, data?: any): Promise<Result<any>> => {
+    return (await this.service.post(`${this.baseUrl}${url}`, data)).data;
   };
 }
 
