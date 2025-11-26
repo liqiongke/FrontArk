@@ -1,13 +1,11 @@
 import { ViewHandlerMap } from '@/comp/compFactory';
-import { getView } from './../stores/store/utils/view';
+import HandlerModalImpl from '@/comp/view/modal/handler/handlerModal';
 import { SysDataProps } from '@/data/interface';
 import NetUtils from '@/utils/netUtils';
 import { DataUtils } from '@/utils/netUtils/dataUtils';
-import { FundViewOutlined } from '@ant-design/icons';
 import { get, isFunction, isString, isUndefined } from 'lodash';
 import { DPath, IStoreBase } from 'src/stores/store/interface';
 import HandlerViewBase from './handlerViewBase';
-import HandlerModalImpl from '@/comp/view/modal/handler/handlerModal';
 
 // 操作基类
 abstract class HandlerBase {
@@ -54,6 +52,15 @@ abstract class HandlerBase {
   // 批量设置视图参数
   public setViewParams(viewId: string, values: any, init: boolean = false) {
     this.getStore().setViewParams(viewId, values, init);
+  }
+
+  // 网络请求方法
+  async get(url: string, params?: Record<string, any>) {
+    return NetUtils.get(url, params);
+  }
+
+  async post(url: string, params?: Record<string, any>) {
+    return NetUtils.post(url, params);
   }
 
   // 发送数据请求
@@ -172,6 +179,7 @@ abstract class HandlerBase {
     return this.getStore().getView(viewId);
   };
 
+  // 关于Handler的方法
   // 获取视图对应的handler
   public getHandler = <T extends HandlerViewBase>(viewId: string): T | undefined => {
     const storeHandler = this.getStore().getHandler(viewId);

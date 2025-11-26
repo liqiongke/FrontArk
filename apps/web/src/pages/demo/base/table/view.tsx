@@ -77,6 +77,16 @@ class View extends ViewBase<Handler> {
         text: '设置数据',
         onClick: this.handler.onSetData,
       },
+      {
+        type: C.Button,
+        text: 'POST请求',
+        onClick: this.handler.postData,
+      },
+      {
+        type: C.Button,
+        text: 'GET请求',
+        onClick: this.handler.getData,
+      },
     ],
   };
 
@@ -107,14 +117,14 @@ class View extends ViewBase<Handler> {
     id: 'tab',
     items: [
       {
-        key: 'form1',
-        label: '表单',
-        viewId: this.form1.id,
-      },
-      {
         key: 'table1',
         label: '表格',
         viewId: this.table1.id,
+      },
+      {
+        key: 'form1',
+        label: '表单',
+        viewId: this.form1.id,
       },
     ],
   };

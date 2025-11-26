@@ -29,7 +29,7 @@ const ViewRoot: <H extends HandlerBase>(props: ViewProps<H>) => React.ReactEleme
       if (isUndefined(viewItem.type) || isUndefined(viewItem.id)) {
         continue;
       }
-      if (PreRenderType.includes(viewItem.type)) {
+      if (PreRenderType.includes(viewItem.type) && !preRenderIds.includes(viewItem.id)) {
         preRenderIds.push(viewItem.id);
       }
     }
@@ -49,7 +49,7 @@ const ViewRoot: <H extends HandlerBase>(props: ViewProps<H>) => React.ReactEleme
     <StoreContext value={useStore}>
       <CompFactory viewId={rootId} />
       {preIds.map((id) => (
-        <CompFactory viewId={id} />
+        <CompFactory key={id} viewId={id} />
       ))}
     </StoreContext>
   );

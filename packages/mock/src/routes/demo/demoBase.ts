@@ -76,4 +76,45 @@ demoRouter.get('/base/table', (req: Request, res: Response) => {
   res.json(response);
 });
 
+/**
+ * 获取表格数据
+ * GET /api/table/get
+ */
+demoRouter.get('/base/table/get', (req: Request, res: Response) => {
+  const tableData = {
+    id: 'TABLE001',
+    name: '示例表格',
+    description: '这是一个示例表格数据',
+    createTime: new Date().toLocaleString(),
+    status: 'active',
+    data: [
+      { id: 1, name: '项目1', value: 100, status: '完成' },
+      { id: 2, name: '项目2', value: 200, status: '进行中' },
+      { id: 3, name: '项目3', value: 300, status: '待开始' },
+    ],
+  };
+
+  const response = repData(tableData);
+  res.json(response);
+});
+
+/**
+ * 提交表格数据
+ * POST /api/table/post
+ */
+demoRouter.post('/base/table/post', (req: Request, res: Response) => {
+  const requestData = req.body;
+
+  // 模拟处理提交的数据
+  const result = {
+    success: true,
+    message: '数据提交成功',
+    receivedData: requestData,
+    processTime: new Date().toLocaleString(),
+  };
+
+  const response = repData(result);
+  res.json(response);
+});
+
 export default demoRouter;
