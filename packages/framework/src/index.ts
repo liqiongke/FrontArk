@@ -30,6 +30,8 @@ import type { ViewFormProps } from '@view/form/interface';
 import type { ViewStructBase } from '@view/interface';
 import type { ViewTableProps } from '@view/table/interface';
 import { ViewTabProps } from './comp/view/tab/interface';
+import { LayoutFlexProps } from './comp/view/flex/interface';
+import { LayoutModalProps } from './comp/view/modal/interface';
 export namespace VProps {
   export type Base = ViewStructBase;
 
@@ -38,4 +40,9 @@ export namespace VProps {
   export type Table = ViewTableProps;
 
   export type Tab = ViewTabProps;
+
+  // 布局类型参数
+  export type Flex = LayoutFlexProps;
+  // 布局类型参数
+  export type Modal = LayoutModalProps;
 }

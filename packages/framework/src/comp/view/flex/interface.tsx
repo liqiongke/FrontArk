@@ -17,4 +17,9 @@ export interface LayoutFlexProps extends ViewStructBase {
    * @default 12
    */
   gutter?: number;
+
+  /**
+   * @name 子节点组件id
+   */
+  items?: string[];
 }

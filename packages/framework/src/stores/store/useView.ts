@@ -7,6 +7,8 @@ import StoreContext from './storeContext';
 export enum ParamKey {
   // 焦点参数
   Active = '@active',
+  // 是否开启
+  Open = '@open',
   // 返回所有的参数
   All = '@all',
 }

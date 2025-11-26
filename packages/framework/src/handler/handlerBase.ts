@@ -1,8 +1,13 @@
+import { ViewHandlerMap } from '@/comp/compFactory';
+import { getView } from './../stores/store/utils/view';
 import { SysDataProps } from '@/data/interface';
 import NetUtils from '@/utils/netUtils';
 import { DataUtils } from '@/utils/netUtils/dataUtils';
+import { FundViewOutlined } from '@ant-design/icons';
 import { get, isFunction, isString, isUndefined } from 'lodash';
 import { DPath, IStoreBase } from 'src/stores/store/interface';
+import HandlerViewBase from './handlerViewBase';
+import HandlerModalImpl from '@/comp/view/modal/handler/handlerModal';
 
 // 操作基类
 abstract class HandlerBase {
@@ -13,6 +18,7 @@ abstract class HandlerBase {
     this.getStore = getStore;
   }
 
+  // 触发所有的数据请求
   initDataReq() {
     const store = this.getStore();
 
@@ -161,5 +167,39 @@ abstract class HandlerBase {
       await this.fetchData(childId);
     }
   }
+
+  public getView = (viewId: string) => {
+    return this.getStore().getView(viewId);
+  };
+
+  // 获取视图对应的handler
+  public getHandler = <T extends HandlerViewBase>(viewId: string): T | undefined => {
+    const storeHandler = this.getStore().getHandler(viewId);
+    if (!isUndefined(storeHandler)) {
+      return storeHandler as T;
+    }
+
+    const view = this.getView(viewId);
+    if (isUndefined(view)) {
+      return;
+    }
+    const handlerClass = ViewHandlerMap.get(view.type);
+    if (isUndefined(handlerClass)) {
+      return;
+    }
+    const handler = new handlerClass(viewId, this.getStore);
+    this.getStore().setHandler(viewId, handler);
+
+    return handler as T;
+  };
+
+  // 返回弹出框的handler
+  public getModalHandler = (viewId: string): HandlerModalImpl => {
+    const handler = this.getHandler<HandlerModalImpl>(viewId);
+    if (isUndefined(handler)) {
+      throw new Error(`${viewId}对应的handler不存在`);
+    }
+    return handler;
+  };
 }
 export default HandlerBase;

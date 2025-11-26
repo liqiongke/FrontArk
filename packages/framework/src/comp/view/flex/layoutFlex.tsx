@@ -15,7 +15,7 @@ const LayoutFlex: React.FC<SysViewProps> = (props) => {
 
   return (
     <div style={containerStyle}>
-      {view.children?.map((id, index) => (
+      {view.items?.map((id, index) => (
         <CompFactory key={`${index}_${id}`} viewId={id} />
       ))}
     </div>

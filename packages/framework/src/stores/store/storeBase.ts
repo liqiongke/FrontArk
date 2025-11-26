@@ -1,7 +1,9 @@
+import HandlerViewBase from '@/handler/handlerViewBase';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { DPath, IStoreBase } from './interface';
 import { getData, setData } from './utils/data';
+import { getHandler, setHandler } from './utils/handler';
 import { initStore } from './utils/init';
 import { getView, getViewParams, setView, setViewParamByKey, setViewParams } from './utils/view';
 
@@ -17,6 +19,8 @@ const createBaseStore = () => {
         initStore(ViewClass, DataClass, HandlerClass, set, get),
       setView: (viewId: string, view: any) => setView(viewId, view, set),
       getView: (viewId?: string) => getView(viewId, get),
+      getHandler: (viewId?: string) => getHandler(viewId, get),
+      setHandler: (viewId: string, handler: HandlerViewBase) => setHandler(viewId, handler, set),
       setViewParams: (viewId: string, values: any, init?: boolean) =>
         setViewParams(viewId, values, init, set),
       setViewParamByKey: (viewId: string, key: string, value: string) =>

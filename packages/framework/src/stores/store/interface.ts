@@ -2,6 +2,7 @@ import ViewBase from '@/comp/viewBase';
 import DataBase from '@data/dataBase';
 import HandlerBase from 'src/handler/handlerBase';
 import { SysDataProps } from '../../data/interface';
+import HandlerViewBase from '@/handler/handlerViewBase';
 
 // 视图在store中的存储类型
 export interface ViewStore {
@@ -55,6 +56,11 @@ export interface IStoreActions {
   setView: (viewId: string, view: any) => void;
   // 获取视图
   getView: (viewId?: string) => any;
+
+  // 获取视图handler
+  getHandler: (viewId?: string) => HandlerViewBase | undefined;
+  // 设置视图handler
+  setHandler: (viewId: string, handler: HandlerViewBase) => void;
 
   // 视图参数设置
   // 批量视图参数,init参数,设置是否初始化视图参数

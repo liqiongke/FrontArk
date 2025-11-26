@@ -2,13 +2,19 @@ import { DPath } from 'src/stores/store/interface';
 import { CtrlStructType } from '../control/interface';
 import { LayoutFlexProps } from './flex/interface';
 import { ViewFormProps } from './form/interface';
-import { ViewTableProps } from './table/interface';
+import { LayoutModalProps } from './modal/interface';
 import { ViewTabProps } from './tab/interface';
+import { ViewTableProps } from './table/interface';
 
 /**
  * 视图结构类型
  */
-export type ViewStructType = LayoutFlexProps | ViewFormProps | ViewTableProps | ViewTabProps;
+export type ViewStructType =
+  | LayoutFlexProps
+  | ViewFormProps
+  | ViewTableProps
+  | ViewTabProps
+  | LayoutModalProps;
 
 /**
  * 视图类型
@@ -61,11 +67,6 @@ export interface ViewStructBase {
    * @name 取值路径
    */
   path?: DPath;
-
-  /**
-   * @name 子节点组件id
-   */
-  children?: string[];
 }
 
 export interface ViewItem {

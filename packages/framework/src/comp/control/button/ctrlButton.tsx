@@ -6,7 +6,6 @@ import './index.less';
 
 const CtrlButton: React.FC<SysCtrlProps<CtrlButtonProps>> = (props) => {
   const { ctrl } = props;
-  // const store = useContext(StoreContext);
 
   if (isUndefined(ctrl)) {
     return null;
@@ -14,7 +13,7 @@ const CtrlButton: React.FC<SysCtrlProps<CtrlButtonProps>> = (props) => {
 
   return (
     <div className="ctrl-button">
-      <Button onClick={ctrl.onClick}>测试</Button>
+      <Button onClick={ctrl.onClick}>{ctrl.text ?? ''}</Button>
     </div>
   );
 };

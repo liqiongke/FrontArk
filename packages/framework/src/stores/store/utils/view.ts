@@ -32,7 +32,7 @@ export const setView = (
     return;
   }
   zSet((state: IStoreBase) => {
-    set(state.data, viewId, view);
+    set(state.view, viewId, view);
     return state;
   });
 };
@@ -57,7 +57,6 @@ export const setViewParamByKey = (
   }
   zSet((state: IStoreBase) => {
     set(state.viewParams, [viewId, key], value);
-    console.log('state.viewParams', state.viewParams);
     return state;
   });
 };

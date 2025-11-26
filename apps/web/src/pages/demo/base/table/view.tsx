@@ -69,10 +69,12 @@ class View extends ViewBase<Handler> {
     toolList: [
       {
         type: C.Button,
-        onClick: this.handler.onGetData,
+        text: '打开弹窗',
+        onClick: this.handler.openModal,
       },
       {
         type: C.Button,
+        text: '设置数据',
         onClick: this.handler.onSetData,
       },
     ],
@@ -117,10 +119,16 @@ class View extends ViewBase<Handler> {
     ],
   };
 
-  layout: VProps.Base = {
+  layout: VProps.Flex = {
     id: 'layout',
     type: V.LayoutFlex,
-    children: [this.form1.id, this.tab.id],
+    items: [this.form1.id, this.tab.id],
+  };
+
+  modal: VProps.Modal = {
+    id: 'modal',
+    type: V.LayoutModal,
+    viewId: this.form1.id,
   };
 
   getRootId = () => this.layout.id;
