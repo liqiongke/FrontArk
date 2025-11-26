@@ -26,7 +26,38 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    /* Path Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@jl/framework": [
+        "../../packages/framework/src"
+      ],
+      "@jl/framework/*": [
+        "../../packages/framework/src/*"
+      ],
+      "@/*": [
+        "../../packages/framework/src/*"
+      ],
+      "@view/*": [
+        "../../packages/framework/src/comp/view/*"
+      ],
+      "@ctrl/*": [
+        "../../packages/framework/src/comp/control/*"
+      ],
+      "@store/*": [
+        "../../packages/framework/src/stores/store/*"
+      ],
+      "@data/*": [
+        "../../packages/framework/src/data/*"
+      ],
+      "@handler/*": [
+        "../../packages/framework/src/handler/*"
+      ],
+      "@utils/*": [
+        "../../packages/framework/src/utils/*"
+      ]
+    }
   },
   "include": [
     "src",

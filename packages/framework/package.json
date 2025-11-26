@@ -1,6 +1,6 @@
 {
   "name": "@jl/framework",
-  "private": true,
+  "private": false,
   "version": "0.0.0",
   "type": "module",
   "files": [
@@ -18,7 +18,8 @@
   },
   "scripts": {
     "build": "tsc -b && vite build",
-    "dev:watch": "tsc -b --watch & vite build --watch",
+    "dev": "vite build --watch",
+    "dev:mock": "vite build --watch",
     "lint": "eslint .",
     "preview": "vite preview"
   },

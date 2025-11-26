@@ -16,9 +16,9 @@
       "persistent": true
     },
     "dev:mock": {
-      "dependsOn": [
-        "^dev:mock"
-      ],
+      // "dependsOn": [
+      //   "^dev:mock"
+      // ],
       "cache": false,
       "persistent": true
     },
