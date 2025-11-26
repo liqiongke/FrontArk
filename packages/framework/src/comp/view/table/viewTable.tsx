@@ -1,3 +1,4 @@
+import { useView } from '@/stores/store/useView';
 import useValue from '@store/useValue';
 import { Table } from 'antd';
 import { isArray } from 'lodash';
@@ -7,8 +8,8 @@ import { ViewTableProps } from './interface';
 import './styles/table.less';
 import TableUtils from './utils/tableUtils';
 
-const ViewTable: React.FC<SysViewProps<ViewTableProps>> = (props) => {
-  const { view } = props;
+const ViewTable: React.FC<SysViewProps> = (props) => {
+  const [view] = useView<ViewTableProps>(props.viewId);
   const [data] = useValue(view.path);
 
   const colnums = useMemo(

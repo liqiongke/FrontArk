@@ -1,7 +1,7 @@
+import ViewBase from '@/comp/viewBase';
+import DataBase from '@data/dataBase';
 import HandlerBase from 'src/handler/handlerBase';
 import { SysDataProps } from '../../data/interface';
-import DataBase from '@data/dataBase';
-import ViewBase from '@/comp/viewBase';
 
 // 视图在store中的存储类型
 export interface ViewStore {
@@ -50,14 +50,21 @@ export interface IStoreActions {
     DataClass: new () => DataBase,
     HandlerClass: new () => H,
   ) => [ViewBase<H> | undefined, H | undefined];
+  // 视图信息设置
   // 设置视图
-  setView: (path: DPath, view: any) => void;
+  setView: (viewId: string, view: any) => void;
   // 获取视图
-  getView: (path: DPath) => any;
+  getView: (viewId?: string) => any;
+
+  // 视图参数设置
+  // 批量视图参数,init参数,设置是否初始化视图参数
+  setViewParams: (viewId: string, values: any, init?: boolean) => void;
   // 设置视图参数
-  setViewParams: (path: DPath, view: any) => void;
+  setViewParamByKey: (viewId: string, key: string, value: any) => void;
   // 获取视图参数
-  getViewParams: (path: DPath) => any;
+  getViewParams: (viewId: string) => any;
+
+  // 数据源设置
   // 设置指定路径下的数据
   setData: (path: DPath, data: any) => void;
   // 获取指定路径下的数据

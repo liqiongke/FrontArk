@@ -100,10 +100,27 @@ class View extends ViewBase<Handler> {
     ],
   };
 
+  tab: VProps.Tab = {
+    type: V.LayoutTab,
+    id: 'tab',
+    items: [
+      {
+        key: 'form1',
+        label: '表单',
+        viewId: this.form1.id,
+      },
+      {
+        key: 'table1',
+        label: '表格',
+        viewId: this.table1.id,
+      },
+    ],
+  };
+
   layout: VProps.Base = {
     id: 'layout',
     type: V.LayoutFlex,
-    children: [this.form1.id, this.table1.id],
+    children: [this.form1.id, this.tab.id],
   };
 
   getRootId = () => this.layout.id;

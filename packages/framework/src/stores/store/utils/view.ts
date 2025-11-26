@@ -1,6 +1,6 @@
-import { get, isFunction, isUndefined, set } from 'lodash';
-import { DPath, IStoreBase, ViewStore } from '../interface';
+import { get, isFunction, isObject, isString, isUndefined, set } from 'lodash';
 import ViewBase from 'src/comp/viewBase';
+import { DPath, IStoreBase, ViewStore } from '../interface';
 
 export const initView = (view: ViewBase<any>): ViewStore => {
   let viewStore = {};
@@ -12,24 +12,27 @@ export const initView = (view: ViewBase<any>): ViewStore => {
   }
   return viewStore;
 };
-export const getView = (id: DPath, zGet: () => IStoreBase) => {
-  if (isUndefined(id)) {
+
+// 获取视图ID对应的视图信息
+export const getView = (viewId: string | undefined, zGet: () => IStoreBase) => {
+  if (!isString(viewId) || viewId.length == 0) {
     return undefined;
   }
   const { view } = zGet();
-  return get(view, id);
+  return get(view, viewId);
 };
 
+// 设置视图ID对应的视图信息
 export const setView = (
-  id: DPath,
+  viewId: string,
   view: any,
   zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
 ) => {
-  if (isUndefined(id)) {
+  if (!isString(viewId) || viewId.length == 0) {
     return;
   }
   zSet((state: IStoreBase) => {
-    set(state.data, id, view);
+    set(state.data, viewId, view);
     return state;
   });
 };
@@ -42,16 +45,43 @@ export const getViewParams = (id: DPath, zGet: () => IStoreBase) => {
   return get(viewParams, id);
 };
 
-export const setViewParams = (
-  id: DPath,
-  params: any,
+// 设置指定项的参数
+export const setViewParamByKey = (
+  viewId: string,
+  key: string,
+  value: string,
   zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
 ) => {
-  if (isUndefined(id)) {
+  if (isUndefined(viewId)) {
     return;
   }
   zSet((state: IStoreBase) => {
-    set(state.viewParams, id, params);
+    set(state.viewParams, [viewId, key], value);
+    console.log('state.viewParams', state.viewParams);
+    return state;
+  });
+};
+
+// 批量设置参数
+export const setViewParams = (
+  viewId: string,
+  values: any,
+  init: boolean = false,
+  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
+) => {
+  if (isUndefined(viewId)) {
+    return;
+  }
+  zSet((state: IStoreBase) => {
+    if (!isObject(values)) {
+      return state;
+    }
+    if (init) {
+      set(state.viewParams, viewId, values);
+      return state;
+    }
+    const params = get(state.viewParams, viewId, {});
+    set(state.viewParams, viewId, { ...params, ...values });
     return state;
   });
 };

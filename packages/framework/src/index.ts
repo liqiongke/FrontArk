@@ -26,15 +26,16 @@ export { Ctrl as C } from '@ctrl/interface';
 
 // 导出视图类型
 export { default as ViewBase } from '@/comp/viewBase';
-import type { ViewStructBase } from '@view/interface';
 import type { ViewFormProps } from '@view/form/interface';
+import type { ViewStructBase } from '@view/interface';
 import type { ViewTableProps } from '@view/table/interface';
+import { ViewTabProps } from './comp/view/tab/interface';
 export namespace VProps {
   export type Base = ViewStructBase;
 
-  // 使用 View.FormProps
   export type Form = ViewFormProps;
 
-  // 使用 View.TableProps
   export type Table = ViewTableProps;
+
+  export type Tab = ViewTabProps;
 }

@@ -19,7 +19,6 @@
   "scripts": {
     "build": "tsc -b && vite build",
     "dev": "vite build --watch",
-    "dev:mock": "vite build --watch",
     "lint": "eslint .",
     "preview": "vite preview"
   },

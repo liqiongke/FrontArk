@@ -1,13 +1,14 @@
 import CtrlFactory from '@/comp/ctrlFactory';
+import { useView } from '@/stores/store/useView';
+import PathUtils from '@utils/pathUtils';
 import { SysViewProps, ViewType } from '@view/interface';
 import { Row } from 'antd';
-import PathUtils from '@utils/pathUtils';
 import { ViewFormProps } from './interface';
 import './styles/form.less';
 import ViewFormItem from './viewFormItem';
 
-const ViewForm: React.FC<SysViewProps<ViewFormProps>> = (props) => {
-  const { view } = props;
+const ViewForm: React.FC<SysViewProps> = (props) => {
+  const [view] = useView<ViewFormProps>(props.viewId);
   const { items, path, toolList } = view;
   return (
     <div className="view-form-container">

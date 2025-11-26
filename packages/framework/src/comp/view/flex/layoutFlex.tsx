@@ -1,9 +1,10 @@
 import { SysViewProps } from '@view/interface';
 import CompFactory from '../../compFactory';
 import { FlexDirection, LayoutFlexProps } from './interface';
+import { useView } from '@/stores/store/useView';
 
-const LayoutFlex: React.FC<SysViewProps<LayoutFlexProps>> = (props) => {
-  const { view } = props;
+const LayoutFlex: React.FC<SysViewProps> = (props) => {
+  const [view] = useView<LayoutFlexProps>(props.viewId);
   const { direction = FlexDirection.COLUMN, gutter = 12 } = view;
 
   const containerStyle: React.CSSProperties = {

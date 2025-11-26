@@ -41,8 +41,13 @@ abstract class HandlerBase {
   }
 
   // 设置视图参数
-  public setViewParams(path: DPath, value: any) {
-    this.getStore().setViewParams(path, value);
+  public setViewParam(viewId: string, key: string, value: any) {
+    this.getStore().setViewParamByKey(viewId, key, value);
+  }
+
+  // 批量设置视图参数
+  public setViewParams(viewId: string, values: any, init: boolean = false) {
+    this.getStore().setViewParams(viewId, values, init);
   }
 
   // 发送数据请求

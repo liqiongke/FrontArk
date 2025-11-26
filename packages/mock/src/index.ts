@@ -5,7 +5,7 @@ import menuRouter from './routes/sys';
 import demoRouter from './routes/demo/demoBase';
 
 const app = express();
-const port = process.env.PORT;
+const port = process.env.PORT || 3001;
 
 // Middleware to handle JSON bodies
 app.use(express.json());
@@ -43,7 +43,7 @@ app.use('/api/demo', demoRouter);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
-  res.json(repData({}));
+  res.json(repData({ code: 200, message: `Hi,this's mock server!` }));
 });
 
 app.listen(port, () => {

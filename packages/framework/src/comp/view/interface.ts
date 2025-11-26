@@ -3,11 +3,12 @@ import { CtrlStructType } from '../control/interface';
 import { LayoutFlexProps } from './flex/interface';
 import { ViewFormProps } from './form/interface';
 import { ViewTableProps } from './table/interface';
+import { ViewTabProps } from './tab/interface';
 
 /**
  * 视图结构类型
  */
-export type ViewStructType = LayoutFlexProps | ViewFormProps | ViewTableProps;
+export type ViewStructType = LayoutFlexProps | ViewFormProps | ViewTableProps | ViewTabProps;
 
 /**
  * 视图类型
@@ -92,6 +93,6 @@ export interface ViewItem {
 /**
  * 系统用视图传入的参数
  */
-export interface SysViewProps<T extends ViewStructBase> {
-  view: T;
+export interface SysViewProps {
+  viewId: string;
 }

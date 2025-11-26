@@ -1,19 +1,14 @@
-import { ColumnType } from 'antd/es/table';
-import { ViewItem, ViewStructBase, ViewType } from '../interface';
+import { ViewStructBase, ViewType } from '../interface';
 
-export type TableColumn = ColumnType<any>;
-
-export interface ViewTableProps extends ViewStructBase {
-  type: ViewType.LayoutTab;
-  /**
-   * @ 表格行key
-   */
-  rowKey?: string;
-  /**
-   * @ 表格列
-   */
-  items?: TableItemProps[];
+export interface TabItem {
+  key: string;
+  label: string;
+  viewId: string;
 }
-export interface TableItemProps extends ViewItem {
-  width?: number;
+
+export interface ViewTabProps extends ViewStructBase {
+  type: ViewType.LayoutTab;
+
+  // 页签项,支持视图的Id或者键值对{label:"标签名",value:"视图Id"}
+  items?: Array<TabItem>;
 }
