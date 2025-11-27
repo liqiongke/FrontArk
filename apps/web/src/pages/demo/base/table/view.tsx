@@ -1,4 +1,4 @@
-import { C, V, ViewBase, type VProps } from '@jl/framework';
+import { Ctrl, VType, ViewBase, type VProps } from '@jl/framework';
 import Handler from './handler';
 
 const options = [
@@ -10,46 +10,46 @@ const options = [
 class View extends ViewBase<Handler> {
   form1: VProps.Form = {
     id: 'form1',
-    type: V.Form,
+    type: VType.Form,
     path: ['form'],
     items: [
       { title: '测试text', field: 'id' },
-      { title: '测试text', field: 'id', ctrl: { type: C.Text } },
+      { title: '测试text', field: 'id', ctrl: { type: Ctrl.Text } },
       { title: '测试input', field: 'name' },
-      { title: '测试input', field: 'name', ctrl: { type: C.Input } },
+      { title: '测试input', field: 'name', ctrl: { type: Ctrl.Input } },
       { title: '测试select', field: 'select' },
-      { title: '测试select', field: 'select', ctrl: { type: C.Select, items: options } },
+      { title: '测试select', field: 'select', ctrl: { type: Ctrl.Select, items: options } },
 
       { title: '测试switch', field: 'switch' },
-      { title: '测试switch', field: 'switch', ctrl: { type: C.Switch } },
+      { title: '测试switch', field: 'switch', ctrl: { type: Ctrl.Switch } },
 
       { title: '测试radio', field: 'radio' },
-      { title: '测试radio', field: 'radio', ctrl: { type: C.Radio, items: options } },
+      { title: '测试radio', field: 'radio', ctrl: { type: Ctrl.Radio, items: options } },
 
       { title: 'Checkbox', field: 'checkbox' },
-      { title: 'Checkbox', field: 'checkbox', ctrl: { type: C.Checkbox, items: options } },
+      { title: 'Checkbox', field: 'checkbox', ctrl: { type: Ctrl.Checkbox, items: options } },
 
       { title: 'Date', field: 'date' },
-      { title: 'Date', field: 'date', ctrl: { type: C.Date } },
+      { title: 'Date', field: 'date', ctrl: { type: Ctrl.Date } },
 
       { title: 'DateRange', field: 'dateRange' },
-      { title: 'DateRange', field: 'dateRange', ctrl: { type: C.DateRange } },
+      { title: 'DateRange', field: 'dateRange', ctrl: { type: Ctrl.DateRange } },
 
       { title: 'Time', field: 'time' },
-      { title: 'Time', field: 'time', ctrl: { type: C.Time } },
+      { title: 'Time', field: 'time', ctrl: { type: Ctrl.Time } },
 
       { title: 'TimeRange', field: 'timeRange' },
-      { title: 'TimeRange', field: 'timeRange', ctrl: { type: C.TimeRange } },
+      { title: 'TimeRange', field: 'timeRange', ctrl: { type: Ctrl.TimeRange } },
 
       { title: 'Link', field: 'link' },
       {
         title: 'Link',
         field: 'link',
-        ctrl: { type: C.Link, href: { label: '测试', value: '/demo/composite/formAndTable' } },
+        ctrl: { type: Ctrl.Link, href: { label: '测试', value: '/demo/composite/formAndTable' } },
       },
 
       { title: 'Upload', field: 'upload' },
-      { title: 'Upload', field: 'upload', ctrl: { type: C.Upload } },
+      { title: 'Upload', field: 'upload', ctrl: { type: Ctrl.Upload } },
 
       // 以下是表单默认字段
       { title: '产品描述', field: 'description' },
@@ -68,22 +68,22 @@ class View extends ViewBase<Handler> {
     ],
     toolList: [
       {
-        type: C.Button,
+        type: Ctrl.Button,
         text: '打开弹窗',
         onClick: this.handler.openModal,
       },
       {
-        type: C.Button,
+        type: Ctrl.Button,
         text: '设置数据',
         onClick: this.handler.onSetData,
       },
       {
-        type: C.Button,
+        type: Ctrl.Button,
         text: 'POST请求',
         onClick: this.handler.postData,
       },
       {
-        type: C.Button,
+        type: Ctrl.Button,
         text: 'GET请求',
         onClick: this.handler.getData,
       },
@@ -92,7 +92,7 @@ class View extends ViewBase<Handler> {
 
   table1: VProps.Table = {
     id: 'table1',
-    type: V.Table,
+    type: VType.Table,
     rowKey: 'id',
     path: ['table'],
     items: [
@@ -113,7 +113,7 @@ class View extends ViewBase<Handler> {
   };
 
   tab: VProps.Tab = {
-    type: V.LayoutTab,
+    type: VType.LayoutTab,
     id: 'tab',
     items: [
       {
@@ -131,13 +131,13 @@ class View extends ViewBase<Handler> {
 
   layout: VProps.Flex = {
     id: 'layout',
-    type: V.LayoutFlex,
+    type: VType.LayoutFlex,
     items: [this.form1.id, this.tab.id],
   };
 
   modal: VProps.Modal = {
     id: 'modal',
-    type: V.LayoutModal,
+    type: VType.LayoutModal,
     viewId: this.form1.id,
   };
 

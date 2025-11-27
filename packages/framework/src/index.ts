@@ -19,10 +19,10 @@ export { default as DataBase } from '@data/dataBase';
 export type { default as DataProps } from '@data/interface';
 
 // 组件类型
-export { ViewType as V } from '@view/interface';
+export { ViewType as VType } from '@view/interface';
 
 // 控件类型
-export { Ctrl as C } from '@ctrl/interface';
+export { Ctrl } from '@ctrl/interface';
 
 // 导出视图类型
 export { default as ViewBase } from '@/comp/viewBase';
