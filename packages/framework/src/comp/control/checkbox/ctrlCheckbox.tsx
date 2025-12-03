@@ -1,16 +1,16 @@
-import useValue from '@store/useValue';
+import { type ValueType } from '@/interface';
+import { useDataState } from '@/stores/store/hooks/useValue';
 import { useMemoizedFn } from 'ahooks';
 import { Checkbox } from 'antd';
-import { SysCtrlProps } from '../interface';
-import { ValueType } from '@/interface';
-import './index.less';
-import { CtrlCheckboxProps } from './interface';
 import { isUndefined } from 'lodash';
+import { type SysCtrlProps } from '../interface';
+import './index.less';
+import { type CtrlCheckboxProps } from './interface';
 
 const CtrlCheckbox: React.FC<SysCtrlProps<CtrlCheckboxProps>> = (props) => {
   const { ctrl, path } = props;
 
-  const [value, setValue] = useValue(path);
+  const [value, setValue] = useDataState(path);
 
   const onChange = useMemoizedFn((e: any, itemValue?: ValueType) => {
     if (isUndefined(itemValue)) {

@@ -1,5 +1,5 @@
 import { SysCtrlProps } from '@ctrl/interface';
-import useValue from '@store/useValue';
+import { useData } from '@/stores/store/hooks/useValue';
 import { ViewType } from '@view/interface';
 import { Input } from 'antd';
 import './index.less';
@@ -9,7 +9,7 @@ const CtrlText: React.FC<SysCtrlProps<CtrlTextProps>> = (props) => {
   const { ctrl, path, sourceView } = props;
   const align = ctrl?.align || 'left';
 
-  const [value] = useValue(path);
+  const value = useData(path);
 
   // 在表单中展现的样式
   if (sourceView === ViewType.Form) {

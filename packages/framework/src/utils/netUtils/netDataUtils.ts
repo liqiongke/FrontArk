@@ -28,7 +28,7 @@ interface ExtractData {
 }
 
 // 数据处理的基本工具
-export class DataUtils {
+export class NetDataUtils {
   // 加工并处理数据
   static extractCoreData = (data: any): ExtractData => {
     // 如果是基础数据类型,则直接返回

@@ -8,6 +8,8 @@ class NetUtils {
   static baseUrl: string;
   // 登录页地址
   static loginUrl: string;
+  // 登录接口
+  static loginAPI: string;
   // 请求接口
   static service: AxiosInstance;
   // 过期时间
@@ -21,11 +23,13 @@ class NetUtils {
   static init = (
     baseURL: string,
     loginUrl: string,
+    loginAPI: string,
     errorHandler: ErrorHandler,
     tokenExpireTime: number = 7200000,
   ) => {
     this.baseUrl = baseURL;
     this.loginUrl = loginUrl;
+    this.loginAPI = loginAPI;
     this.tokenExpireTime = tokenExpireTime;
     this.service = axios.create({
       baseURL: baseURL,
@@ -69,7 +73,7 @@ class NetUtils {
 
   // 这里的登录接口需要从 .env 中配置 VITE_API_LOGIN
   static login = async <T>(data: any): Promise<Result<T>> => {
-    const result = await axios.post(`${this.baseUrl}${this.loginUrl || 'login'}`, data);
+    const result = await axios.post(`${this.baseUrl}${this.loginAPI || 'login'}`, data);
 
     // 校验请求状态
     if (!result || result.status !== 200) {

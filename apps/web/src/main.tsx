@@ -1,4 +1,3 @@
-import '@ant-design/v5-patch-for-react-19';
 import { ConfigProvider } from 'antd';
 import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -7,7 +6,7 @@ import routes from '~react-pages';
 import init from './init/init';
 import LoginLayout from './layouts/login/LoginLayout';
 import MainLayout from './layouts/main/MainLayout';
-import themeDefault from './theme/themeDefault';
+import themeCompact from './theme/themeCompact';
 
 const routesWithRedirect = [
   {
@@ -26,7 +25,7 @@ export const App: React.FC = () => {
 
   return (
     <Suspense fallback={<p>Loading...</p>}>
-      <ConfigProvider theme={themeDefault}>{element}</ConfigProvider>
+      <ConfigProvider theme={themeCompact}>{element}</ConfigProvider>
     </Suspense>
   );
 };

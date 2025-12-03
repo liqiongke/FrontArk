@@ -1,100 +1,18 @@
-import { Ctrl, VType, ViewBase, type VProps } from '@jl/framework';
-import Handler from './handler';
+import { Ctrl, VType, ViewBase, ViewPathUtils, type VProps } from '@jl/framework';
+import type Handler from './handler';
+import type Data from './data';
 
-const options = [
-  { label: '1', value: 'V1' },
-  { label: '2', value: 'V2' },
-  { label: '3', value: 'V3' },
-];
-
-class View extends ViewBase<Handler> {
-  form1: VProps.Form = {
-    id: 'form1',
-    type: VType.Form,
-    path: ['form'],
-    items: [
-      { title: '测试text', field: 'id' },
-      { title: '测试text', field: 'id', ctrl: { type: Ctrl.Text } },
-      { title: '测试input', field: 'name' },
-      { title: '测试input', field: 'name', ctrl: { type: Ctrl.Input } },
-      { title: '测试select', field: 'select' },
-      { title: '测试select', field: 'select', ctrl: { type: Ctrl.Select, items: options } },
-
-      { title: '测试switch', field: 'switch' },
-      { title: '测试switch', field: 'switch', ctrl: { type: Ctrl.Switch } },
-
-      { title: '测试radio', field: 'radio' },
-      { title: '测试radio', field: 'radio', ctrl: { type: Ctrl.Radio, items: options } },
-
-      { title: 'Checkbox', field: 'checkbox' },
-      { title: 'Checkbox', field: 'checkbox', ctrl: { type: Ctrl.Checkbox, items: options } },
-
-      { title: 'Date', field: 'date' },
-      { title: 'Date', field: 'date', ctrl: { type: Ctrl.Date } },
-
-      { title: 'DateRange', field: 'dateRange' },
-      { title: 'DateRange', field: 'dateRange', ctrl: { type: Ctrl.DateRange } },
-
-      { title: 'Time', field: 'time' },
-      { title: 'Time', field: 'time', ctrl: { type: Ctrl.Time } },
-
-      { title: 'TimeRange', field: 'timeRange' },
-      { title: 'TimeRange', field: 'timeRange', ctrl: { type: Ctrl.TimeRange } },
-
-      { title: 'Link', field: 'link' },
-      {
-        title: 'Link',
-        field: 'link',
-        ctrl: { type: Ctrl.Link, href: { label: '测试', value: '/demo/composite/formAndTable' } },
-      },
-
-      { title: 'Upload', field: 'upload' },
-      { title: 'Upload', field: 'upload', ctrl: { type: Ctrl.Upload } },
-
-      // 以下是表单默认字段
-      { title: '产品描述', field: 'description' },
-      { title: '价格', field: 'price' },
-      { title: '产品类别', field: 'category' },
-      { title: '品牌', field: 'brand' },
-      { title: '型号', field: 'model' },
-      { title: '颜色', field: 'color' },
-      { title: '存储容量', field: 'storage' },
-      { title: '库存数量', field: 'stock' },
-      { title: '状态', field: 'status' },
-      { title: '重量', field: 'weight' },
-      { title: '尺寸', field: 'dimensions' },
-      { title: '保修期', field: 'warranty' },
-      { title: '创建时间', field: 'createTime' },
-    ],
-    toolList: [
-      {
-        type: Ctrl.Button,
-        text: '打开弹窗',
-        onClick: this.handler.openModal,
-      },
-      {
-        type: Ctrl.Button,
-        text: '设置数据',
-        onClick: this.handler.onSetData,
-      },
-      {
-        type: Ctrl.Button,
-        text: 'POST请求',
-        onClick: this.handler.postData,
-      },
-      {
-        type: Ctrl.Button,
-        text: 'GET请求',
-        onClick: this.handler.getData,
-      },
-    ],
-  };
-
+class View extends ViewBase<Handler, Data> {
   table1: VProps.Table = {
     id: 'table1',
     type: VType.Table,
-    rowKey: 'id',
-    path: ['table'],
+    path: this.data.mainTable.id,
+    searchItems: [
+      { title: '产品ID', field: 'id' },
+      { title: '产品名称', field: 'name' },
+      { title: '价格', field: 'price' },
+      { title: '产品类别', field: 'category' },
+    ],
     items: [
       { title: '产品ID', field: 'id' },
       { title: '产品名称', field: 'name' },
@@ -106,25 +24,51 @@ class View extends ViewBase<Handler> {
       { title: '销量', field: 'sales' },
       { title: '评分', field: 'rating' },
       { title: '颜色', field: 'color' },
-      { title: '重量', field: 'weight' },
       { title: '保修期', field: 'warranty' },
       { title: '创建时间', field: 'createTime' },
     ],
   };
 
-  tab: VProps.Tab = {
-    type: VType.LayoutTab,
-    id: 'tab',
+  form1: VProps.Form = {
+    id: 'form1',
+    type: VType.Form,
+    path: [ViewPathUtils.active(this.table1.id)],
     items: [
+      { title: '价格', field: 'price' },
+      { title: '产品类别', field: 'category' },
+      { title: '品牌', field: 'brand' },
+      { title: '库存', field: 'stock' },
+    ],
+    toolList: [
       {
-        key: 'table1',
-        label: '表格',
-        viewId: this.table1.id,
+        type: Ctrl.Button,
+        text: '打印数据',
+        onClick: this.handler.onPrintData,
       },
       {
-        key: 'form1',
-        label: '表单',
-        viewId: this.form1.id,
+        type: Ctrl.Button,
+        text: '设置数据',
+        onClick: this.handler.onSetData,
+      },
+      {
+        type: Ctrl.Button,
+        text: '获取getData使用情况',
+        onClick: this.handler.printDataStats,
+      },
+      {
+        type: Ctrl.Button,
+        text: '重置GetData使用情况',
+        onClick: this.handler.resetDataStats,
+      },
+      {
+        type: Ctrl.Button,
+        text: 'POST请求',
+        onClick: this.handler.btnPostReqData,
+      },
+      {
+        type: Ctrl.Button,
+        text: 'GET请求',
+        onClick: this.handler.btnGetReqData,
       },
     ],
   };
@@ -132,13 +76,7 @@ class View extends ViewBase<Handler> {
   layout: VProps.Flex = {
     id: 'layout',
     type: VType.LayoutFlex,
-    items: [this.form1.id, this.tab.id],
-  };
-
-  modal: VProps.Modal = {
-    id: 'modal',
-    type: VType.LayoutModal,
-    viewId: this.form1.id,
+    items: [this.form1.id, this.table1.id],
   };
 
   getRootId = () => this.layout.id;

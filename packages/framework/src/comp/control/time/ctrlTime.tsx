@@ -1,14 +1,14 @@
-import useValue from '@store/useValue';
+import { useDataState } from '@/stores/store/hooks/useValue';
 import { useMemoizedFn } from 'ahooks';
 import { TimePicker } from 'antd';
-import { SysCtrlProps } from '../interface';
+import { type SysCtrlProps } from '../interface';
 import './index.less';
-import { CtrlTimeProps } from './interface';
+import { type CtrlTimeProps } from './interface';
 
 const CtrlTime: React.FC<SysCtrlProps<CtrlTimeProps>> = (props) => {
   const { ctrl, path } = props;
 
-  const [value, setValue] = useValue(path);
+  const [value, setValue] = useDataState(path);
 
   const onChange = useMemoizedFn((time: any, timeString: string | string[]) => {
     setValue(timeString);

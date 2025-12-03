@@ -1,20 +1,26 @@
-import { HandlerBase } from '@jl/framework';
+import { HandlerBase, PathKey, printStats, resetStats } from '@jl/framework';
 
 class Handler extends HandlerBase {
-  openModal = () => {
-    const modalHandler = this.getModalHandler('modal');
-    modalHandler.show();
+  onPrintData = () => {
+    console.log(this.getData([PathKey.Req, 'table']));
   };
-
   onSetData = () => {
-    this.setData(['form', 'name'], new Date().toLocaleString());
+    this.setData(['form', 'model'], new Date().toLocaleString());
   };
 
-  getData = () => {
+  printDataStats = () => {
+    printStats('getData');
+  };
+
+  resetDataStats = () => {
+    resetStats('getData');
+  };
+
+  btnGetReqData = () => {
     this.get('/demo/base/table/get', { name: 'test' });
   };
 
-  postData = () => {
+  btnPostReqData = () => {
     this.post('/demo/base/table/post', { name: 'test' });
   };
 }

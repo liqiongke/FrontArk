@@ -1,8 +1,8 @@
 import { isFunction, isUndefined } from 'lodash';
 import { useMemoizedFn, useSafeState } from 'ahooks';
 import { Typography } from 'antd';
-import { SysCtrlProps } from '../interface';
-import { CtrlLinkProps } from './interface';
+import { type SysCtrlProps } from '../interface';
+import { type CtrlLinkProps } from './interface';
 import './index.less';
 import { useEffect } from 'react';
 import { OptionItem } from '@/interface';

@@ -1,9 +1,8 @@
-import { theme } from 'antd';
+import { theme, type ThemeConfig } from 'antd';
 
 // 默认主题样式
-const themeDefault = {
+const themeDefault: ThemeConfig = {
   algorithm: theme.defaultAlgorithm,
-  cssVar: true,
   token: {
     borderRadius: 2,
   },

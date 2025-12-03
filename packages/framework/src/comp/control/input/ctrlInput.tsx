@@ -1,20 +1,24 @@
-import useValue from '@store/useValue';
+import { useDataState } from '@/stores/store/hooks/useValue';
 import { useMemoizedFn } from 'ahooks';
 import { Input } from 'antd';
-import { ChangeEvent } from 'react';
-import { SysCtrlProps } from '../interface';
-import { CtrlInputProps } from './interface';
+import { type ChangeEvent } from 'react';
+import { type SysInteractiveCtrlProps } from '../interface';
+import { type CtrlInputProps } from './interface';
+import { ViewType } from '@/comp/view/interface';
 
-const CtrlInput: React.FC<SysCtrlProps<CtrlInputProps>> = (props) => {
-  const { ctrl, path } = props;
+const CtrlInput: React.FC<SysInteractiveCtrlProps<CtrlInputProps>> = (props) => {
+  const { ctrl, path, sourceView } = props;
+  const [value, setValue] = useDataState(path);
 
-  const [value, setValue] = useValue(path);
-
-  const onChange = useMemoizedFn((event: ChangeEvent<HTMLInputElement>) => {
+  const onCtrlChange = useMemoizedFn((event: ChangeEvent<HTMLInputElement>) => {
     setValue(event.target.value);
   });
 
-  return <Input value={value} onChange={onChange} />;
+  let textAlign = ctrl?.textAlign;
+  if (sourceView === ViewType.Table) {
+    textAlign = 'right';
+  }
+  return <Input style={{ textAlign }} value={value} onChange={onCtrlChange} />;
 };
 
 export default CtrlInput;

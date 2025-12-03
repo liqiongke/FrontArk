@@ -1,6 +1,6 @@
-import { ViewItem } from '@view/interface';
 import { DPath } from '@store/interface';
-import { isArray, isNull, isUndefined } from 'lodash';
+import { ViewItem } from '@view/interface';
+import { isArray, isNull, isNumber, isString, isUndefined } from 'lodash';
 
 // 路径计算工具类
 export default class PathUtils {
@@ -40,5 +40,45 @@ export default class PathUtils {
     const flattenedPaths = validPaths.flatMap((path) => (isArray(path) ? path : [path]));
 
     return flattenedPaths;
+  }
+
+  /**
+   * @name 路径是否相等
+   * @param path1 路径1
+   * @param path2 路径2
+   * @returns 是否相等
+   */
+  static equal(path1: DPath, path2: DPath): boolean {
+    if (isUndefined(path1) || isUndefined(path2)) return false;
+    if (isString(path1) && isString(path2)) {
+      return path1 === path2;
+    }
+
+    if (isNumber(path1) && isNumber(path2)) {
+      return path1 === path2;
+    }
+
+    if (isArray(path1) && isArray(path2)) {
+      if (path1.length !== path2.length) return false;
+      return path1.every((item, index) => this.equal(item, path2[index]));
+    }
+    return false;
+  }
+
+  /**
+   * @name 路径转换为字符串
+   * @param path 路径
+   * @returns 字符串
+   */
+  static toString(path: DPath): string {
+    if (isString(path) || isNumber(path)) {
+      return path.toString();
+    }
+
+    if (isArray(path)) {
+      return path.join('.');
+    }
+
+    return '';
   }
 }

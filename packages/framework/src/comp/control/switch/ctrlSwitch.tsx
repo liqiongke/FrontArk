@@ -1,4 +1,4 @@
-import useValue from '@store/useValue';
+import { useDataState } from '@/stores/store/hooks/useValue';
 import { useMemoizedFn } from 'ahooks';
 import { Switch } from 'antd';
 import { SysCtrlProps } from '../interface';
@@ -8,7 +8,7 @@ import { CtrlSwitchProps } from './interface';
 const CtrlSwitch: React.FC<SysCtrlProps<CtrlSwitchProps>> = (props) => {
   const { ctrl, path } = props;
 
-  const [value, setValue] = useValue(path);
+  const [value, setValue] = useDataState(path);
 
   const onChange = useMemoizedFn((checked: boolean) => {
     setValue(checked);

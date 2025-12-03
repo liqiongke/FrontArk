@@ -1,16 +1,16 @@
 import HandlerViewBase, { HandlerViewInterface } from '@/handler/handlerViewBase';
-import { ParamKey } from '@/stores/store/useView';
+import { ParamKey } from '@/stores/store/interface';
 
 interface HandlerModal extends HandlerViewInterface {
-  show: () => void;
-  hide: () => void;
+  open: () => void;
+  close: () => void;
 }
 
 class HandlerModalImpl extends HandlerViewBase implements HandlerModal {
-  show = () => {
+  open = () => {
     this.getStore().setViewParamByKey(this.viewId, ParamKey.Open, true);
   };
-  hide = () => {
+  close = () => {
     this.getStore().setViewParamByKey(this.viewId, ParamKey.Open, false);
   };
 }

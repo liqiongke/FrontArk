@@ -1,21 +1,20 @@
-import { get, isFunction, isString, isUndefined } from 'lodash';
+import { get, isString, isUndefined } from 'lodash';
 import { useEffect, useMemo } from 'react';
 import CompFactory from './comp/compFactory';
+import { ViewType } from './comp/view/interface';
+import DataBase from './data/dataBase';
 import HandlerBase from './handler/handlerBase';
 import { type ViewProps } from './interface';
 import createBaseStore from './stores/store/storeBase';
 import StoreContext from './stores/store/storeContext';
-import { ViewType } from './comp/view/interface';
 
 // 预渲染类型,需要在初始化页面的时候,将组件渲染到视图上
 const PreRenderType = [ViewType.LayoutModal, ViewType.LayoutDrawer];
 
 // 绘制视图的根节点
-const ViewRoot: <H extends HandlerBase>(props: ViewProps<H>) => React.ReactElement | null = <
-  H extends HandlerBase,
->(
-  props: ViewProps<H>,
-) => {
+const ViewRoot: <H extends HandlerBase, D extends DataBase>(
+  props: ViewProps<H, D>,
+) => React.ReactElement | null = (props) => {
   const { ViewClass, DataClass, HandlerClass } = props;
   const [useStore, handler, rootId, preIds] = useMemo(() => {
     const store = createBaseStore();
@@ -37,6 +36,7 @@ const ViewRoot: <H extends HandlerBase>(props: ViewProps<H>) => React.ReactEleme
     return [store, handler, view?.getRootId(), preRenderIds];
   }, [ViewClass, DataClass]);
 
+  // 初始化请求列表
   useEffect(() => {
     handler?.initDataReq();
   }, [handler]);

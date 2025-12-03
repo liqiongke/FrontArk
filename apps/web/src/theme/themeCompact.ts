@@ -1,9 +1,8 @@
-import { theme } from 'antd';
+import { theme, type ThemeConfig } from 'antd';
 
 // 紧凑主题样式
-const themeCompact = {
+const themeCompact: ThemeConfig = {
   algorithm: theme.compactAlgorithm,
-  cssVar: true,
   token: {
     borderRadius: 2,
   },

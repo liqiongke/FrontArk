@@ -1,9 +1,9 @@
-const Form = () => {
-  return (
-    <div>
-      <h1>表单页面</h1>
-    </div>
-  );
+import { ViewRoot } from '@jl/framework';
+import Data from './data';
+import Handler from './handler';
+import View from './view';
+const DemoFormPage = () => {
+  return <ViewRoot ViewClass={View} DataClass={Data} HandlerClass={Handler} />;
 };
 
-export default Form;
+export default DemoFormPage;

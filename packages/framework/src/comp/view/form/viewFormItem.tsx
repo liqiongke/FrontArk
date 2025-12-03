@@ -4,6 +4,7 @@ import CtrlFactory from '../../ctrlFactory';
 import { ViewType } from '../interface';
 import { FormItemProps } from './interface';
 import './styles/formItem.less';
+import { Ctrl } from '@/comp/control/interface';
 
 interface ViewFormItemProps {
   item: FormItemProps;
@@ -18,7 +19,12 @@ const ViewFormItem: React.FC<ViewFormItemProps> = ({ item, path }) => {
       <div className="form-item-container">
         {title && <div className="form-item-label">{title}</div>}
         <div className="form-item-content">
-          <CtrlFactory ctrl={ctrl} path={path} sourceView={ViewType.Form} />
+          <CtrlFactory
+            ctrl={ctrl}
+            path={path}
+            defaultCtrlType={Ctrl.Input}
+            sourceView={ViewType.Form}
+          />
         </div>
       </div>
     </Col>

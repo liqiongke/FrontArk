@@ -1,10 +1,10 @@
 import CtrlFactory from '@/comp/ctrlFactory';
 import { Ctrl } from '@ctrl/interface';
-import { DPath } from '@store/interface';
+import { type DPath } from '@store/interface';
 import PathUtils from '@utils/pathUtils';
 import { ViewType } from '@view/interface';
 import { isArray } from 'lodash';
-import { TableColumn, TableItemProps } from '../interface';
+import { type TableColumn, type TableItemProps } from '../interface';
 
 export default class TableUtils {
   // 创建表格列

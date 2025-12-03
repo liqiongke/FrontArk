@@ -33,7 +33,7 @@ const CtrlTypeMap = new Map<string, React.FC<any>>([
 ]);
 
 const CtrlFactory: React.FC<SysCtrlProps<CtrlStructType>> = (props) => {
-  const type = get(props, 'ctrl.type', Ctrl.Text);
+  const type = get(props, 'ctrl.type', props.defaultCtrlType || Ctrl.Text);
   let comp = CtrlTypeMap.get(type);
   if (isUndefined(comp)) {
     comp = CtrlText;

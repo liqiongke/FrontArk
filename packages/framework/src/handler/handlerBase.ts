@@ -1,9 +1,10 @@
 import { ViewHandlerMap } from '@/comp/compFactory';
+import HandlerDrawerImpl from '@/comp/view/drawer/handler/handlerDrawer';
 import HandlerModalImpl from '@/comp/view/modal/handler/handlerModal';
 import { SysDataProps } from '@/data/interface';
 import NetUtils from '@/utils/netUtils';
-import { DataUtils } from '@/utils/netUtils/dataUtils';
-import { get, isFunction, isString, isUndefined } from 'lodash';
+import { NetDataUtils } from '@/utils/netUtils/netDataUtils';
+import { get, isArray, isFunction, isString, isUndefined, set } from 'lodash';
 import { DPath, IStoreBase } from 'src/stores/store/interface';
 import HandlerViewBase from './handlerViewBase';
 
@@ -21,12 +22,12 @@ abstract class HandlerBase {
     const store = this.getStore();
 
     // 遍历所有的请求,只触发没有父组件的请求
-    for (const dataId in store.req) {
+    Object.keys(store.req).forEach((dataId) => {
       const dataReq = store.req[dataId];
       if (isUndefined(dataReq.parentIds) || dataReq.parentIds.length === 0) {
         this.fetchData(dataId);
       }
-    }
+    });
   }
 
   // 获取数据
@@ -82,7 +83,7 @@ abstract class HandlerBase {
     }
 
     // 构建请求参数
-    const params = await this.buildRequestParams(dataReq);
+    const params = this.buildRequestParams(dataReq);
 
     // 发送请求
     return this.getReqData(dataReq, params);
@@ -106,33 +107,30 @@ abstract class HandlerBase {
   }
 
   // 构建请求参数
-  private async buildRequestParams(dataReq: any): Promise<Record<string, any>> {
-    const params: Record<string, any> = {};
+  private buildRequestParams(dataReq: SysDataProps): Record<string, any> {
+    const params: Record<string, any> = dataReq.criteria ?? {};
     const store = this.getStore();
 
-    if (dataReq.params) {
-      for (const param of dataReq.params) {
-        if (param.path && isString(param.path)) {
-          const value = get(store.data, param.path);
-          if (!isUndefined(value)) {
-            params[param.field] = value;
-          }
-        }
-      }
+    if (!isArray(dataReq.params)) {
+      return {};
     }
+
+    dataReq.params.forEach((item) => {
+      if (isUndefined(get(params, item.field)) && !isUndefined(item.value)) {
+        set(params, item.field, item.value);
+        return;
+      }
+      if (!isUndefined(item.path)) {
+        const val = store.getData(item.path);
+        set(params, item.field, val);
+      }
+    });
 
     return params;
   }
 
   // 获取数据函数
   private async getReqData(req: SysDataProps, params: Record<string, any>): Promise<any> {
-    // 1.如果path不为空,则根据path获取数据
-    if (!isUndefined(req.path)) {
-      const result = this.getData(req.path);
-      this.setData(req.id, DataUtils.initData(result, req));
-      return result;
-    }
-
     // 2.发送网络请求获取数据
     if (isString(req.url) && req.url.length > 0) {
       try {
@@ -145,10 +143,10 @@ abstract class HandlerBase {
         }
 
         // 提取关键数据
-        const coreData = DataUtils.extractCoreData(data);
+        const coreData = NetDataUtils.extractCoreData(data);
 
         // 存储数据
-        const cData = DataUtils.initData(coreData.data, req);
+        const cData = NetDataUtils.initData(coreData.data, req);
         this.setData(req.id, cData);
         this.setViewParams(req.id, coreData.params);
 
@@ -164,7 +162,7 @@ abstract class HandlerBase {
       }
     }
 
-    this.setData(req.id, DataUtils.initData(req.defaultData, req));
+    this.setData(req.id, NetDataUtils.initData(req.defaultData, req));
     return req.defaultData;
   }
 
@@ -181,7 +179,7 @@ abstract class HandlerBase {
 
   // 关于Handler的方法
   // 获取视图对应的handler
-  public getHandler = <T extends HandlerViewBase>(viewId: string): T | undefined => {
+  private getHandler = <T extends HandlerViewBase>(viewId: string): T => {
     const storeHandler = this.getStore().getHandler(viewId);
     if (!isUndefined(storeHandler)) {
       return storeHandler as T;
@@ -189,11 +187,11 @@ abstract class HandlerBase {
 
     const view = this.getView(viewId);
     if (isUndefined(view)) {
-      return;
+      throw new Error(`${viewId}对应的handler不存在`);
     }
     const handlerClass = ViewHandlerMap.get(view.type);
     if (isUndefined(handlerClass)) {
-      return;
+      throw new Error(`${viewId}对应的handler不存在`);
     }
     const handler = new handlerClass(viewId, this.getStore);
     this.getStore().setHandler(viewId, handler);
@@ -203,11 +201,12 @@ abstract class HandlerBase {
 
   // 返回弹出框的handler
   public getModalHandler = (viewId: string): HandlerModalImpl => {
-    const handler = this.getHandler<HandlerModalImpl>(viewId);
-    if (isUndefined(handler)) {
-      throw new Error(`${viewId}对应的handler不存在`);
-    }
-    return handler;
+    return this.getHandler<HandlerModalImpl>(viewId);
+  };
+
+  // 返回侧边栏弹出框
+  public getDrawerHandler = (viewId: string): HandlerDrawerImpl => {
+    return this.getHandler<HandlerDrawerImpl>(viewId);
   };
 }
 export default HandlerBase;

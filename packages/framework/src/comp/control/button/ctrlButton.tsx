@@ -1,7 +1,7 @@
 import { Button } from 'antd';
 import { isUndefined } from 'lodash';
-import { SysCtrlProps } from '../interface';
-import { CtrlButtonProps } from './interface';
+import { type SysCtrlProps } from '../interface';
+import { type CtrlButtonProps } from './interface';
 import './index.less';
 
 const CtrlButton: React.FC<SysCtrlProps<CtrlButtonProps>> = (props) => {

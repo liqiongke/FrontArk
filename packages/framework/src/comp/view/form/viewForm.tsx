@@ -1,5 +1,5 @@
 import CtrlFactory from '@/comp/ctrlFactory';
-import { useView } from '@/stores/store/useView';
+import { useView } from '@/stores/store/hooks/useView';
 import PathUtils from '@utils/pathUtils';
 import { SysViewProps, ViewType } from '@view/interface';
 import { Row } from 'antd';

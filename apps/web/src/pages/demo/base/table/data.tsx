@@ -1,7 +1,7 @@
 import { DataBase, type DataProps } from '@jl/framework';
 
 class Data extends DataBase {
-  mainView: DataProps = {
+  mainTable: DataProps = {
     id: 'table',
     url: '/demo/base/table',
     keyAttr: 'id',

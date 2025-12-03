@@ -1,20 +1,25 @@
 import { DPath } from 'src/stores/store/interface';
 import { CtrlStructType } from '../control/interface';
+import { LayoutDrawerProps } from './drawer/interface';
 import { LayoutFlexProps } from './flex/interface';
 import { ViewFormProps } from './form/interface';
 import { LayoutModalProps } from './modal/interface';
 import { ViewTabProps } from './tab/interface';
 import { ViewTableProps } from './table/interface';
+import { ViewToolBarProps } from './toolbar/interface';
+import DataProps from '@/data/interface';
 
 /**
  * 视图结构类型
  */
 export type ViewStructType =
   | LayoutFlexProps
+  | LayoutModalProps
+  | LayoutDrawerProps
   | ViewFormProps
   | ViewTableProps
   | ViewTabProps
-  | LayoutModalProps;
+  | ViewToolBarProps;
 
 /**
  * 视图类型
@@ -28,6 +33,11 @@ export enum ViewType {
    * @name 组件 表单
    */
   Form = 'VIEW_FORM',
+
+  /**
+   * @name 组件 工具栏
+   */
+  Toolbar = 'VIEW_TOOLBAR',
 
   /**
    * @name flex布局
@@ -64,7 +74,7 @@ export interface ViewStructBase {
   type: ViewType;
 
   /**
-   * @name 取值路径
+   * @name 取值方式
    */
   path?: DPath;
 }

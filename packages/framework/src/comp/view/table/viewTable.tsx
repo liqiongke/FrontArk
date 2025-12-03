@@ -1,25 +1,49 @@
-import { useView } from '@/stores/store/useView';
-import useValue from '@store/useValue';
+import { KeyAttr } from '@/interface';
+import { useData } from '@/stores/store/hooks/useValue';
+import { useView } from '@/stores/store/hooks/useView';
 import { Table } from 'antd';
 import { isArray } from 'lodash';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import SearchPanel from '../comp/searchPanel/SearchPanel';
 import { SysViewProps } from '../interface';
+import TableRow from './comp/basetable/tableRow';
 import { ViewTableProps } from './interface';
-import './styles/table.less';
+import './styles/index.less';
 import TableUtils from './utils/tableUtils';
 
 const ViewTable: React.FC<SysViewProps> = (props) => {
   const [view] = useView<ViewTableProps>(props.viewId);
-  const [data] = useValue(view.path);
+  const data = useData(view.path);
 
+  // 生成表格列
   const colnums = useMemo(
     () => TableUtils.createColumns(view.items, view.path),
     [view.items, view.path],
   );
 
+  // 设置自定义组件
+  const components = useRef({
+    body: {
+      row: TableRow,
+    },
+  });
+
+  const scroll = useRef({
+    y: view.height ?? 400,
+  });
+
   return (
     <div className="view-table">
-      <Table rowKey={view.rowKey} columns={colnums} dataSource={isArray(data) ? data : []} />
+      <SearchPanel viewId={props.viewId} items={view.searchItems} />
+      <Table
+        scroll={scroll.current}
+        virtual={true}
+        rowHoverable={false}
+        rowKey={KeyAttr}
+        columns={colnums}
+        components={components.current}
+        dataSource={isArray(data) ? data : []}
+      />
     </div>
   );
 };

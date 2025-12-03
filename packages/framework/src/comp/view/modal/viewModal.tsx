@@ -1,10 +1,11 @@
-import { ParamKey, useParamByKey, useView } from '@/stores/store/useView';
+import { useParamByKey, useView } from '@/stores/store/hooks/useView';
+import { ParamKey } from '@/stores/store/interface';
 import { SysViewProps } from '@view/interface';
+import { useMemoizedFn } from 'ahooks';
 import { Modal } from 'antd';
 import React from 'react';
 import CompFactory from '../../compFactory';
 import { LayoutModalProps } from './interface';
-import { useMemoizedFn } from 'ahooks';
 const ViewModal: React.FC<SysViewProps> = (props) => {
   const [view] = useView<LayoutModalProps>(props.viewId);
   const [open, setOpen] = useParamByKey(props.viewId, ParamKey.Open);

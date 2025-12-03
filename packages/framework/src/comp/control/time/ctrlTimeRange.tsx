@@ -1,4 +1,4 @@
-import useValue from '@store/useValue';
+import { useDataState } from '@/stores/store/hooks/useValue';
 import { useMemoizedFn } from 'ahooks';
 import { TimePicker } from 'antd';
 import { SysCtrlProps } from '../interface';
@@ -10,7 +10,7 @@ const { RangePicker } = TimePicker;
 const CtrlTimeRange: React.FC<SysCtrlProps<CtrlTimeRangeProps>> = (props) => {
   const { ctrl, path } = props;
 
-  const [value, setValue] = useValue(path);
+  const [value, setValue] = useDataState(path);
 
   const onChange = useMemoizedFn((times: any, timeStrings: string[]) => {
     setValue(timeStrings);

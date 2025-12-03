@@ -1,11 +1,19 @@
 import HandlerViewBase from '@/handler/handlerViewBase';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { DPath, IStoreBase } from './interface';
-import { getData, setData } from './utils/data';
-import { getHandler, setHandler } from './utils/handler';
-import { initStore } from './utils/init';
-import { getView, getViewParams, setView, setViewParamByKey, setViewParams } from './utils/view';
+import { type DPath, IStoreBase } from './interface';
+import { getData, setData, setDataDebounce } from './utils/storeData';
+import { getHandler, setHandler } from './utils/storeHandler';
+import { initStore } from './utils/storeInit';
+import {
+  getView,
+  getViewParamByKey,
+  getViewParams,
+  setView,
+  setViewParamByKey,
+  setViewParams,
+} from './utils/storeView';
+import { getReqParams, sendReq } from './utils/storeReq';
 
 const createBaseStore = () => {
   return create<IStoreBase>()(
@@ -17,17 +25,30 @@ const createBaseStore = () => {
       handler: {},
       init: (ViewClass, DataClass, HandlerClass) =>
         initStore(ViewClass, DataClass, HandlerClass, set, get),
+
+      // 视图请求
       setView: (viewId: string, view: any) => setView(viewId, view, set),
       getView: (viewId?: string) => getView(viewId, get),
-      getHandler: (viewId?: string) => getHandler(viewId, get),
-      setHandler: (viewId: string, handler: HandlerViewBase) => setHandler(viewId, handler, set),
       setViewParams: (viewId: string, values: any, init?: boolean) =>
         setViewParams(viewId, values, init, set),
       setViewParamByKey: (viewId: string, key: string, value: string) =>
         setViewParamByKey(viewId, key, value, set),
       getViewParams: (viewId: string) => getViewParams(viewId, get),
-      setData: (path: DPath, value: any) => setData(path, value, set),
+      getViewParamByKey: (viewId: string, key: string) => getViewParamByKey(viewId, key, get),
+
+      // 工具栏
+      getHandler: (viewId?: string) => getHandler(viewId, get),
+      setHandler: (viewId: string, handler: HandlerViewBase) => setHandler(viewId, handler, set),
+
+      // 数据类
+      setData: (path: DPath, value: any) => setData(path, value, get, set),
+      setDataDebounce: (path: DPath, value: any) => setDataDebounce(path, value, get),
       getData: (path: DPath) => getData(path, get),
+
+      // 数据请求相关参数
+      getReqParams: (viewId: string) => getReqParams(viewId, get),
+      // 重新发送请求
+      sendReq: (viewId: string) => sendReq(viewId, get, set),
     })),
   );
 };

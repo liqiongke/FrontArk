@@ -41,6 +41,18 @@ export const menuData: MenuItem[] = [
             key: '/demo/base/form',
             label: '表单',
           },
+          {
+            key: '/demo/base/modal',
+            label: '弹出框',
+          },
+          {
+            key: '/demo/base/drawer',
+            label: '抽屉',
+          },
+          {
+            key: '/demo/base/tab',
+            label: '标签页',
+          },
         ],
       },
       {

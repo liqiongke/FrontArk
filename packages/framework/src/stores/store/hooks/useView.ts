@@ -2,23 +2,15 @@ import { ViewStructType } from '@/comp/view/interface';
 import { useMemoizedFn } from 'ahooks';
 import { get, isUndefined } from 'lodash';
 import { useContext } from 'react';
-import StoreContext from './storeContext';
-
-export enum ParamKey {
-  // 焦点参数
-  Active = '@active',
-  // 是否开启
-  Open = '@open',
-  // 返回所有的参数
-  All = '@all',
-}
+import StoreContext from '../storeContext';
+import { ParamKey } from '../interface';
 
 // 获取读取值
 export const useView = <V extends ViewStructType>(viewId: string): [V, (view: V) => void] => {
   const useStore = useContext(StoreContext);
 
   const view: V = useStore((state) => {
-    return state.getView(viewId);
+    return state.getView(viewId) as V;
   });
 
   const setView = useMemoizedFn((view: V) => {

@@ -1,4 +1,4 @@
-import { OptionItem } from '@/interface';
+import { type OptionItem } from '@/interface';
 import { CtrlBase, Ctrl } from '../interface';
 
 export interface CtrlLinkProps extends CtrlBase {

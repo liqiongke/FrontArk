@@ -1,4 +1,4 @@
-import useValue from '@store/useValue';
+import { useDataState } from '@/stores/store/hooks/useValue';
 import { useMemoizedFn } from 'ahooks';
 import { Radio } from 'antd';
 import { SysCtrlProps } from '../interface';
@@ -8,7 +8,7 @@ import { CtrlRadioProps } from './interface';
 const CtrlRadio: React.FC<SysCtrlProps<CtrlRadioProps>> = (props) => {
   const { ctrl, path } = props;
 
-  const [value, setValue] = useValue(path);
+  const [value, setValue] = useDataState(path);
 
   const onChange = useMemoizedFn((e: any) => {
     // 如果点击的是当前选中的值，则取消勾选

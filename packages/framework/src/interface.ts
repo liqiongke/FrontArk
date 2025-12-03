@@ -23,12 +23,12 @@ export interface ViewHooksProps {
 }
 
 // 视图层传入参数
-export interface ViewProps<H extends HandlerBase> {
+export interface ViewProps<H extends HandlerBase, D extends DataBase> {
   // useStore: UseBoundStore<StoreApi<IStoreBase>>;
   // 视图生成函数
-  ViewClass: new (handler: H) => ViewBase<H>;
+  ViewClass: new (handler: H, data: D) => ViewBase<H, D>;
   // 数据生成函数
-  DataClass: new () => DataBase;
+  DataClass: new () => D;
   // 处理函数
   HandlerClass: new () => H;
 }

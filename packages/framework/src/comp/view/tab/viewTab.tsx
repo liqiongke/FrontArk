@@ -1,10 +1,11 @@
-import { ParamKey, useParamByKey, useView } from '@/stores/store/useView';
-import { SysViewProps } from '@view/interface';
+import { useParamByKey, useView } from '@/stores/store/hooks/useView';
+import { ParamKey } from '@/stores/store/interface';
+import { type SysViewProps } from '@view/interface';
 import { Tabs } from 'antd';
 import { get } from 'lodash';
 import React, { useMemo } from 'react';
 import CompFactory from '../../compFactory';
-import { ViewTabProps } from './interface';
+import { type ViewTabProps } from './interface';
 const ViewTab: React.FC<SysViewProps> = (props) => {
   const [view] = useView<ViewTabProps>(props.viewId);
   const [activeKey, setActiveKey] = useParamByKey(props.viewId, ParamKey.Active);
