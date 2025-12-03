@@ -1,10 +1,8 @@
 import { ViewHandlerMap } from '@/comp/compFactory';
 import HandlerDrawerImpl from '@/comp/view/drawer/handler/handlerDrawer';
 import HandlerModalImpl from '@/comp/view/modal/handler/handlerModal';
-import { SysDataProps } from '@/data/interface';
 import NetUtils from '@/utils/netUtils';
-import { NetDataUtils } from '@/utils/netUtils/netDataUtils';
-import { get, isArray, isFunction, isString, isUndefined, set } from 'lodash';
+import { isUndefined } from 'lodash';
 import { DPath, IStoreBase } from 'src/stores/store/interface';
 import HandlerViewBase from './handlerViewBase';
 
@@ -18,17 +16,7 @@ abstract class HandlerBase {
   }
 
   // 触发所有的数据请求
-  initDataReq() {
-    const store = this.getStore();
-
-    // 遍历所有的请求,只触发没有父组件的请求
-    Object.keys(store.req).forEach((dataId) => {
-      const dataReq = store.req[dataId];
-      if (isUndefined(dataReq.parentIds) || dataReq.parentIds.length === 0) {
-        this.fetchData(dataId);
-      }
-    });
-  }
+  initDataReq() {}
 
   // 获取数据
   public getData(path?: DPath) {
@@ -62,115 +50,6 @@ abstract class HandlerBase {
 
   async post(url: string, params?: Record<string, any>) {
     return NetUtils.post(url, params);
-  }
-
-  // 发送数据请求
-  async fetchData(dataId: string): Promise<any> {
-    const store = this.getStore();
-    const dataReq = get(store.req, dataId);
-    if (isUndefined(dataReq)) {
-      console.warn(`数据请求${dataId}不存在`);
-      return;
-    }
-
-    // 检查依赖关系
-    if (dataReq.parentIds && dataReq.parentIds.length > 0) {
-      const parentData = await this.checkDependencies(dataReq.parentIds);
-      if (!parentData) {
-        console.warn(`数据请求${dataId}的依赖数据未就绪`);
-        return;
-      }
-    }
-
-    // 构建请求参数
-    const params = this.buildRequestParams(dataReq);
-
-    // 发送请求
-    return this.getReqData(dataReq, params);
-  }
-
-  // 检查依赖数据
-  private async checkDependencies(parentIds: string[]): Promise<boolean> {
-    const store = this.getStore();
-    for (const parentId of parentIds) {
-      const parentData = get(store.data, parentId);
-      if (isUndefined(parentData)) {
-        // 如果依赖数据不存在，尝试获取依赖数据
-        await this.fetchData(parentId);
-        const updatedParentData = get(store.data, parentId);
-        if (isUndefined(updatedParentData)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  // 构建请求参数
-  private buildRequestParams(dataReq: SysDataProps): Record<string, any> {
-    const params: Record<string, any> = dataReq.criteria ?? {};
-    const store = this.getStore();
-
-    if (!isArray(dataReq.params)) {
-      return {};
-    }
-
-    dataReq.params.forEach((item) => {
-      if (isUndefined(get(params, item.field)) && !isUndefined(item.value)) {
-        set(params, item.field, item.value);
-        return;
-      }
-      if (!isUndefined(item.path)) {
-        const val = store.getData(item.path);
-        set(params, item.field, val);
-      }
-    });
-
-    return params;
-  }
-
-  // 获取数据函数
-  private async getReqData(req: SysDataProps, params: Record<string, any>): Promise<any> {
-    // 2.发送网络请求获取数据
-    if (isString(req.url) && req.url.length > 0) {
-      try {
-        const result = await NetUtils.get(req.url, params);
-
-        // 处理数据格式化
-        let data = get(result, 'data');
-        if (isFunction(req.format)) {
-          data = req.format(data);
-        }
-
-        // 提取关键数据
-        const coreData = NetDataUtils.extractCoreData(data);
-
-        // 存储数据
-        const cData = NetDataUtils.initData(coreData.data, req);
-        this.setData(req.id, cData);
-        this.setViewParams(req.id, coreData.params);
-
-        // 触发子节点请求
-        if (req.childIds && req.childIds.length > 0) {
-          await this.triggerChildRequests(req.childIds);
-        }
-
-        return cData;
-      } catch (error) {
-        console.error(`数据请求${req.id}失败:`, error);
-        throw error;
-      }
-    }
-
-    this.setData(req.id, NetDataUtils.initData(req.defaultData, req));
-    return req.defaultData;
-  }
-
-  // 触发子节点请求
-  private async triggerChildRequests(childIds: string[]): Promise<void> {
-    for (const childId of childIds) {
-      await this.fetchData(childId);
-    }
   }
 
   public getView = (viewId: string) => {

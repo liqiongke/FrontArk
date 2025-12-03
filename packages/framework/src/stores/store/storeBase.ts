@@ -13,7 +13,7 @@ import {
   setViewParamByKey,
   setViewParams,
 } from './utils/storeView';
-import { getReqParams, sendReq } from './utils/storeReq';
+import StoreReq from './utils/storeReq';
 
 const createBaseStore = () => {
   return create<IStoreBase>()(
@@ -46,9 +46,9 @@ const createBaseStore = () => {
       getData: (path: DPath) => getData(path, get),
 
       // 数据请求相关参数
-      getReqParams: (viewId: string) => getReqParams(viewId, get),
+      getReqParams: (viewId: string) => StoreReq.getReqParams(viewId),
       // 重新发送请求
-      sendReq: (viewId: string) => sendReq(viewId, get, set),
+      refreshByViewId: (viewId: string) => StoreReq.send(viewId),
     })),
   );
 };

@@ -10,7 +10,7 @@ export { default as ViewPathUtils } from '@utils/viewPathUtils';
 export type { Result } from '@utils/netUtils/interface';
 
 // 根视图
-export { default as ViewRoot } from '@/view';
+export { default as ViewRoot } from '@/ViewRoot';
 
 // handler类
 export { default as HandlerBase } from '@handler/handlerBase';

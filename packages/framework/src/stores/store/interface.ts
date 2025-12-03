@@ -7,6 +7,8 @@ import { ViewStructType } from '@/comp/view/interface';
 
 // 视图在store中的存储类型
 export interface ViewStore {
+  // 原始视图
+  [PathKey.Root]?: ViewBase<any, any>;
   [key: string]: any;
 }
 
@@ -39,8 +41,6 @@ export enum ParamKey {
   Active = '@Active',
   // 焦点的路径
   ActivePath = '@ActivePath',
-  // 分页信息
-  Pagination = '@Pagination',
   // 选中项
   Select = '@Select',
   // 是否开启控制参数
@@ -67,6 +67,8 @@ export enum PathKey {
   View = '@View',
   // 视图参数
   ViewParam = '@ViewParam',
+  // 根节点
+  Root = '@Root',
 }
 
 export interface IStoreData {
@@ -88,7 +90,7 @@ export interface IStoreActions {
     ViewClass: new (handler: H, data: D) => ViewBase<H, D>,
     DataClass: new () => D,
     HandlerClass: new () => H,
-  ) => [ViewBase<H, D> | undefined, H | undefined];
+  ) => [ViewBase<H, D> | undefined, string[]];
   // 视图信息设置
   // 设置视图
   setView: (viewId: string, view: any) => void;
@@ -119,8 +121,8 @@ export interface IStoreActions {
 
   // 数据请求相关参数
   getReqParams: (viewId: string) => { [key: string]: any };
-  // 重新发送请求
-  sendReq: (viewId: string) => void;
+  // 刷新请求
+  refreshByViewId: (viewId: string) => void;
 }
 
 export interface IStoreBase extends IStoreData, IStoreActions {}
