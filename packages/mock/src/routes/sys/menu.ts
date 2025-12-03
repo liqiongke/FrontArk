@@ -13,57 +13,37 @@ export const menuData: MenuItem[] = [
   },
   {
     key: '/base',
-    label: '基础数据',
+    label: '基础组件',
     children: [
       {
-        key: '/base/dict',
-        label: '字典',
+        key: '/base/table',
+        label: '表格',
       },
       {
-        key: '/base/setting',
-        label: '设置',
+        key: '/base/form',
+        label: '表单',
+      },
+      {
+        key: '/base/modal',
+        label: '弹出框',
+      },
+      {
+        key: '/base/drawer',
+        label: '抽屉',
+      },
+      {
+        key: '/base/tab',
+        label: '标签页',
       },
     ],
   },
   {
-    key: '/demo',
-    label: 'Demo',
+    key: '/composite',
+    label: '组合组件',
     children: [
       {
-        key: '/demo/base',
-        label: '基础组件',
-        children: [
-          {
-            key: '/demo/base/table',
-            label: '表格',
-          },
-          {
-            key: '/demo/base/form',
-            label: '表单',
-          },
-          {
-            key: '/demo/base/modal',
-            label: '弹出框',
-          },
-          {
-            key: '/demo/base/drawer',
-            label: '抽屉',
-          },
-          {
-            key: '/demo/base/tab',
-            label: '标签页',
-          },
-        ],
-      },
-      {
-        key: '/demo/composite',
-        label: '组合组件',
-        children: [
-          {
-            key: '/demo/composite/formAndTable',
-            label: '表单&表格',
-          },
-        ],
+        key: '/composite/formAndTable',
+        label: '表单&表格',
       },
     ],
   },
