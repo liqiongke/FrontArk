@@ -1,12 +1,12 @@
+import { ViewType } from '@/comp/view/interface';
+import { get, isUndefined } from 'lodash';
 import DataBase from 'src/data/dataBase';
 import HandlerBase from 'src/handler/handlerBase';
 import ViewBase from '../../../comp/viewBase';
 import { IStoreBase, PathKey } from '../interface';
 import { initDataAndReq } from './storeData';
-import { initView } from './storeView';
 import StoreReq from './storeReq';
-import { get, isUndefined } from 'lodash';
-import { ViewType } from '@/comp/view/interface';
+import { initView } from './storeView';
 
 // 预渲染类型,需要在初始化页面的时候,将组件渲染到视图上
 const PreRenderType = [ViewType.LayoutModal, ViewType.LayoutDrawer];
