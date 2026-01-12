@@ -13,7 +13,7 @@ import TableUtils from './utils/tableUtils';
 
 const ViewTable: React.FC<SysViewProps> = (props) => {
   const [view] = useView<ViewTableProps>(props.viewId);
-  const data = useDataById(view.path);
+  const data = useDataById(view.dataId);
 
   // 生成表格列
   const colnums = useMemo(

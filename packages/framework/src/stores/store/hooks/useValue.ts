@@ -53,10 +53,11 @@ export const useData = (path: DPath) => {
 /**
  * 根据数据Id返回数据
  */
-export const useDataById = (id?: string) => {
-  const useStore = useContext(StoreContext);
+export const useDataById = (id?: string): [data: any, path?: string] => {
   if (!isString(id)) {
-    return;
+    return [];
   }
-  return useStore((state) => state.getData(id));
+  const useStore = useContext(StoreContext);
+  const data = useStore((state) => state.getData(id));
+  return [data];
 };

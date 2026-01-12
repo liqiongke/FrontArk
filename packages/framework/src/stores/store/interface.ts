@@ -120,6 +120,8 @@ export interface IStoreActions {
   setDataDebounce: (path: DPath, data: any) => void;
   // 获取指定路径下的数据
   getData: (path: DPath) => any;
+  // 根据Data的id获取对应的请求路径,因为所有的dataPath都是存储在data中的
+  getPathByDataId: (id?: string) => DPath;
 
   // 数据请求相关参数
   getReqParams: (viewId: string) => { [key: string]: any };
