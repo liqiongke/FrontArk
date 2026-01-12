@@ -114,6 +114,8 @@ export interface IStoreActions {
   // 数据源设置
   // 设置指定路径下的数据
   setData: (path: DPath, data: any) => void;
+  // 使用函数方式设置数据
+  setDataByFn: (path: DPath, dataFn: (data: any) => void) => void;
   // 设置指定路径下的数据,缓动触发
   setDataDebounce: (path: DPath, data: any) => void;
   // 获取指定路径下的数据

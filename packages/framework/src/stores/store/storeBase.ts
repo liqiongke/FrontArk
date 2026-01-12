@@ -2,7 +2,7 @@ import HandlerViewBase from '@/handler/handlerViewBase';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { type DPath, IStoreBase } from './interface';
-import { getData, setData, setDataDebounce } from './utils/storeData';
+import { getData, setData, setDataByFn, setDataDebounce } from './utils/storeData';
 import { getHandler, setHandler } from './utils/storeHandler';
 import { initStore } from './utils/storeInit';
 import {
@@ -42,6 +42,7 @@ const createBaseStore = () => {
 
       // 数据类
       setData: (path: DPath, value: any) => setData(path, value, get, set),
+      setDataByFn: (path: DPath, dataFn: (data: any) => any) => setDataByFn(path, dataFn, get, set),
       setDataDebounce: (path: DPath, value: any) => setDataDebounce(path, value, get),
       getData: (path: DPath) => getData(path, get),
 

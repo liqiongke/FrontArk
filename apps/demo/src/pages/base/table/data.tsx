@@ -11,6 +11,11 @@ class Data extends DataBase {
     id: 'form',
     url: '/demo/base/form',
   };
+
+  mainFormData: DataProps = {
+    id: 'formData',
+    path: [DataBase.active(this.mainTable.id)],
+  };
 }
 
 export default Data;

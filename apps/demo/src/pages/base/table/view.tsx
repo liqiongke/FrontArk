@@ -1,12 +1,12 @@
-import { Ctrl, VType, ViewBase, ViewPathUtils, type VProps } from '@jl/framework';
-import type Handler from './handler';
+import { Ctrl, VType, ViewBase, type VProps } from '@jl/framework';
 import type Data from './data';
+import type Handler from './handler';
 
 class View extends ViewBase<Handler, Data> {
   table1: VProps.Table = {
     id: 'table1',
     type: VType.Table,
-    path: this.data.mainTable.id,
+    dataId: this.data.mainTable.id,
     searchItems: [
       { title: '产品ID', field: 'id' },
       { title: '产品名称', field: 'name' },
@@ -32,7 +32,7 @@ class View extends ViewBase<Handler, Data> {
   form1: VProps.Form = {
     id: 'form1',
     type: VType.Form,
-    path: [ViewPathUtils.active(this.table1.id)],
+    dataId: this.data.mainFormData.id,
     items: [
       { title: '价格', field: 'price' },
       { title: '产品类别', field: 'category' },

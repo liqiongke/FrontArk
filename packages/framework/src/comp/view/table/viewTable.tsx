@@ -1,5 +1,5 @@
 import { KeyAttr } from '@/interface';
-import { useData } from '@/stores/store/hooks/useValue';
+import { useData, useDataById } from '@/stores/store/hooks/useValue';
 import { useView } from '@/stores/store/hooks/useView';
 import { Table } from 'antd';
 import { isArray } from 'lodash';
@@ -13,7 +13,7 @@ import TableUtils from './utils/tableUtils';
 
 const ViewTable: React.FC<SysViewProps> = (props) => {
   const [view] = useView<ViewTableProps>(props.viewId);
-  const data = useData(view.path);
+  const data = useDataById(view.path);
 
   // 生成表格列
   const colnums = useMemo(

@@ -191,9 +191,18 @@ export default class StoreReq {
 
   /**
    * 重新发送请求
-   * @param viewId
-   * @param zGet
-   * @param zSet
+   * @param viewId 视图ID
    */
-  public static send = (viewId: string) => {};
+  public static send = async (viewId: string): Promise<any> => {
+    const store = this.zGet();
+    const req = this.getReqByViewId(viewId, store);
+
+    if (isUndefined(req)) {
+      console.warn(`视图${viewId}对应的请求不存在`);
+      return;
+    }
+
+    // 使用现有的fetchData方法发送请求
+    return this.fetchData(req.id);
+  };
 }
