@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "pnpm dev:mock",
+      "type": "shell",
+      "command": "pnpm run dev:mock",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

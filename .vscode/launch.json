@@ -8,6 +8,7 @@
       "type": "chrome",
       "request": "launch",
       "name": "Launch Chrome against localhost",
+      "preLaunchTask": "pnpm dev:mock",
       "url": "http://localhost:7000",
       "webRoot": "${workspaceFolder}"
     }
