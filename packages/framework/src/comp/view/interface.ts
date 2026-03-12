@@ -74,9 +74,9 @@ export interface ViewStructBase {
   type: ViewType;
 
   /**
-   * @name 取值方式
+   * @name dataId
    */
-  path?: DPath;
+  dataId?: string;
 }
 
 export interface ViewItem {

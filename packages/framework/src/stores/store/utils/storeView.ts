@@ -5,7 +5,9 @@ import { getActivePath } from './storeDataPath';
 
 // 初始化视图
 export const initView = (view: ViewBase<any, any>): ViewStore => {
-  let viewStore = {};
+  let viewStore = {
+    [PathKey.Root]: view,
+  };
   for (const key in view) {
     const v = initViewItem(get(view, key));
     if (!isUndefined(v)) {

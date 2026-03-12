@@ -3,6 +3,8 @@ import { DPath } from '@store/interface';
 // 数据类型
 export default interface DataProps {
   id: string;
+  // 引用数据路径,如果当前值存在,则不发送数据请求
+  path?: DPath;
   // 数据请求url
   url?: string;
   // 数据请求参数

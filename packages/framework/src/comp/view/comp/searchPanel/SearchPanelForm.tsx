@@ -5,7 +5,7 @@ import SearchPanelItem from './SearchPanelItem';
 import SearchPanelTools from './SearchPanelTools';
 
 const SearchPanelForm: React.FC<SearchPlaneFormProps> = (props) => {
-  const { viewId, items, colNum = 6 } = props;
+  const { viewId, items, colNum = 6, onSearch, onReset } = props;
   const colSize = floor(24 / colNum);
 
   if (!isArray(items) || items.length === 0) {
@@ -20,7 +20,7 @@ const SearchPanelForm: React.FC<SearchPlaneFormProps> = (props) => {
         </Col>
       ))}
       <Col key="tools" span={colSize}>
-        <SearchPanelTools />
+        <SearchPanelTools onSearch={onSearch} onReset={onReset} />
       </Col>
     </Row>
   );

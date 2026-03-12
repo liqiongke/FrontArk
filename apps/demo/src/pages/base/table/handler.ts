@@ -2,7 +2,8 @@ import { HandlerBase, PathKey, printStats, resetStats } from '@jl/framework';
 
 class Handler extends HandlerBase {
   onPrintData = () => {
-    console.log(this.getData([PathKey.Req, 'table']));
+    // console.log(this.getData([PathKey.Req, 'table']));
+    console.log(this.getData([PathKey.Data]));
   };
   onSetData = () => {
     this.setData(['form', 'model'], new Date().toLocaleString());

@@ -2,7 +2,7 @@ import HandlerViewBase from '@/handler/handlerViewBase';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { type DPath, IStoreBase } from './interface';
-import { getData, setData, setDataDebounce } from './utils/storeData';
+import { getData, setData, setDataByFn, setDataDebounce } from './utils/storeData';
 import { getHandler, setHandler } from './utils/storeHandler';
 import { initStore } from './utils/storeInit';
 import {
@@ -13,7 +13,7 @@ import {
   setViewParamByKey,
   setViewParams,
 } from './utils/storeView';
-import { getReqParams, sendReq } from './utils/storeReq';
+import StoreReq from './utils/storeReq';
 
 const createBaseStore = () => {
   return create<IStoreBase>()(
@@ -42,13 +42,14 @@ const createBaseStore = () => {
 
       // 数据类
       setData: (path: DPath, value: any) => setData(path, value, get, set),
+      setDataByFn: (path: DPath, dataFn: (data: any) => any) => setDataByFn(path, dataFn, get, set),
       setDataDebounce: (path: DPath, value: any) => setDataDebounce(path, value, get),
       getData: (path: DPath) => getData(path, get),
 
       // 数据请求相关参数
-      getReqParams: (viewId: string) => getReqParams(viewId, get),
+      getReqParams: (viewId: string) => StoreReq.getReqParams(viewId),
       // 重新发送请求
-      sendReq: (viewId: string) => sendReq(viewId, get, set),
+      refreshByViewId: (viewId: string) => StoreReq.send(viewId),
     })),
   );
 };

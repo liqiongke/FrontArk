@@ -1,6 +1,6 @@
 import PathUtils from '@/utils/pathUtils';
 import { PerfTrackUtils } from '@/utils/sysUtils/perfTrackerUtils';
-import { cloneDeep, get, isObject, isString, isUndefined, set } from 'lodash';
+import { cloneDeep, get, isArray, isFunction, isObject, isString, isUndefined, set } from 'lodash';
 import DataBase from 'src/data/dataBase';
 import { DataReqStore, DataStore, DPath, IStoreBase } from '../interface';
 import { getDataSource, getRealPath } from './storeDataPath';
@@ -57,10 +57,14 @@ export const initDataAndReq = (data: DataBase): [DataStore, DataReqStore] => {
 export const getData = PerfTrackUtils('getData', (path: DPath, zGet: () => IStoreBase) => {
   const rPath = getRealPath(path, zGet);
   if (rPath.length === 0) {
-    return undefined;
+    return zGet().data;
   }
   const dataSource = getDataSource(rPath[0], zGet());
-  return get(dataSource ?? zGet().data, dataSource ? rPath.slice(1) : rPath);
+  const p = dataSource ? rPath.slice(1) : rPath;
+  if (p.length === 0) {
+    return dataSource ?? zGet().data;
+  }
+  return get(dataSource ?? zGet().data, p);
 });
 
 // 设置指定路径下的数据
@@ -80,6 +84,33 @@ export const setData = (
   zSet((state: IStoreBase) => {
     const dataSource = getDataSource(rPath[0], state);
     set(dataSource ?? state.data, dataSource ? rPath.slice(1) : rPath, value);
+    return state;
+  });
+};
+
+export const setDataByFn = (
+  path: DPath,
+  dataFn: (data: any) => void,
+  zGet: () => IStoreBase,
+  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
+) => {
+  if (isUndefined(path) || !isFunction(dataFn)) {
+    return;
+  }
+  const rPath = getRealPath(path, zGet);
+  if (rPath.length === 0) {
+    return;
+  }
+  zSet((state: IStoreBase) => {
+    const dataSource = getDataSource(rPath[0], state);
+    const path = dataSource ? rPath.slice(1) : rPath;
+    console.log('dataSource', state.getData(path));
+    if (path.length === 0) {
+      dataFn(dataSource ?? state.data);
+    } else {
+      dataFn(get(dataSource ?? state.data, path));
+    }
+
     return state;
   });
 };
