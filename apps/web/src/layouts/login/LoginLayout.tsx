@@ -57,7 +57,7 @@ const LoginLayout: React.FC = () => {
           <Text type="secondary">请输入您的登录凭据</Text>
         </div>
 
-        <Form name="login" onFinish={onFinish} autoComplete="off" size="large">
+        <Form name="login" onFinish={onFinish} autoComplete="off" size="large" initialValues={{ username: 'admin', password: '123456' }}>
           <Form.Item
             name="username"
             rules={[
