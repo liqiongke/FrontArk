@@ -1,0 +1,17 @@
+schema_version: 1
+module_path: ""
+title: FrontArk 企业级前端框架 Monorepo
+scope:
+    - .gitignore
+    - .prettierignore
+    - .prettierrc
+    - .stylelintignore
+    - package.json
+    - pnpm-workspace.yaml
+    - pnpm-lock.yaml
+    - turbo.json
+    - eslint.config.js
+    - README.md
+source_files: []
+depends_on: []
+related_to: []
