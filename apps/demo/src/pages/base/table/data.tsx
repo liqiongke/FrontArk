@@ -17,10 +17,8 @@ class Data extends DataBase {
     url: '/demo/base/form',
   } satisfies DataProps;
 
-  mainFormData = {
-    id: 'formData' as const,
-    path: [DataBase.active(this.mainTable.id)],
-  } satisfies DataProps;
+  // 注:表单跟随表格焦点行不经过数据节点,由视图层声明 path: [DataBase.active('table1')] 绑定
+  // (@Active: 引用需指向视图 id,数据节点无法表达对视图焦点行的引用)
 }
 
 export default Data;
@@ -30,7 +28,7 @@ export default Data;
  * 用于约束 setData/getData 路径的首段:路径写错(如把 'table' 拼成 'tables')在编译期即可发现
  * 注意:新增/重命名数据节点时需同步维护此处(删改字段会因类型引用报错而被编译器提示)
  */
-export type DataNodeId = Data['mainTable']['id'] | Data['mainForm']['id'] | Data['mainFormData']['id'];
+export type DataNodeId = Data['mainTable']['id'] | Data['mainForm']['id'];
 
 // 约束首段为数据节点 ID 的取数路径类型
 export type DataNodePath = [DataNodeId, ...(string | number)[]];

@@ -158,7 +158,9 @@ export const getActivePath = (
   if (isUndefined(view)) {
     return [];
   }
-  const path = view.path;
+  // 与 ViewTable 列取数约定一致:未声明 path 时回退 dataId(数据节点 id 即数据树路径首段),
+  // 否则仅声明 dataId 的表格视图无法计算焦点路径,@Active 引用整体失效
+  const path = view.path ?? (isString(view.dataId) ? [view.dataId] : undefined);
   if (isArray(path) && path.length > 0) {
     const firstItem = path[0];
     if (isString(firstItem) && firstItem.startsWith(PathKey.Active)) {
@@ -172,8 +174,8 @@ export const getActivePath = (
     return getActivePath(newViewId, state, activeKey, deep + 1);
   }
 
-  const data = state.getData(view.path);
+  const data = state.getData(path);
   // 使用引用级缓存索引 O(1) 定位,替代对全量数据的 findIndex O(n) 扫描
   const index = getArrayIndexByKey(data, activeKey);
-  return index >= 0 ? PathUtils.mergePath(view.path, index) : undefined;
+  return index >= 0 ? PathUtils.mergePath(path, index) : undefined;
 };

@@ -105,6 +105,16 @@ describe('getActivePath', () => {
     expect(getActivePath('table1', tableState(), 'b')).toEqual(['table', 1]);
   });
 
+  it('未声明 path 时回退 dataId 计算焦点路径(与 ViewTable 列取数约定一致)', () => {
+    const state = createFakeState({
+      getView: (viewId?: string) =>
+        viewId === 'table1' ? { id: 'table1', dataId: 'table' } : undefined,
+      getData: (path: any) =>
+        JSON.stringify(path) === JSON.stringify(['table']) ? rows : undefined,
+    });
+    expect(getActivePath('table1', state, 'a')).toEqual(['table', 0]);
+  });
+
   it('焦点行不存在时返回 undefined', () => {
     expect(getActivePath('table1', tableState(), 'missing')).toBeUndefined();
   });
