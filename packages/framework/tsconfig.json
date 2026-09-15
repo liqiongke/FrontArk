@@ -66,8 +66,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.test.ts",
-    "**/*.test.tsx",
     "**/*.stories.tsx"
-  ] // 排除不需要的文件(测试由 vitest 独立运行)
+  ] // 测试文件纳入编译:复用本配置的 paths 别名供编辑器识别,类型检查由 tsc -b 覆盖,运行仍由 vitest 独立执行
 }
