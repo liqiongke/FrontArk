@@ -1,6 +1,6 @@
-import { ColumnType } from 'antd/es/table';
-import { ViewItem, ViewStructBase, ViewType } from '../interface';
-import { SearchPlaneItem } from '../comp/searchPanel/interface';
+import { type ColumnType } from 'antd/es/table';
+import { type ViewItem, type ViewStructBase, type ViewType } from '../interface';
+import { type SearchPlaneItem } from '../comp/searchPanel/interface';
 
 export type TableColumn = ColumnType<any>;
 

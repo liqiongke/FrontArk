@@ -1,4 +1,4 @@
-import { type ViewStructBase, ViewType } from '../interface';
+import { type ViewStructBase, type ViewType } from '../interface';
 
 export interface TabItem {
   key: string;

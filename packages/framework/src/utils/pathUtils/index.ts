@@ -1,5 +1,5 @@
-import { DPath } from '@store/interface';
-import { ViewItem } from '@view/interface';
+import { type DPath } from '@store/interface';
+import { type ViewItem } from '@view/interface';
 import { isArray, isNull, isNumber, isString, isUndefined } from 'lodash';
 
 // 路径计算工具类

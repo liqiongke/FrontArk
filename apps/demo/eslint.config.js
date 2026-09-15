@@ -28,5 +28,14 @@ export default defineConfig([
         project: ['./tsconfig.json', './tsconfig.app.json', './tsconfig.node.json'],
       },
     },
+    rules: {
+      // 与 tsconfig 的 verbatimModuleSyntax 对齐：类型导入必须显式标记 type
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
+      ],
+      // TODO: 与 framework 保持一致，类型收窄完成后恢复为 error
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
   },
 ])

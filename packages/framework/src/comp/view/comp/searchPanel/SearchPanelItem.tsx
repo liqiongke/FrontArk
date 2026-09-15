@@ -1,8 +1,8 @@
 import { Ctrl } from '@/comp/control/interface';
 import CtrlFactory from '@/comp/ctrlFactory';
-import { FC } from 'react';
+import { type FC } from 'react';
 import './index.less';
-import { SearchPlaneItemProps } from './interface';
+import { type SearchPlaneItemProps } from './interface';
 import { PathKey } from '@/stores/store/interface';
 
 // 搜索下拉面板面板

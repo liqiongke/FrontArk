@@ -2,15 +2,15 @@ import { useReq } from '@/stores/store/hooks/useReq';
 import KeyboardKey from '@/utils/baseUtils/keyboardUtils';
 import { useMemoizedFn } from 'ahooks';
 import { isArray } from 'lodash';
-import { FC } from 'react';
+import { type FC } from 'react';
 import './index.less';
-import { SearchPlaneProps } from './interface';
+import { type SearchPlaneProps } from './interface';
 import SearchPanelForm from './SearchPanelForm';
 
 // 通用的搜索面板
 const SearchPanel: FC<SearchPlaneProps> = (props) => {
   const { viewId, items } = props;
-  const [params, sendReq, reset] = useReq(viewId);
+  const [, sendReq, reset] = useReq(viewId);
 
   const onSearch = useMemoizedFn(() => {
     sendReq();

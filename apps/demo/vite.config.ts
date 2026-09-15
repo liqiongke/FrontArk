@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react-swc';
 import { defineConfig, loadEnv } from 'vite';
 import Pages from 'vite-plugin-pages';
 import path from 'path';
-import { getAliasConfig } from '../../packages/framework/vite.config';
+import { getFrameworkAliases } from '../../packages/framework/alias';
 
 export default defineConfig(({ mode }) => {
   // 根据mode加载对应的环境变量
@@ -22,10 +22,10 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        // 关键配置：将 @jl/framework 包指向源码目录
+        // 将 @jl/framework 包指向源码目录，开发与构建均直接消费框架源码
         '@jl/framework': path.resolve(__dirname, '../../packages/framework/src'),
-        // 使用框架项目定义的别名配置
-        ...getAliasConfig(),
+        // 复用框架定义的别名配置，保证框架内部别名可解析
+        ...getFrameworkAliases(),
       },
     },
     define: {

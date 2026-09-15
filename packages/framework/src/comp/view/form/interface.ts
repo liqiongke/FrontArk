@@ -1,5 +1,5 @@
-import { CtrlButtonProps } from '@ctrl/button/interface';
-import { ViewItem, ViewStructBase, ViewType } from '@view/interface';
+import { type CtrlButtonProps } from '@ctrl/button/interface';
+import { type ViewItem, type ViewStructBase, type ViewType } from '@view/interface';
 
 export interface ViewFormProps extends ViewStructBase {
   type: ViewType.Form;

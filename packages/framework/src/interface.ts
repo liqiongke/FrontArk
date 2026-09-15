@@ -1,7 +1,7 @@
 import type { StoreApi, UseBoundStore } from 'zustand';
-import ViewBase from './comp/viewBase';
-import DataBase from './data/dataBase';
-import HandlerBase from './handler/handlerBase';
+import type ViewBase from './comp/viewBase';
+import type DataBase from './data/dataBase';
+import type HandlerBase from './handler/handlerBase';
 import { type IStoreBase } from './stores/store/interface';
 
 // 通用键值

@@ -1,7 +1,7 @@
 import { KeyAttr } from '@/interface';
 import PathUtils from '@/utils/pathUtils';
 import { isArray, isNumber, isString, isUndefined } from 'lodash';
-import { DPath, IStoreBase, ParamKey, PathKey, PathSplit } from '../interface';
+import { type DPath, type IStoreBase, ParamKey, PathKey, PathSplit } from '../interface';
 
 /**
  * 将引用路径转换成实际的数据路径
@@ -46,7 +46,7 @@ export const getRealPath = (
   if (isString(path) && path.length > 0) {
     // 处理按照焦点行路径获取数据 (@Active)
     if (path.startsWith(PathKey.Active)) {
-      const [_, viewId] = path.split(PathSplit);
+      const viewId = path.split(PathSplit)[1];
       const activePath = zGet().getViewParamByKey(viewId, ParamKey.ActivePath);
       return isArray(activePath) ? activePath : [];
     }
@@ -96,17 +96,17 @@ export const getActivePath = (
   if (isUndefined(view)) {
     return [];
   }
-  let path = view.path;
+  const path = view.path;
   if (isArray(path) && path.length > 0) {
     const firstItem = path[0];
     if (isString(firstItem) && firstItem.startsWith(PathKey.Active)) {
-      const [_, newViewId] = firstItem.split(PathSplit);
+      const newViewId = firstItem.split(PathSplit)[1];
       return getActivePath(newViewId, state, activeKey, deep + 1);
     }
   }
 
   if (isString(path) && path.startsWith(PathKey.Active)) {
-    const [_, newViewId] = path.split(PathSplit);
+    const newViewId = path.split(PathSplit)[1];
     return getActivePath(newViewId, state, activeKey, deep + 1);
   }
 

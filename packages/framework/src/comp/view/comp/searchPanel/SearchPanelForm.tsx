@@ -1,5 +1,5 @@
 import { floor, isArray } from 'lodash';
-import { SearchPlaneFormProps } from './interface';
+import { type SearchPlaneFormProps } from './interface';
 import { Col, Row } from 'antd';
 import SearchPanelItem from './SearchPanelItem';
 import SearchPanelTools from './SearchPanelTools';

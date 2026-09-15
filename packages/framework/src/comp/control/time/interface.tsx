@@ -1,5 +1,5 @@
-import { ValueType } from '@/interface';
-import { Ctrl, CtrlBase } from '../interface';
+import { type ValueType } from '@/interface';
+import { type Ctrl, type CtrlBase } from '../interface';
 
 export interface CtrlTimeBaseProps extends CtrlBase {
   // 时间格式，如 'HH:mm:ss'

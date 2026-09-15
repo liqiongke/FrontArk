@@ -1,5 +1,5 @@
-import DataBase from '@/data/dataBase';
-import HandlerBase from '@handler/handlerBase';
+import type DataBase from '@/data/dataBase';
+import type HandlerBase from '@handler/handlerBase';
 
 abstract class ViewBase<HandlerClass extends HandlerBase, DataSource extends DataBase> {
   public handler!: HandlerClass;

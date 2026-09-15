@@ -1,6 +1,6 @@
-import { SysViewProps } from '@view/interface';
+import { type SysViewProps } from '@view/interface';
 import CompFactory from '../../compFactory';
-import { FlexDirection, LayoutFlexProps } from './interface';
+import { FlexDirection, type LayoutFlexProps } from './interface';
 import { useView } from '@/stores/store/hooks/useView';
 
 const LayoutFlex: React.FC<SysViewProps> = (props) => {

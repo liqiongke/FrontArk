@@ -1,5 +1,5 @@
 import { get, isString, set } from 'lodash';
-import { IStoreBase } from '../interface';
+import { type IStoreBase } from '../interface';
 
 export const getHandler = (viewId: string | undefined, zGet: () => IStoreBase) => {
   if (!isString(viewId) || viewId.length == 0) {

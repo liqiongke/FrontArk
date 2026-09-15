@@ -1,8 +1,8 @@
 import { useDataState } from '@/stores/store/hooks/useValue';
 import { useMemoizedFn } from 'ahooks';
 import { Select } from 'antd';
-import { SysCtrlProps } from '../interface';
-import { CtrlSelectProps } from './interface';
+import { type SysCtrlProps } from '../interface';
+import { type CtrlSelectProps } from './interface';
 import './index.less';
 
 const CtrlSelect: React.FC<SysCtrlProps<CtrlSelectProps>> = (props) => {

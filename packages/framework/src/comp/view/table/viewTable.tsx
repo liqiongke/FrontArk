@@ -1,19 +1,19 @@
 import { KeyAttr } from '@/interface';
-import { useData, useDataById } from '@/stores/store/hooks/useValue';
+import { useDataById } from '@/stores/store/hooks/useValue';
 import { useView } from '@/stores/store/hooks/useView';
 import { Table } from 'antd';
 import { isArray } from 'lodash';
 import { useMemo, useRef } from 'react';
 import SearchPanel from '../comp/searchPanel/SearchPanel';
-import { SysViewProps } from '../interface';
+import { type SysViewProps } from '../interface';
 import TableRow from './comp/basetable/tableRow';
-import { ViewTableProps } from './interface';
+import { type ViewTableProps } from './interface';
 import './styles/index.less';
 import TableUtils from './utils/tableUtils';
 
 const ViewTable: React.FC<SysViewProps> = (props) => {
   const [view] = useView<ViewTableProps>(props.viewId);
-  const data = useDataById(view.dataId);
+  const [data] = useDataById(view.dataId);
 
   // 生成表格列
   const colnums = useMemo(

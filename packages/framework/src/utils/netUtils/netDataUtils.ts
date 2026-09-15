@@ -1,4 +1,4 @@
-import { SysDataProps } from '@/data/interface';
+import { type SysDataProps } from '@/data/interface';
 import { KeyAttr } from '@/interface';
 import {
   get,

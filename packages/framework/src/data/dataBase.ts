@@ -1,5 +1,5 @@
 import ViewPathUtils from '@/utils/viewPathUtils';
-import DataProps from './interface';
+import type DataProps from './interface';
 
 abstract class DataBase {
   /**

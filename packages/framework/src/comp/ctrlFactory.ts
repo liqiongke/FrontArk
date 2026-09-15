@@ -1,6 +1,6 @@
 import CtrlButton from '@ctrl/button/ctrlButton';
 import CtrlInput from '@ctrl/input/ctrlInput';
-import { Ctrl, CtrlStructType, SysCtrlProps } from '@ctrl/interface';
+import { Ctrl, type CtrlStructType, type SysCtrlProps } from '@ctrl/interface';
 import CtrlText from '@ctrl/text/ctrlText';
 import { get, isUndefined } from 'lodash';
 import React from 'react';

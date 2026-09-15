@@ -1,4 +1,4 @@
-import { ViewStructBase, ViewType } from '../interface';
+import { type ViewStructBase, type ViewType } from '../interface';
 
 export interface LayoutDrawerProps extends ViewStructBase {
   type: ViewType.LayoutDrawer;

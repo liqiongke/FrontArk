@@ -1,5 +1,5 @@
 import { type DPath } from '@store/interface';
-import { ViewType } from '@view/interface';
+import { type ViewType } from '@view/interface';
 import { type CtrlButtonProps } from './button/interface';
 import { type CtrlCheckboxProps } from './checkbox/interface';
 import { type CtrlDateProps, type CtrlDateRangeProps } from './date/interface';

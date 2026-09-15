@@ -10,7 +10,7 @@ const CtrlTime: React.FC<SysCtrlProps<CtrlTimeProps>> = (props) => {
 
   const [value, setValue] = useDataState(path);
 
-  const onChange = useMemoizedFn((time: any, timeString: string | string[]) => {
+  const onChange = useMemoizedFn((_time: any, timeString: string | string[]) => {
     setValue(timeString);
   });
 

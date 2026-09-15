@@ -1,9 +1,9 @@
 import CtrlFactory from '@/comp/ctrlFactory';
 import { useView } from '@/stores/store/hooks/useView';
 import PathUtils from '@utils/pathUtils';
-import { SysViewProps, ViewType } from '@view/interface';
+import { type SysViewProps, ViewType } from '@view/interface';
 import { Row } from 'antd';
-import { ViewFormProps } from './interface';
+import { type ViewFormProps } from './interface';
 import './styles/form.less';
 import ViewFormItem from './viewFormItem';
 

@@ -24,7 +24,6 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     /* Path Aliases */
@@ -60,8 +59,6 @@
     }
   },
   "include": [
-    "src",
-    "src/pages/..tsx",
-    "src/pages/_layout.tsx"
+    "src"
   ]
 }

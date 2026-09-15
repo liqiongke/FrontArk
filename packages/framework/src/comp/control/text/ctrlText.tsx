@@ -1,9 +1,9 @@
-import { SysCtrlProps } from '@ctrl/interface';
+import { type SysCtrlProps } from '@ctrl/interface';
 import { useData } from '@/stores/store/hooks/useValue';
 import { ViewType } from '@view/interface';
 import { Input } from 'antd';
 import './index.less';
-import { CtrlTextProps } from './interface';
+import { type CtrlTextProps } from './interface';
 
 const CtrlText: React.FC<SysCtrlProps<CtrlTextProps>> = (props) => {
   const { ctrl, path, sourceView } = props;

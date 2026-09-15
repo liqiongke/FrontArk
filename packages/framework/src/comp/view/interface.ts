@@ -1,13 +1,12 @@
-import { DPath } from 'src/stores/store/interface';
-import { CtrlStructType } from '../control/interface';
-import { LayoutDrawerProps } from './drawer/interface';
-import { LayoutFlexProps } from './flex/interface';
-import { ViewFormProps } from './form/interface';
-import { LayoutModalProps } from './modal/interface';
-import { ViewTabProps } from './tab/interface';
-import { ViewTableProps } from './table/interface';
-import { ViewToolBarProps } from './toolbar/interface';
-import DataProps from '@/data/interface';
+import { type DPath } from '@/stores/store/interface';
+import { type CtrlStructType } from '../control/interface';
+import { type LayoutDrawerProps } from './drawer/interface';
+import { type LayoutFlexProps } from './flex/interface';
+import { type ViewFormProps } from './form/interface';
+import { type LayoutModalProps } from './modal/interface';
+import { type ViewTabProps } from './tab/interface';
+import { type ViewTableProps } from './table/interface';
+import { type ViewToolBarProps } from './toolbar/interface';
 
 /**
  * 视图结构类型
@@ -77,6 +76,11 @@ export interface ViewStructBase {
    * @name dataId
    */
   dataId?: string;
+
+  /**
+   * @name 取值路径
+   */
+  path?: DPath;
 }
 
 export interface ViewItem {

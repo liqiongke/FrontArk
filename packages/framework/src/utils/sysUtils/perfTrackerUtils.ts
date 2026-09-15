@@ -48,34 +48,30 @@ export function PerfTrackUtils<T extends (...args: any[]) => any>(id: string, fu
   const trackedFunc = function (this: unknown, ...args: Parameters<T>): ReturnType<T> {
     const stats = trackerMap.get(id)!;
     const startTime = performance.now();
-    let result: ReturnType<T>;
+    let result: ReturnType<T> | undefined;
     let error: unknown;
 
     stats.调用次数++;
 
     try {
-      // @ts-ignore: 动态调用时需要使用 apply 并保持上下文
-      result = func.apply(this, args);
+      result = (func as (...args: unknown[]) => ReturnType<T>).apply(this, args);
     } catch (e) {
       error = e;
       stats.异常次数++;
-    } finally {
-      const endTime = performance.now();
-      const duration = endTime - startTime;
-
-      // 更新统计信息
-      stats.总耗时_毫秒 += duration;
-      stats.上次执行时间_毫秒 = duration;
-      stats.最小耗时_毫秒 = Math.min(stats.最小耗时_毫秒, duration);
-      stats.最大耗时_毫秒 = Math.max(stats.最大耗时_毫秒, duration);
-
-      // 如果有异常抛出，则继续抛出，不影响原始函数的行为
-      if (error) {
-        throw error;
-      }
-      // @ts-ignore: 正常返回结果
-      return result;
     }
+
+    // 更新统计信息
+    const duration = performance.now() - startTime;
+    stats.总耗时_毫秒 += duration;
+    stats.上次执行时间_毫秒 = duration;
+    stats.最小耗时_毫秒 = Math.min(stats.最小耗时_毫秒, duration);
+    stats.最大耗时_毫秒 = Math.max(stats.最大耗时_毫秒, duration);
+
+    // 如果有异常抛出，则继续抛出，不影响原始函数的行为
+    if (error) {
+      throw error;
+    }
+    return result as ReturnType<T>;
   } as T;
 
   return trackedFunc;

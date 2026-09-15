@@ -37,6 +37,11 @@ import { type LayoutModalProps } from './comp/view/modal/interface';
 import { type ViewTabProps } from './comp/view/tab/interface';
 import { type ViewToolBarProps } from './comp/view/toolbar/interface';
 
+/**
+ * 视图结构类型集合
+ * 保留 namespace 形式以支持 `VProps.Form` 限定类型访问，
+ * 内部仅含类型成员，esbuild 构建时会整体擦除（eslint no-namespace 已对本文件豁免）
+ */
 export namespace VProps {
   export type Base = ViewStructBase;
 

@@ -1,6 +1,7 @@
-import { IStoreBase } from '@/stores/store/interface';
+import { type IStoreBase } from '@/stores/store/interface';
 
-export interface HandlerViewInterface {}
+// 视图类控件的标记类型
+export type HandlerViewInterface = object;
 
 // 视图类控件
 class HandlerViewBase {

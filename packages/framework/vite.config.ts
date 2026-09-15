@@ -2,22 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import dts from 'vite-plugin-dts';
 import path from 'path';
-
-// 别名配置函数
-function getAliasConfig() {
-  return {
-    '@': path.resolve(__dirname, 'src'),
-    '@view': path.resolve(__dirname, 'src/comp/view'),
-    '@ctrl': path.resolve(__dirname, 'src/comp/control'),
-    '@store': path.resolve(__dirname, 'src/stores/store'),
-    '@data': path.resolve(__dirname, 'src/data'),
-    '@handler': path.resolve(__dirname, 'src/handler'),
-    '@utils': path.resolve(__dirname, 'src/utils'),
-  };
-}
-
-// 导出别名配置供其他项目使用
-export { getAliasConfig };
+import { getFrameworkAliases } from './alias';
 
 export default defineConfig({
   plugins: [
@@ -28,28 +13,31 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: getAliasConfig(),
+    alias: getFrameworkAliases(),
   },
   build: {
     lib: {
       // 库的入口文件
       entry: path.resolve(__dirname, 'src/index.ts'),
-      // 库的名称 (UMD 全局变量名)
+      // 库的名称
       name: '@jl/framework',
+      // 仅输出 ES 模块，供现代打包工具消费
+      formats: ['es'],
       // 输出文件名格式
-      fileName: (format) => `framework.${format}.js`,
+      fileName: () => 'framework.es.js',
     },
     rollupOptions: {
-      // 确保外部化处理那些你不想打包进库的依赖
-      external: ['react', 'react-dom', 'antd'],
-      output: {
-        // 在 UMD 构建模式下为这些外部化的依赖提供一个全局变量
-        globals: {
-          react: 'React',
-          'react-dom': 'ReactDOM',
-          antd: 'antd',
-        },
-      },
+      // 外部化所有 peer 依赖，避免将宿主应用已有的依赖重复打包
+      external: [
+        'react',
+        'react-dom',
+        'antd',
+        '@ant-design/icons',
+        'ahooks',
+        'axios',
+        'lodash',
+        'simplebar-react',
+      ],
     },
   },
 });

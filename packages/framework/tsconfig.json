@@ -22,6 +22,11 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true, // 必须开启，因为 Vite 使用 esbuild 进行转译，要求单文件可转译
+    // 与 apps/demo 的严格选项保持对齐，避免应用侧类型检查时产生跨包差异
+    "verbatimModuleSyntax": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
     /* --- React 相关 --- */
     "jsx": "react-jsx", // React 17+ 的新转换模式 (不需要在每个文件 import React)
     /* --- 输出控制 --- */

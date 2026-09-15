@@ -1,5 +1,5 @@
-import { OptionItem } from '@/interface';
-import { Ctrl, CtrlBase } from '../interface';
+import { type OptionItem } from '@/interface';
+import { type Ctrl, type CtrlBase } from '../interface';
 
 export interface CtrlSelectProps extends CtrlBase {
   type: Ctrl.Select;

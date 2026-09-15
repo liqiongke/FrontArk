@@ -1,12 +1,12 @@
 import { useDataState } from '@/stores/store/hooks/useValue';
 import { useMemoizedFn } from 'ahooks';
 import { Switch } from 'antd';
-import { SysCtrlProps } from '../interface';
+import { type SysCtrlProps } from '../interface';
 import './index.less';
-import { CtrlSwitchProps } from './interface';
+import { type CtrlSwitchProps } from './interface';
 
 const CtrlSwitch: React.FC<SysCtrlProps<CtrlSwitchProps>> = (props) => {
-  const { ctrl, path } = props;
+  const { path } = props;
 
   const [value, setValue] = useDataState(path);
 

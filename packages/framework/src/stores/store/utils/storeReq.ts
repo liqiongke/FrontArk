@@ -1,6 +1,6 @@
-import { SysDataProps } from '@/data/interface';
+import { type SysDataProps } from '@/data/interface';
 import { get, isArray, isFunction, isString, isUndefined, set } from 'lodash';
-import { IStoreBase, PathKey } from '../interface';
+import { type IStoreBase, PathKey } from '../interface';
 import { NetDataUtils } from '@/utils/netUtils/netDataUtils';
 import NetUtils from '@/utils/netUtils';
 
@@ -41,12 +41,14 @@ export default class StoreReq {
 
   /**
    * 获取指定视图的请求参数
+   * 注意:返回值必须保持引用稳定(zustand v5 的 selector 依赖 useSyncExternalStore,
+   * 要求快照可缓存),找不到请求时返回 undefined,不可返回新建的空对象,否则会导致无限重渲染
    */
   public static getReqParams = (viewId: string) => {
     const req = StoreReq.getReqByViewId(viewId, this.zGet());
 
     if (isUndefined(req)) {
-      return {};
+      return;
     }
 
     return req.criteria;

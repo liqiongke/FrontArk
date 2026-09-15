@@ -1,4 +1,4 @@
-import { CtrlBase, Ctrl } from '@ctrl/interface';
+import { type CtrlBase, type Ctrl } from '@ctrl/interface';
 
 export interface CtrlUploadProps extends CtrlBase {
   type: Ctrl.Upload;

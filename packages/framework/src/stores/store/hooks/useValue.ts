@@ -2,7 +2,7 @@ import { useMemoizedFn, useSafeState } from 'ahooks';
 import { useContext, useEffect } from 'react';
 import { type DPath } from '../interface';
 import StoreContext from '../storeContext';
-import { get, isString } from 'lodash';
+import { isString } from 'lodash';
 
 /**
  * 使用缓动更新界面数据,hooks中保存本地数据缓存
@@ -53,11 +53,8 @@ export const useData = (path: DPath) => {
 /**
  * 根据数据Id返回数据
  */
-export const useDataById = (id?: string): [data: any, path?: string] => {
-  if (!isString(id)) {
-    return [];
-  }
+export const useDataById = (id?: string): [data: any] => {
   const useStore = useContext(StoreContext);
-  const data = useStore((state) => state.getData(id));
+  const data = useStore((state) => (isString(id) ? state.getData(id) : undefined));
   return [data];
 };

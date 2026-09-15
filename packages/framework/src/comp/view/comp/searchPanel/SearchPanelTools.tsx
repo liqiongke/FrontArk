@@ -1,6 +1,6 @@
 import { SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import { FC } from 'react';
+import { type FC } from 'react';
 import './index.less';
 
 export interface SearchPanelToolsProps {

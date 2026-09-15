@@ -1,9 +1,9 @@
-import ViewBase from '@/comp/viewBase';
-import DataBase from '@data/dataBase';
-import HandlerBase from 'src/handler/handlerBase';
-import { SysDataProps } from '../../data/interface';
-import HandlerViewBase from '@/handler/handlerViewBase';
-import { ViewStructType } from '@/comp/view/interface';
+import type ViewBase from '@/comp/viewBase';
+import type DataBase from '@data/dataBase';
+import type HandlerBase from '@/handler/handlerBase';
+import { type SysDataProps } from '../../data/interface';
+import type HandlerViewBase from '@/handler/handlerViewBase';
+import { type ViewStructType } from '@/comp/view/interface';
 
 // 视图在store中的存储类型
 export interface ViewStore {
@@ -123,8 +123,8 @@ export interface IStoreActions {
   // 根据Data的id获取对应的请求路径,因为所有的dataPath都是存储在data中的
   getPathByDataId: (id?: string) => DPath;
 
-  // 数据请求相关参数
-  getReqParams: (viewId: string) => { [key: string]: any };
+  // 数据请求相关参数,找不到对应请求时返回 undefined(需保持引用稳定,不可返回新建空对象)
+  getReqParams: (viewId: string) => { [key: string]: any } | undefined;
   // 刷新请求
   refreshByViewId: (viewId: string) => void;
 }

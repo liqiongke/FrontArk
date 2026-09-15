@@ -28,7 +28,7 @@ export default class TableUtils {
   }
 
   static colnumRenderCreator = (item: TableItemProps, path?: DPath) => {
-    return (value: any, recoder: any, index: number) => {
+    return (_value: any, _recoder: any, index: number) => {
       return (
         <CtrlFactory
           ctrl={item.ctrl || { type: Ctrl.Text }}

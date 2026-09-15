@@ -3,9 +3,9 @@ import type { UploadFile, UploadProps } from 'antd';
 import { Button, Upload, message } from 'antd';
 import { isUndefined } from 'lodash';
 import { useState } from 'react';
-import { SysCtrlProps } from '../interface';
+import { type SysCtrlProps } from '../interface';
 import './index.less';
-import { CtrlUploadProps } from './interface';
+import { type CtrlUploadProps } from './interface';
 
 const CtrlUpload: React.FC<SysCtrlProps<CtrlUploadProps>> = (props) => {
   const { ctrl } = props;

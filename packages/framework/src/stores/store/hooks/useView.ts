@@ -1,4 +1,4 @@
-import { ViewStructType } from '@/comp/view/interface';
+import { type ViewStructType } from '@/comp/view/interface';
 import { useMemoizedFn } from 'ahooks';
 import { get, isUndefined } from 'lodash';
 import { useContext } from 'react';
@@ -13,8 +13,10 @@ export const useView = <V extends ViewStructType>(viewId: string): [V, (view: V)
     return state.getView(viewId) as V;
   });
 
+  const setViewState = useStore((state) => state.setView);
+
   const setView = useMemoizedFn((view: V) => {
-    useStore((state) => state.setView(viewId, view));
+    setViewState(viewId, view);
   });
 
   return [view, setView];

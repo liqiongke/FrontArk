@@ -1,5 +1,5 @@
 import { type ValueType } from '@/interface';
-import { Ctrl, type CtrlBase } from '../interface';
+import { type Ctrl, type CtrlBase } from '../interface';
 
 export interface CtrlPickerDateBaseProps extends CtrlBase {
   // 日期格式，如 'YYYY-MM-DD'

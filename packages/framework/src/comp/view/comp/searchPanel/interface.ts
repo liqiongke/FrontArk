@@ -1,10 +1,10 @@
-import { CtrlCheckboxProps } from '@/comp/control/checkbox/interface';
-import { CtrlDateProps, CtrlDateRangeProps } from '@/comp/control/date/interface';
-import { CtrlInputProps } from '@/comp/control/input/interface';
-import { CtrlRadioProps } from '@/comp/control/radio/interface';
-import { CtrlSelectProps } from '@/comp/control/select/interface';
-import { CtrlSwitchProps } from '@/comp/control/switch/interface';
-import { CtrlTimeProps, CtrlTimeRangeProps } from '@/comp/control/time/interface';
+import { type CtrlCheckboxProps } from '@/comp/control/checkbox/interface';
+import { type CtrlDateProps, type CtrlDateRangeProps } from '@/comp/control/date/interface';
+import { type CtrlInputProps } from '@/comp/control/input/interface';
+import { type CtrlRadioProps } from '@/comp/control/radio/interface';
+import { type CtrlSelectProps } from '@/comp/control/select/interface';
+import { type CtrlSwitchProps } from '@/comp/control/switch/interface';
+import { type CtrlTimeProps, type CtrlTimeRangeProps } from '@/comp/control/time/interface';
 
 export interface SearchPlaneProps {
   viewId: string;

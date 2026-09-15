@@ -1,4 +1,4 @@
-import { CtrlBase, Ctrl } from '../interface';
+import { type CtrlBase, type Ctrl } from '../interface';
 
 export interface CtrlTextProps extends CtrlBase {
   type: Ctrl.Text;

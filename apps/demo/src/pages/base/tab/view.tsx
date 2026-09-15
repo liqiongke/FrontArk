@@ -1,5 +1,5 @@
 import { VType, ViewBase, type VProps } from '@jl/framework';
-import Handler from './handler';
+import type Handler from './handler';
 import type Data from './data';
 
 class View extends ViewBase<Handler, Data> {

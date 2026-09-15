@@ -1,7 +1,8 @@
-import HandlerViewBase from '@/handler/handlerViewBase';
+import type HandlerViewBase from '@/handler/handlerViewBase';
+import { isString } from 'lodash';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { type DPath, IStoreBase } from './interface';
+import { type DPath, type IStoreBase, PathKey } from './interface';
 import { getData, setData, setDataByFn, setDataDebounce } from './utils/storeData';
 import { getHandler, setHandler } from './utils/storeHandler';
 import { initStore } from './utils/storeInit';
@@ -45,6 +46,8 @@ const createBaseStore = () => {
       setDataByFn: (path: DPath, dataFn: (data: any) => any) => setDataByFn(path, dataFn, get, set),
       setDataDebounce: (path: DPath, value: any) => setDataDebounce(path, value, get),
       getData: (path: DPath) => getData(path, get),
+      // 根据Data的id获取对应的数据路径
+      getPathByDataId: (id?: string) => (isString(id) ? [PathKey.Data, id] : undefined),
 
       // 数据请求相关参数
       getReqParams: (viewId: string) => StoreReq.getReqParams(viewId),

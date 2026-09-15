@@ -1,6 +1,6 @@
 import { createContext } from 'react';
-import { StoreApi, UseBoundStore } from 'zustand';
-import { IStoreBase } from './interface';
+import { type StoreApi, type UseBoundStore } from 'zustand';
+import { type IStoreBase } from './interface';
 
 const StoreContext = createContext<UseBoundStore<StoreApi<IStoreBase>>>(null!);
 

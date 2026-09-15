@@ -1,4 +1,4 @@
-import HandlerViewBase from '@/handler/handlerViewBase';
+import type HandlerViewBase from '@/handler/handlerViewBase';
 import { isUndefined } from 'lodash';
 import React, { useContext } from 'react';
 import StoreContext from '../stores/store/storeContext';

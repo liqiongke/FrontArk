@@ -12,7 +12,7 @@ const CtrlDateRange: React.FC<SysCtrlProps<CtrlDateRangeProps>> = (props) => {
 
   const [value, setValue] = useDataState(path);
 
-  const onChange = useMemoizedFn((dates: any, dateStrings: string[]) => {
+  const onChange = useMemoizedFn((_dates: any, dateStrings: string[]) => {
     setValue(dateStrings);
   });
 

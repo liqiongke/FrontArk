@@ -5,7 +5,7 @@ import { type SysCtrlProps } from '../interface';
 import { type CtrlLinkProps } from './interface';
 import './index.less';
 import { useEffect } from 'react';
-import { OptionItem } from '@/interface';
+import { type OptionItem } from '@/interface';
 
 const { Link } = Typography;
 
@@ -20,15 +20,15 @@ const CtrlLink: React.FC<SysCtrlProps<CtrlLinkProps>> = (props) => {
     setHref(isFunction(ctrl.href) ? ctrl.href() : ctrl.href);
   }, [ctrl]);
 
-  if (isUndefined(ctrl)) {
-    return null;
-  }
-
   const handleClick = useMemoizedFn(async () => {
     if (href?.value) {
       window.open(href.value.toString(), '_blank');
     }
   });
+
+  if (isUndefined(ctrl)) {
+    return null;
+  }
 
   return (
     <div className="ctrl-link">

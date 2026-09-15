@@ -1,8 +1,8 @@
 import { isString, isUndefined } from 'lodash';
 import { useMemo, useRef } from 'react';
 import CompFactory from './comp/compFactory';
-import DataBase from './data/dataBase';
-import HandlerBase from './handler/handlerBase';
+import type DataBase from './data/dataBase';
+import type HandlerBase from './handler/handlerBase';
 import { type ViewProps } from './interface';
 import createBaseStore from './stores/store/storeBase';
 import StoreContext from './stores/store/storeContext';

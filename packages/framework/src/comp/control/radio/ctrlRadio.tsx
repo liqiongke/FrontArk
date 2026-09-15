@@ -1,9 +1,9 @@
 import { useDataState } from '@/stores/store/hooks/useValue';
 import { useMemoizedFn } from 'ahooks';
 import { Radio } from 'antd';
-import { SysCtrlProps } from '../interface';
+import { type SysCtrlProps } from '../interface';
 import './index.less';
-import { CtrlRadioProps } from './interface';
+import { type CtrlRadioProps } from './interface';
 
 const CtrlRadio: React.FC<SysCtrlProps<CtrlRadioProps>> = (props) => {
   const { ctrl, path } = props;

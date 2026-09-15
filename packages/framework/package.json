@@ -3,17 +3,20 @@
   "private": false,
   "version": "0.0.0",
   "type": "module",
+  "sideEffects": [
+    "**/*.less",
+    "**/*.css"
+  ],
   "files": [
     "dist"
   ],
-  "main": "./dist/framework.umd.js",
+  "main": "./dist/framework.es.js",
   "module": "./dist/framework.es.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/framework.es.js",
-      "require": "./dist/framework.umd.js"
+      "import": "./dist/framework.es.js"
     }
   },
   "scripts": {

@@ -1,6 +1,6 @@
 import { useParamByKey, useView } from '@/stores/store/hooks/useView';
 import { ParamKey } from '@/stores/store/interface';
-import { SysViewProps } from '@view/interface';
+import { type SysViewProps } from '@view/interface';
 import { useMemoizedFn } from 'ahooks';
 import { Drawer } from 'antd';
 import React from 'react';

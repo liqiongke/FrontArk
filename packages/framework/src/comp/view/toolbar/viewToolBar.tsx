@@ -1,8 +1,8 @@
 import CtrlFactory from '@/comp/ctrlFactory';
 import { useView } from '@/stores/store/hooks/useView';
-import { SysViewProps, ViewType } from '@view/interface';
+import { type SysViewProps, ViewType } from '@view/interface';
 import { Space } from 'antd';
-import { ViewToolBarProps } from './interface';
+import { type ViewToolBarProps } from './interface';
 import './styles/toolbar.less';
 
 const ViewToolBar: React.FC<SysViewProps> = (props) => {

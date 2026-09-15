@@ -1,25 +1,28 @@
 import { DownOutlined, SearchOutlined } from '@ant-design/icons';
-import { Dropdown, Input, Space } from 'antd';
+import { Dropdown, Space } from 'antd';
 import { isArray } from 'lodash';
-import { FC, useMemo } from 'react';
+import { type FC, useMemo } from 'react';
 import './index.less';
-import { SearchPlaneSelectProps } from './interface';
+import { type SearchPlaneSelectProps } from './interface';
 import CtrlFactory from '@/comp/ctrlFactory';
 
 // 通用的搜索面板
 const SearchPanelSelect: FC<SearchPlaneSelectProps> = (props) => {
   const { items } = props;
 
-  if (!isArray(items) || items.length === 0) {
-    return null;
-  }
-
   const options = useMemo(() => {
-    return items.map((item, index) => ({
+    if (!isArray(items)) {
+      return [];
+    }
+    return items.map((item) => ({
       label: item.title,
       key: item.field,
     }));
   }, [items]);
+
+  if (!isArray(items) || items.length === 0) {
+    return null;
+  }
 
   return (
     <div className="search-panel-select">

@@ -1,8 +1,8 @@
 import { Col } from 'antd';
-import { DPath } from 'src/stores/store/interface';
+import { type DPath } from '@/stores/store/interface';
 import CtrlFactory from '../../ctrlFactory';
 import { ViewType } from '../interface';
-import { FormItemProps } from './interface';
+import { type FormItemProps } from './interface';
 import './styles/formItem.less';
 import { Ctrl } from '@/comp/control/interface';
 

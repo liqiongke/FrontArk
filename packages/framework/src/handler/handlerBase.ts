@@ -1,10 +1,10 @@
 import { ViewHandlerMap } from '@/comp/compFactory';
-import HandlerDrawerImpl from '@/comp/view/drawer/handler/handlerDrawer';
-import HandlerModalImpl from '@/comp/view/modal/handler/handlerModal';
+import type HandlerDrawerImpl from '@/comp/view/drawer/handler/handlerDrawer';
+import type HandlerModalImpl from '@/comp/view/modal/handler/handlerModal';
 import NetUtils from '@/utils/netUtils';
 import { isUndefined } from 'lodash';
-import { DPath, IStoreBase } from 'src/stores/store/interface';
-import HandlerViewBase from './handlerViewBase';
+import { type DPath, type IStoreBase } from '@/stores/store/interface';
+import type HandlerViewBase from './handlerViewBase';
 
 // 操作基类
 abstract class HandlerBase {

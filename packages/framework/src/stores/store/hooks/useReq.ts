@@ -8,7 +8,7 @@ import { PathKey } from '../interface';
  */
 export const useReq = (
   viewId: string,
-): [Record<string, any>, () => void, (items: string[]) => void] => {
+): [Record<string, any> | undefined, () => void, (items: string[]) => void] => {
   const useStore = useContext(StoreContext);
   const params = useStore((state) => state.getReqParams(viewId));
   const setDataByFn = useStore((state) => state.setDataByFn);
@@ -23,12 +23,11 @@ export const useReq = (
       return;
     }
 
-    setDataByFn([PathKey.Req], (params) => {
+    // TODO: 重置指定字段对应的请求参数
+    setDataByFn([PathKey.Req], () => {
       // items.forEach((item) => {
       //   params[item] = undefined;
       // });
-
-      console.log('resetReq', params);
     });
     // sendReq();
   });

@@ -1,4 +1,4 @@
-import { DPath } from '@store/interface';
+import { type DPath } from '@store/interface';
 
 // 数据类型
 export default interface DataProps {

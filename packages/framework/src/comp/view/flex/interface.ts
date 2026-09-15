@@ -1,4 +1,4 @@
-import { type ViewStructBase, ViewType } from '@view/interface';
+import { type ViewStructBase, type ViewType } from '@view/interface';
 
 export enum FlexDirection {
   ROW = 'row',

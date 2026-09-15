@@ -1,14 +1,14 @@
 import PathUtils from '@/utils/pathUtils';
 import { PerfTrackUtils } from '@/utils/sysUtils/perfTrackerUtils';
-import { cloneDeep, get, isArray, isFunction, isObject, isString, isUndefined, set } from 'lodash';
-import DataBase from 'src/data/dataBase';
-import { DataReqStore, DataStore, DPath, IStoreBase } from '../interface';
+import { cloneDeep, get, isFunction, isObject, isString, isUndefined, set } from 'lodash';
+import type DataBase from '@/data/dataBase';
+import { type DataReqStore, type DataStore, type DPath, type IStoreBase } from '../interface';
 import { getDataSource, getRealPath } from './storeDataPath';
 
 // 初始化数据请求数据,返回数据请求接口和初始化的数据
 export const initDataAndReq = (data: DataBase): [DataStore, DataReqStore] => {
-  let result: DataReqStore = {};
-  let initData: DataStore = {};
+  const result: DataReqStore = {};
+  const initData: DataStore = {};
 
   // 获取声明的所有节点
   for (const key in data) {
@@ -104,7 +104,6 @@ export const setDataByFn = (
   zSet((state: IStoreBase) => {
     const dataSource = getDataSource(rPath[0], state);
     const path = dataSource ? rPath.slice(1) : rPath;
-    console.log('dataSource', state.getData(path));
     if (path.length === 0) {
       dataFn(dataSource ?? state.data);
     } else {
@@ -115,7 +114,7 @@ export const setDataByFn = (
   });
 };
 
-const debounceTimers = new Map<string, number>();
+const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 /**设置缓动触发值的更新 */
 export const setDataDebounce = (
   path: DPath,

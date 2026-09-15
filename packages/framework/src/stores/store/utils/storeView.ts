@@ -1,11 +1,11 @@
 import { get, isArray, isObject, isString, isUndefined, set } from 'lodash';
-import ViewBase from 'src/comp/viewBase';
-import { DPath, IStoreBase, ParamKey, PathKey, ViewStore } from '../interface';
+import type ViewBase from '@/comp/viewBase';
+import { type DPath, type IStoreBase, ParamKey, PathKey, type ViewStore } from '../interface';
 import { getActivePath } from './storeDataPath';
 
 // 初始化视图
 export const initView = (view: ViewBase<any, any>): ViewStore => {
-  let viewStore = {
+  const viewStore = {
     [PathKey.Root]: view,
   };
   for (const key in view) {

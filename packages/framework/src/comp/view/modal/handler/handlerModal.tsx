@@ -1,4 +1,4 @@
-import HandlerViewBase, { HandlerViewInterface } from '@/handler/handlerViewBase';
+import HandlerViewBase, { type HandlerViewInterface } from '@/handler/handlerViewBase';
 import { ParamKey } from '@/stores/store/interface';
 
 interface HandlerModal extends HandlerViewInterface {

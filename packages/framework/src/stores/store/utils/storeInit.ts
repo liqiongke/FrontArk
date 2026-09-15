@@ -1,9 +1,9 @@
 import { ViewType } from '@/comp/view/interface';
 import { get, isUndefined } from 'lodash';
-import DataBase from 'src/data/dataBase';
-import HandlerBase from 'src/handler/handlerBase';
-import ViewBase from '../../../comp/viewBase';
-import { IStoreBase, PathKey } from '../interface';
+import type DataBase from '@/data/dataBase';
+import type HandlerBase from '@/handler/handlerBase';
+import type ViewBase from '../../../comp/viewBase';
+import { type IStoreBase, PathKey } from '../interface';
 import { initDataAndReq } from './storeData';
 import StoreReq from './storeReq';
 import { initView } from './storeView';
