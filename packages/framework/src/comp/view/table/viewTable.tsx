@@ -17,9 +17,11 @@ const ViewTable: React.FC<SysViewProps> = (props) => {
   const [data] = useDataById(view.dataId);
 
   // 生成表格列
+  // 单元格取数路径 = 基础路径 + 行下标 + 字段名;基础路径优先取显式 path,
+  // 未声明时回退 dataId(数据节点 id 即数据树路径首段),否则单元格路径会退化为 [下标, 字段] 而取不到数据
   const colnums = useMemo(
-    () => TableUtils.createColumns(view.items, view.path),
-    [view.items, view.path],
+    () => TableUtils.createColumns(view.items, view.path ?? view.dataId),
+    [view.items, view.path, view.dataId],
   );
 
   // 设置自定义组件

@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: FrontArk Monorepo 根编排层
+title: FrontArk Monorepo 根编排
 scope:
     - .gitignore
     - .prettierignore

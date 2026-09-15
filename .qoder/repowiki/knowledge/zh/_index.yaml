@@ -3,11 +3,11 @@ schema_version: 1
 locale: zh-CN
 branch: master
 nodes_managed: true
-exported_at: "2026-09-15T03:02:53Z"
+exported_at: "2026-09-15T04:33:37Z"
 modules:
     "":
-        dir_name: FrontArk Monorepo 根编排层
-        title: FrontArk Monorepo 根编排层
+        dir_name: FrontArk Monorepo 根编排
+        title: FrontArk Monorepo 根编排
         scope:
             - .gitignore
             - .prettierignore
@@ -25,8 +25,8 @@ modules:
         depends_on: []
         related_to: []
     docs:
-        dir_name: FrontArk 框架文档与使用说明
-        title: FrontArk 框架文档与使用说明
+        dir_name: FrontArk 框架文档
+        title: FrontArk 框架文档
         scope:
             - docs/
         source_files: []

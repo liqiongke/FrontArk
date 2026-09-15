@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: docs
-title: FrontArk 框架文档与使用说明
+title: FrontArk 框架文档
 scope:
     - docs/
 source_files: []
