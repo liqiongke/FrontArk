@@ -1,3 +1,5 @@
+import logger from './logger';
+
 /**
  * 性能统计数据结构定义
  */
@@ -88,7 +90,7 @@ export function printStats(id?: string): void {
     // 打印单个函数的统计
     const stats = trackerMap.get(id);
     if (!stats) {
-      console.warn(`[PerfTracker] 错误：未找到ID为 "${id}" 的统计记录。`);
+      logger.warn(`[PerfTracker] 错误：未找到ID为 "${id}" 的统计记录。`);
       return;
     }
     statsToPrint = { [id]: calculateDisplayStats(stats) };
@@ -100,14 +102,15 @@ export function printStats(id?: string): void {
   }
 
   if (Object.keys(statsToPrint).length === 0) {
-    console.log('[PerfTracker] 暂无任何函数统计记录。');
+    logger.debug('[PerfTracker] 暂无任何函数统计记录。');
     return;
   }
 
-  console.log('--- 性能统计摘要 (PerfTracker) ---');
+  // 摘要信息走日志分级;console.table 的结构化展示为显式触发的调试功能,予以保留
+  logger.debug('--- 性能统计摘要 (PerfTracker) ---');
   // 使用 console.table 打印出清晰的表格
   console.table(statsToPrint);
-  console.log('------------------------------------');
+  logger.debug('------------------------------------');
 }
 
 /**
@@ -138,13 +141,13 @@ export function resetStats(id?: string): void {
   if (id) {
     if (trackerMap.has(id)) {
       trackerMap.set(id, { ...initialStats });
-      console.log(`[PerfTracker] ID: "${id}" 的统计记录已清零。`);
+      logger.debug(`[PerfTracker] ID: "${id}" 的统计记录已清零。`);
     } else {
-      console.warn(`[PerfTracker] 警告：尝试清零不存在的ID: "${id}"。`);
+      logger.warn(`[PerfTracker] 警告：尝试清零不存在的ID: "${id}"。`);
     }
   } else {
     // 清除所有统计记录
     trackerMap.clear();
-    console.log('[PerfTracker] 所有函数的统计记录已全部清零。');
+    logger.debug('[PerfTracker] 所有函数的统计记录已全部清零。');
   }
 }

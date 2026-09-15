@@ -34,6 +34,14 @@ export interface HandlerStore {
 // 数据路径
 export type DPath = string | number | (string | number)[] | undefined;
 
+// store 更新函数类型
+// action 参数用于在 Redux DevTools 中标注动作来源(如 'setData:@Data.table'),仅开发环境生效
+export type ZSet = (
+  state: IStoreBase | ((state: IStoreBase) => IStoreBase),
+  replace?: false,
+  action?: { type: string; [key: string]: unknown },
+) => void;
+
 // 页面请求中参数类型
 export enum ParamKey {
   SysHead = '@',
@@ -101,8 +109,8 @@ export interface IStoreActions {
   setViewParams: (viewId: string, values: any, init?: boolean) => void;
   // 设置视图参数
   setViewParamByKey: (viewId: string, key: string, value: any) => void;
-  // 获取视图参数
-  getViewParams: (viewId: string) => any;
+  // 获取视图参数(viewId 允许为空,为空时返回 undefined)
+  getViewParams: (viewId: string | undefined) => any;
   // 获取指定视图参数
   getViewParamByKey: (viewId: string, key: string) => any;
 

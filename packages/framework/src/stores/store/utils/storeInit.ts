@@ -3,7 +3,7 @@ import { get, isUndefined } from 'lodash';
 import type DataBase from '@/data/dataBase';
 import type HandlerBase from '@/handler/handlerBase';
 import type ViewBase from '../../../comp/viewBase';
-import { type IStoreBase, PathKey } from '../interface';
+import { type IStoreBase, PathKey, type ZSet } from '../interface';
 import { initDataAndReq } from './storeData';
 import StoreReq from './storeReq';
 import { initView } from './storeView';
@@ -16,7 +16,7 @@ export const initStore = <H extends HandlerBase, D extends DataBase>(
   ViewClass: new (handler: H, data: D) => ViewBase<H, D>,
   DataClass: new () => D,
   HandlerClass: new () => H,
-  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
+  zSet: ZSet,
   zGet: () => IStoreBase,
 ): [ViewBase<H, D> | undefined, string[]] => {
   const viewKeys = Object.getOwnPropertyNames(zGet().view);
@@ -37,12 +37,16 @@ export const initStore = <H extends HandlerBase, D extends DataBase>(
 
   // 初始化数据源
   const [dataStore, dataReqStore] = initDataAndReq(data);
-  zSet((state) => {
-    state.req = dataReqStore;
-    state.data = dataStore;
-    state.view = viewStore;
-    return state;
-  });
+  zSet(
+    (state) => {
+      state.req = dataReqStore;
+      state.data = dataStore;
+      state.view = viewStore;
+      return state;
+    },
+    false,
+    { type: 'initStore' },
+  );
 
   // 发送初始化数据的请求
   StoreReq.fetchAllReq();

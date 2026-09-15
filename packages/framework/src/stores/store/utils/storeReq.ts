@@ -1,22 +1,36 @@
 import { type SysDataProps } from '@/data/interface';
+import logger from '@/utils/sysUtils/logger';
 import { get, isArray, isFunction, isString, isUndefined, set } from 'lodash';
-import { type IStoreBase, PathKey } from '../interface';
+import { type IStoreBase, PathKey, type ZSet } from '../interface';
 import { NetDataUtils } from '@/utils/netUtils/netDataUtils';
 import NetUtils from '@/utils/netUtils';
+
+// 重试基础延迟(毫秒),按重试次数线性递增:300ms、600ms、900ms...
+const RETRY_BASE_DELAY = 300;
+
+// 进行中的请求登记:用于请求去重与竞态取消
+interface InflightRequest {
+  // 共享的请求 Promise(相同参数的并发请求复用)
+  promise: Promise<any>;
+  // 取消控制器:新请求取代旧请求时 abort
+  controller: AbortController;
+  // 请求参数序列化结果,用于判断并发请求是否相同
+  serialized: string;
+}
 
 /**
  * 数据请求类
  */
 export default class StoreReq {
   static zGet: () => IStoreBase;
-  static zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void;
+  static zSet: ZSet;
+  // 进行中的请求,按数据节点 id 登记
+  static inflight = new Map<string, InflightRequest>();
+
   /**
    * @name 初始化请求工具
    */
-  public static init = (
-    zGet: () => IStoreBase,
-    zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
-  ) => {
+  public static init = (zGet: () => IStoreBase, zSet: ZSet) => {
     this.zGet = zGet;
     this.zSet = zSet;
   };
@@ -74,7 +88,7 @@ export default class StoreReq {
     const dataReq = get(this.zGet().req, reqId);
 
     if (isUndefined(dataReq)) {
-      console.warn(`数据请求不存在`);
+      logger.warn(`数据请求不存在`);
       return;
     }
 
@@ -82,7 +96,7 @@ export default class StoreReq {
     if (dataReq.parentIds && dataReq.parentIds.length > 0) {
       const parentData = await this.checkDependencies(dataReq.parentIds);
       if (!parentData) {
-        console.warn(`数据请求${dataReq.id}的依赖数据[${dataReq.parentIds}]未就绪`);
+        logger.warn(`数据请求${dataReq.id}的依赖数据[${dataReq.parentIds}]未就绪`);
         return;
       }
     }
@@ -140,6 +154,8 @@ export default class StoreReq {
 
   /**
    * 获取数据函数
+   * 包含:请求去重(相同参数的并发请求共享同一 Promise)、
+   * 竞态取消(新请求取代未完成的旧请求)、失败重试(按 dataReq.retry 配置)
    */
   public static getReqData = async (
     req: SysDataProps,
@@ -147,38 +163,99 @@ export default class StoreReq {
   ): Promise<any> => {
     // 发送网络请求获取数据
     if (isString(req.url) && req.url.length > 0) {
-      try {
-        const result = await NetUtils.get(req.url, params);
-
-        // 处理数据格式化
-        let data = get(result, 'data');
-        if (isFunction(req.format)) {
-          data = req.format(data);
-        }
-
-        // 提取关键数据
-        const coreData = NetDataUtils.extractCoreData(data);
-
-        // 存储数据
-        const cData = NetDataUtils.initData(coreData.data, req);
-        this.zGet().setData(req.id, cData);
-        // 这里应该还要额外的数据信息到reqData数据中
-        this.zGet().setData([PathKey.Req, req.id, 'params'], coreData.params);
-
-        // 触发子节点请求
-        if (req.childIds && req.childIds.length > 0) {
-          await this.triggerRequests(req.childIds);
-        }
-
-        return cData;
-      } catch (error) {
-        console.error(`数据请求${req.id}失败:`, error);
-        throw error;
+      const result = await this.sendWithLifecycle(req, params);
+      // 请求被新的同类请求取代(竞态取消),静默退出,不再写数据/触发子请求
+      if (isUndefined(result)) {
+        return;
       }
+
+      // 处理数据格式化
+      let data = get(result, 'data');
+      if (isFunction(req.format)) {
+        data = req.format(data);
+      }
+
+      // 提取关键数据
+      const coreData = NetDataUtils.extractCoreData(data);
+
+      // 存储数据
+      const cData = NetDataUtils.initData(coreData.data, req);
+      this.zGet().setData(req.id, cData);
+      // 这里应该还要额外的数据信息到reqData数据中
+      this.zGet().setData([PathKey.Req, req.id, 'params'], coreData.params);
+
+      // 触发子节点请求
+      if (req.childIds && req.childIds.length > 0) {
+        await this.triggerRequests(req.childIds);
+      }
+
+      return cData;
     }
 
     this.zGet().setData(req.id, NetDataUtils.initData(req.defaultData, req));
     return req.defaultData;
+  };
+
+  /**
+   * 请求生命周期:登记进行中状态 -> 去重/取消旧请求 -> 带重试发送 -> 注销登记
+   * 被取消时返回 undefined;其余情况返回响应数据或抛出异常
+   */
+  private static sendWithLifecycle = async (
+    req: SysDataProps,
+    params: Record<string, any>,
+  ): Promise<any> => {
+    const key = req.id;
+    const serialized = JSON.stringify(params ?? {});
+    const prev = this.inflight.get(key);
+
+    // 去重:进行中且参数相同的请求,直接复用同一个 Promise
+    if (prev && prev.serialized === serialized) {
+      return prev.promise;
+    }
+
+    // 竞态取消:新请求(参数不同)取代未完成的旧请求
+    prev?.controller.abort();
+
+    const controller = new AbortController();
+    const promise = this.attemptSend(req, params, controller.signal).finally(() => {
+      // 仅当登记未被更新的请求覆盖时才注销
+      if (this.inflight.get(key)?.promise === promise) {
+        this.inflight.delete(key);
+      }
+    });
+    this.inflight.set(key, { promise, controller, serialized });
+
+    return promise;
+  };
+
+  /**
+   * 带重试的请求发送
+   * @returns 响应数据;请求被取消时返回 undefined
+   */
+  private static attemptSend = async (
+    req: SysDataProps,
+    params: Record<string, any>,
+    signal: AbortSignal,
+  ): Promise<any> => {
+    const maxRetry = Math.max(0, req.retry ?? 0);
+
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await NetUtils.get(req.url as string, params, { signal });
+      } catch (error) {
+        // 请求被取消(竞态取消),静默退出
+        if (NetUtils.isCancel(error)) {
+          logger.debug(`数据请求${req.id}已被新请求取代,取消当前请求`);
+          return;
+        }
+        if (attempt >= maxRetry) {
+          logger.error(`数据请求${req.id}失败:`, error);
+          throw error;
+        }
+        logger.warn(`数据请求${req.id}第${attempt + 1}次请求失败,准备重试`);
+        await new Promise((resolve) => setTimeout(resolve, RETRY_BASE_DELAY * (attempt + 1)));
+      }
+    }
   };
 
   /**
@@ -200,7 +277,7 @@ export default class StoreReq {
     const req = this.getReqByViewId(viewId, store);
 
     if (isUndefined(req)) {
-      console.warn(`视图${viewId}对应的请求不存在`);
+      logger.warn(`视图${viewId}对应的请求不存在`);
       return;
     }
 

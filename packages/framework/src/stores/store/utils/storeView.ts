@@ -1,6 +1,6 @@
 import { get, isArray, isObject, isString, isUndefined, set } from 'lodash';
 import type ViewBase from '@/comp/viewBase';
-import { type DPath, type IStoreBase, ParamKey, PathKey, type ViewStore } from '../interface';
+import { type DPath, type IStoreBase, ParamKey, PathKey, type ViewStore, type ZSet } from '../interface';
 import { getActivePath } from './storeDataPath';
 
 // 初始化视图
@@ -35,7 +35,11 @@ const initViewItem = (v: any) => {
   return v;
 };
 
-// 获取视图ID对应的视图信息
+/**
+ * 获取视图ID对应的视图信息
+ * 注意:返回值必须保持引用稳定(zustand v5 的 selector 依赖 useSyncExternalStore,
+ * 要求快照可缓存),查不到时返回 undefined,不可返回新建对象,否则会导致无限重渲染
+ */
 export const getView = (viewId: string | undefined, zGet: () => IStoreBase) => {
   if (!isString(viewId) || viewId.length == 0) {
     throw new Error(`未确认的viewId:${viewId}`);
@@ -45,20 +49,24 @@ export const getView = (viewId: string | undefined, zGet: () => IStoreBase) => {
 };
 
 // 设置视图ID对应的视图信息
-export const setView = (
-  viewId: string,
-  view: any,
-  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
-) => {
+export const setView = (viewId: string, view: any, zSet: ZSet) => {
   if (!isString(viewId) || viewId.length == 0) {
     return;
   }
-  zSet((state: IStoreBase) => {
-    set(state.view, viewId, view);
-    return state;
-  });
+  zSet(
+    (state: IStoreBase) => {
+      set(state.view, viewId, view);
+      return state;
+    },
+    false,
+    { type: 'setView', viewId },
+  );
 };
 
+/**
+ * 获取视图ID对应的参数集合
+ * 注意:返回值必须保持引用稳定,查不到时返回 undefined,不可返回新建对象
+ */
 export const getViewParams = (viewId: DPath, zGet: () => IStoreBase) => {
   if (isUndefined(viewId)) {
     return undefined;
@@ -67,6 +75,10 @@ export const getViewParams = (viewId: DPath, zGet: () => IStoreBase) => {
   return get(viewParams, viewId);
 };
 
+/**
+ * 获取视图ID指定key的参数
+ * 注意:返回值必须保持引用稳定,查不到时返回 undefined,不可返回新建对象
+ */
 export const getViewParamByKey = (viewId: string, key: string, zGet: () => IStoreBase) => {
   if (isUndefined(viewId) || isUndefined(key)) {
     return;
@@ -76,25 +88,24 @@ export const getViewParamByKey = (viewId: string, key: string, zGet: () => IStor
 };
 
 // 设置指定项的参数
-export const setViewParamByKey = (
-  viewId: string,
-  key: string,
-  value: string,
-  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
-) => {
+export const setViewParamByKey = (viewId: string, key: string, value: string, zSet: ZSet) => {
   if (isUndefined(viewId)) {
     return;
   }
 
-  zSet((state: IStoreBase) => {
-    // 如果设置了焦点参数,自动计算对应的焦点路径
-    if (key === ParamKey.Active) {
-      set(state.viewParams, [viewId, ParamKey.ActivePath], getActivePath(viewId, state, value));
-    }
+  zSet(
+    (state: IStoreBase) => {
+      // 如果设置了焦点参数,自动计算对应的焦点路径
+      if (key === ParamKey.Active) {
+        set(state.viewParams, [viewId, ParamKey.ActivePath], getActivePath(viewId, state, value));
+      }
 
-    set(state.viewParams, [viewId, key], value);
-    return state;
-  });
+      set(state.viewParams, [viewId, key], value);
+      return state;
+    },
+    false,
+    { type: 'setViewParamByKey', viewId, key },
+  );
 };
 
 // 批量设置参数
@@ -102,26 +113,30 @@ export const setViewParams = (
   viewId: string,
   values: any,
   init: boolean = false,
-  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
+  zSet: ZSet,
 ) => {
   if (isUndefined(viewId)) {
     return;
   }
-  zSet((state: IStoreBase) => {
-    if (!isObject(values)) {
+  zSet(
+    (state: IStoreBase) => {
+      if (!isObject(values)) {
+        return state;
+      }
+      // 如果焦点行不为空,
+      const activeKey = get(values, ParamKey.Active);
+      if (!isUndefined(activeKey)) {
+        set(state.viewParams, [viewId, ParamKey.ActivePath], getActivePath(viewId, state, activeKey));
+      }
+      if (init) {
+        set(state.viewParams, viewId, values);
+        return state;
+      }
+      const params = get(state.viewParams, viewId, {});
+      set(state.viewParams, viewId, { ...params, ...values });
       return state;
-    }
-    // 如果焦点行不为空,
-    const activeKey = get(values, ParamKey.Active);
-    if (!isUndefined(activeKey)) {
-      set(state.viewParams, [viewId, ParamKey.ActivePath], getActivePath(viewId, state, activeKey));
-    }
-    if (init) {
-      set(state.viewParams, viewId, values);
-      return state;
-    }
-    const params = get(state.viewParams, viewId, {});
-    set(state.viewParams, viewId, { ...params, ...values });
-    return state;
-  });
+    },
+    false,
+    { type: 'setViewParams', viewId },
+  );
 };

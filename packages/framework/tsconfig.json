@@ -66,7 +66,8 @@
   "exclude": [
     "node_modules",
     "dist",
+    "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.stories.tsx"
-  ] // 排除不需要的文件
+  ] // 排除不需要的文件(测试由 vitest 独立运行)
 }

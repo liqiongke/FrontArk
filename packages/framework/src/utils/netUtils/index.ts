@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance } from 'axios';
+import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import { isString } from 'lodash';
 import { type ErrorHandler, type Result } from './interface';
 import TokenUtils from './tokenUtils';
@@ -59,6 +59,10 @@ class NetUtils {
         return response;
       },
       (error) => {
+        // 请求被取消(如竞态取消)时直接透传,不触发全局错误处理
+        if (axios.isCancel(error)) {
+          return Promise.reject(error);
+        }
         if (errorHandler) {
           const code = error.response?.status || 500;
           const message = error.response?.data?.message || error.message || '响应拦截器异常';
@@ -104,12 +108,39 @@ class NetUtils {
     TokenUtils.clearTokenAndJumpToLogin(this.loginUrl);
   };
 
-  static get = async (url: string, params?: any): Promise<Result<any>> => {
-    return (await this.service.get(`${this.baseUrl}${url}`, params)).data;
+  /**
+   * 判断异常是否为请求被取消(竞态取消等场景)
+   */
+  static isCancel = (error: unknown): boolean => {
+    return axios.isCancel(error);
   };
 
-  static post = async (url: string, data?: any): Promise<Result<any>> => {
-    return (await this.service.post(`${this.baseUrl}${url}`, data)).data;
+  /**
+   * GET 请求
+   * @param url 接口地址(相对 baseUrl)
+   * @param params 查询参数对象,以 axios config.params 形式发送
+   * @param config 额外的 axios 配置(如 signal 用于竞态取消)
+   */
+  static get = async (
+    url: string,
+    params?: Record<string, any>,
+    config?: AxiosRequestConfig,
+  ): Promise<Result<any>> => {
+    return (await this.service.get(`${this.baseUrl}${url}`, { params, ...config })).data;
+  };
+
+  /**
+   * POST 请求
+   * @param url 接口地址(相对 baseUrl)
+   * @param data 请求体
+   * @param config 额外的 axios 配置(如 signal 用于竞态取消)
+   */
+  static post = async (
+    url: string,
+    data?: any,
+    config?: AxiosRequestConfig,
+  ): Promise<Result<any>> => {
+    return (await this.service.post(`${this.baseUrl}${url}`, data, config)).data;
   };
 }
 

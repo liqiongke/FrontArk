@@ -23,6 +23,8 @@
     "build": "tsc -b && vite build",
     "dev": "vite build --watch",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview"
   },
   "peerDependencies": {
@@ -46,7 +48,8 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
-    "vite-plugin-dts": "^4.5.4"
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^5.0.0"
   },
   "dependencies": {
     "immer": "^10.2.0",

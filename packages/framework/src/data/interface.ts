@@ -15,6 +15,8 @@ export default interface DataProps {
   keyAttr?: string | string[];
   // 数据初始化函数
   format?: (data: any) => any;
+  // 失败重试次数,默认0(不重试);重试间隔按次数线性递增(基础300ms)
+  retry?: number;
 }
 
 // 系统用数据类型

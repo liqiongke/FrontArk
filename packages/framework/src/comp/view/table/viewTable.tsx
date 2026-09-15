@@ -7,6 +7,7 @@ import { useMemo, useRef } from 'react';
 import SearchPanel from '../comp/searchPanel/SearchPanel';
 import { type SysViewProps } from '../interface';
 import TableRow from './comp/basetable/tableRow';
+import TableIdContext from './tableContext';
 import { type ViewTableProps } from './interface';
 import './styles/index.less';
 import TableUtils from './utils/tableUtils';
@@ -34,16 +35,19 @@ const ViewTable: React.FC<SysViewProps> = (props) => {
 
   return (
     <div className="view-table">
-      <SearchPanel viewId={props.viewId} items={view.searchItems} />
-      <Table
-        scroll={scroll.current}
-        virtual={true}
-        rowHoverable={false}
-        rowKey={KeyAttr}
-        columns={colnums}
-        components={components.current}
-        dataSource={isArray(data) ? data : []}
-      />
+      {/* 向自定义行组件透传当前表格的 viewId,行组件据此订阅焦点高亮 */}
+      <TableIdContext value={props.viewId}>
+        <SearchPanel viewId={props.viewId} items={view.searchItems} />
+        <Table
+          scroll={scroll.current}
+          virtual={true}
+          rowHoverable={false}
+          rowKey={KeyAttr}
+          columns={colnums}
+          components={components.current}
+          dataSource={isArray(data) ? data : []}
+        />
+      </TableIdContext>
     </div>
   );
 };

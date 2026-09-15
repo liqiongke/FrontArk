@@ -1,5 +1,5 @@
 import { get, isString, set } from 'lodash';
-import { type IStoreBase } from '../interface';
+import { type IStoreBase, type ZSet } from '../interface';
 
 export const getHandler = (viewId: string | undefined, zGet: () => IStoreBase) => {
   if (!isString(viewId) || viewId.length == 0) {
@@ -9,16 +9,16 @@ export const getHandler = (viewId: string | undefined, zGet: () => IStoreBase) =
   return get(handler, viewId);
 };
 
-export const setHandler = (
-  viewId: string,
-  view: any,
-  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
-) => {
+export const setHandler = (viewId: string, view: any, zSet: ZSet) => {
   if (!isString(viewId) || viewId.length == 0) {
     return;
   }
-  zSet((state: IStoreBase) => {
-    set(state.handler, viewId, view);
-    return state;
-  });
+  zSet(
+    (state: IStoreBase) => {
+      set(state.handler, viewId, view);
+      return state;
+    },
+    false,
+    { type: 'setHandler', viewId },
+  );
 };

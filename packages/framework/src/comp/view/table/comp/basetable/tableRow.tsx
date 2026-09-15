@@ -4,6 +4,7 @@ import { get } from 'lodash';
 import React, { useMemo } from 'react';
 import './index.less';
 import { ParamKey } from '@/stores/store/interface';
+import { useTableId } from '../../tableContext';
 
 interface TableRowProps {
   children?: React.ReactNode;
@@ -14,7 +15,9 @@ interface TableRowProps {
 
 const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>((props, ref) => {
   const rowKey = get(props, 'data-row-key');
-  const [activeKey, setActiveKey] = useParamByKey('table1', ParamKey.Active);
+  // viewId 来自表格视图上下文,不再硬编码业务 viewId;上下文缺失时不订阅焦点高亮
+  const tableId = useTableId();
+  const [activeKey, setActiveKey] = useParamByKey(tableId, ParamKey.Active);
   const { children, className, style } = props;
 
   const onClick = useMemoizedFn(() => {

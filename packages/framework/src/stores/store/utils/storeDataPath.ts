@@ -3,12 +3,25 @@ import PathUtils from '@/utils/pathUtils';
 import { isArray, isNumber, isString, isUndefined } from 'lodash';
 import { type DPath, type IStoreBase, ParamKey, PathKey, PathSplit } from '../interface';
 
+// 字面量路径解析缓存:路径是有限集合(声明在业务代码中),按序列化结果缓存避免高频订阅场景重复解析
+// 仅缓存不含 @引用 的字面量路径;含 @Active 等引用的路径依赖 viewParams 动态值,不可缓存
+const literalPathCache = new Map<string, Array<string | number>>();
+const LITERAL_PATH_CACHE_MAX = 2000;
+
+const cacheLiteralPath = (key: string, resolved: Array<string | number>) => {
+  if (literalPathCache.size >= LITERAL_PATH_CACHE_MAX) {
+    literalPathCache.clear();
+  }
+  literalPathCache.set(key, resolved);
+  return resolved;
+};
+
 /**
  * 将引用路径转换成实际的数据路径
  * @param path 原始路径
  * @param zGet 获取store状态的函数
  * @param viewIds 已处理的视图ID列表，防止循环引用
- * @returns 转换后的路径数组
+ * @returns 转换后的路径数组(返回值为缓存引用,调用方只读,不可修改)
  */
 export const getRealPath = (
   path: DPath | undefined,
@@ -22,7 +35,8 @@ export const getRealPath = (
 
   // 2. 处理数字：直接作为路径的一部分返回
   if (isNumber(path)) {
-    return [path];
+    const key = `n:${path}`;
+    return literalPathCache.get(key) ?? cacheLiteralPath(key, [path]);
   }
 
   // 3. 处理数组：递归处理每一项并合并
@@ -32,7 +46,9 @@ export const getRealPath = (
     const isSpecialPath = isString(firstElement) && firstElement.startsWith(PathKey.SysHead);
 
     if (!isSpecialPath) {
-      return path;
+      // 字面量数组路径:解析结果恒定,按序列化结果缓存(JSON 序列化对字符串/数字数组是单射的)
+      const key = `a:${JSON.stringify(path)}`;
+      return literalPathCache.get(key) ?? cacheLiteralPath(key, [...path]);
     }
     // 如果首位是特殊引用：
     // 1. 递归解析首位，得到绝对路径的头部（解析成功即为绝对路径的起点）
@@ -51,10 +67,56 @@ export const getRealPath = (
       return isArray(activePath) ? activePath : [];
     }
     // 普通字符串直接返回
-    return [path];
+    const key = `s:${path}`;
+    return literalPathCache.get(key) ?? cacheLiteralPath(key, [path]);
   }
 
   return [];
+};
+
+/**
+ * 活动行索引缓存
+ * 以数组引用为键:immer 的结构共享保证未被修改的数组引用不变(索引持续有效),
+ * 数组一旦被修改会生成新引用,旧索引随 WeakMap 自动失效,无需手动清理
+ */
+const activeIndexCache = new WeakMap<object, Map<string | number, number>>();
+
+const buildActiveIndex = (data: Array<any>) => {
+  const indexMap = new Map<string | number, number>();
+  data.forEach((item, index) => {
+    const key = item?.[KeyAttr];
+    if (!isUndefined(key)) {
+      indexMap.set(key, index);
+    }
+  });
+  return indexMap;
+};
+
+/**
+ * 按 KeyAttr 在数组中定位下标,优先使用引用级缓存索引,未命中时回退 findIndex
+ * @param data 数据数组(通常是表格等列表数据)
+ * @param activeKey 活动行的 KeyAttr 值
+ * @returns 下标,未找到返回 -1
+ */
+export const getArrayIndexByKey = (data: unknown, activeKey: string | number): number => {
+  if (!isArray(data) || data.length === 0) {
+    return -1;
+  }
+  let indexMap = activeIndexCache.get(data);
+  if (isUndefined(indexMap)) {
+    indexMap = buildActiveIndex(data);
+    activeIndexCache.set(data, indexMap);
+  }
+  const index = indexMap.get(activeKey);
+  if (!isUndefined(index)) {
+    return index;
+  }
+  // 兜底:索引未命中时回退 findIndex,命中后重建索引以覆盖极端的索引过期场景
+  const fallbackIndex = data.findIndex((item) => item?.[KeyAttr] === activeKey);
+  if (fallbackIndex >= 0) {
+    activeIndexCache.set(data, buildActiveIndex(data));
+  }
+  return fallbackIndex;
 };
 
 /**
@@ -111,6 +173,7 @@ export const getActivePath = (
   }
 
   const data = state.getData(view.path);
-  const index = data.findIndex((item: any) => item[KeyAttr] === activeKey);
+  // 使用引用级缓存索引 O(1) 定位,替代对全量数据的 findIndex O(n) 扫描
+  const index = getArrayIndexByKey(data, activeKey);
   return index >= 0 ? PathUtils.mergePath(view.path, index) : undefined;
 };

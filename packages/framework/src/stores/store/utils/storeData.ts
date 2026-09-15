@@ -1,8 +1,9 @@
 import PathUtils from '@/utils/pathUtils';
 import { PerfTrackUtils } from '@/utils/sysUtils/perfTrackerUtils';
+import logger from '@/utils/sysUtils/logger';
 import { cloneDeep, get, isFunction, isObject, isString, isUndefined, set } from 'lodash';
 import type DataBase from '@/data/dataBase';
-import { type DataReqStore, type DataStore, type DPath, type IStoreBase } from '../interface';
+import { type DataReqStore, type DataStore, type DPath, type IStoreBase, type ZSet } from '../interface';
 import { getDataSource, getRealPath } from './storeDataPath';
 
 // 初始化数据请求数据,返回数据请求接口和初始化的数据
@@ -17,7 +18,7 @@ export const initDataAndReq = (data: DataBase): [DataStore, DataReqStore] => {
       continue;
     }
     if (!isUndefined(get(initData, d.id))) {
-      console.warn(`数据请求${d.id}已存在,跳过初始化`);
+      logger.warn(`数据请求${d.id}已存在,跳过初始化`);
       continue;
     }
     set(result, d.id, cloneDeep(d));
@@ -36,7 +37,7 @@ export const initDataAndReq = (data: DataBase): [DataStore, DataReqStore] => {
       }
       const parentNode = get(result, parentId);
       if (isUndefined(parentNode)) {
-        console.warn(`数据请求${parentId}不存在,跳过初始化`);
+        logger.warn(`数据请求${parentId}不存在,跳过初始化`);
         return;
       }
       // 更新当前节点
@@ -53,7 +54,11 @@ export const initDataAndReq = (data: DataBase): [DataStore, DataReqStore] => {
   return [initData, result];
 };
 
-// 将主函数与工具方法合并导出
+/**
+ * 获取指定路径的数据
+ * 注意:返回值必须保持引用稳定(zustand v5 的 selector 依赖 useSyncExternalStore,
+ * 要求快照可缓存),路径无数据时返回 undefined,不可返回新建对象/数组,否则会导致无限重渲染
+ */
 export const getData = PerfTrackUtils('getData', (path: DPath, zGet: () => IStoreBase) => {
   const rPath = getRealPath(path, zGet);
   if (rPath.length === 0) {
@@ -68,12 +73,7 @@ export const getData = PerfTrackUtils('getData', (path: DPath, zGet: () => IStor
 });
 
 // 设置指定路径下的数据
-export const setData = (
-  path: DPath,
-  value: any,
-  zGet: () => IStoreBase,
-  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
-) => {
+export const setData = (path: DPath, value: any, zGet: () => IStoreBase, zSet: ZSet) => {
   if (isUndefined(path)) {
     return;
   }
@@ -81,18 +81,22 @@ export const setData = (
   if (rPath.length === 0) {
     return;
   }
-  zSet((state: IStoreBase) => {
-    const dataSource = getDataSource(rPath[0], state);
-    set(dataSource ?? state.data, dataSource ? rPath.slice(1) : rPath, value);
-    return state;
-  });
+  zSet(
+    (state: IStoreBase) => {
+      const dataSource = getDataSource(rPath[0], state);
+      set(dataSource ?? state.data, dataSource ? rPath.slice(1) : rPath, value);
+      return state;
+    },
+    false,
+    { type: 'setData', path: PathUtils.toString(rPath) },
+  );
 };
 
 export const setDataByFn = (
   path: DPath,
   dataFn: (data: any) => void,
   zGet: () => IStoreBase,
-  zSet: (state: IStoreBase | ((state: IStoreBase) => IStoreBase), replace?: false) => void,
+  zSet: ZSet,
 ) => {
   if (isUndefined(path) || !isFunction(dataFn)) {
     return;
@@ -101,17 +105,21 @@ export const setDataByFn = (
   if (rPath.length === 0) {
     return;
   }
-  zSet((state: IStoreBase) => {
-    const dataSource = getDataSource(rPath[0], state);
-    const path = dataSource ? rPath.slice(1) : rPath;
-    if (path.length === 0) {
-      dataFn(dataSource ?? state.data);
-    } else {
-      dataFn(get(dataSource ?? state.data, path));
-    }
+  zSet(
+    (state: IStoreBase) => {
+      const dataSource = getDataSource(rPath[0], state);
+      const path = dataSource ? rPath.slice(1) : rPath;
+      if (path.length === 0) {
+        dataFn(dataSource ?? state.data);
+      } else {
+        dataFn(get(dataSource ?? state.data, path));
+      }
 
-    return state;
-  });
+      return state;
+    },
+    false,
+    { type: 'setDataByFn', path: PathUtils.toString(rPath) },
+  );
 };
 
 const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();

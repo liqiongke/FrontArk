@@ -6,6 +6,11 @@ import { isString } from 'lodash';
 
 /**
  * 使用缓动更新界面数据,hooks中保存本地数据缓存
+ *
+ * 适用边界:仅用于输入类控件"本地乐观更新 + 300ms 防抖回写"的自持场景。
+ * 订阅一致性约定:同一个数据 path 在同一页面内只允许使用一种订阅方式,
+ * 不要与其他组件的 useData/useDataStoreState(直读 store)混用同一 path,
+ * 否则回写生效前存在最长 300ms 的双源不一致窗口,且防抖回写可能覆盖他处并发写入。
  */
 export const useDataState = (path: DPath): [data: any, setData: (data: any) => void] => {
   const [state, setState] = useSafeState<any>();
@@ -29,6 +34,7 @@ export const useDataState = (path: DPath): [data: any, setData: (data: any) => v
 
 /**
  * 立刻更新数据
+ * 注意:与本文件的 useDataState(缓动订阅)互斥,同一个 path 不要混用两种订阅方式
  */
 export const useDataStoreState = (path: DPath): [data: any, setData: (data: any) => void] => {
   const useStore = useContext(StoreContext);
