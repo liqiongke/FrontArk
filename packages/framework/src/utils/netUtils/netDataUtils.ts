@@ -9,7 +9,6 @@ import {
   isObject,
   isString,
   isUndefined,
-  set,
 } from 'lodash';
 
 // 标志是数据源类型的参数名称
@@ -59,10 +58,16 @@ export class NetDataUtils {
     return { data: coreData, params };
   };
 
-  // 初始化数据源,为所有的对象和数组进行赋值Key值
+  // 初始化数据源,为对象/数组元素注入 KeyAttr
+  // 基础类型与 null/undefined 原样返回(保持值不丢失);对象经浅拷贝注入 key,不修改入参
   static initData = (data: any, req: SysDataProps): any => {
     if (isUndefined(data) || isNull(data)) {
-      return;
+      return data;
+    }
+
+    // 基础数据类型原样返回
+    if (isString(data) || isNumber(data) || isBoolean(data)) {
+      return data;
     }
 
     if (isArray(data)) {
@@ -70,12 +75,12 @@ export class NetDataUtils {
     }
 
     if (isObject(data)) {
-      // 当前值已经设置了key
+      // 当前值已经设置了key,原样返回
       if (!isUndefined(get(data, KeyAttr))) {
         return data;
       }
       // 如果req.keyAttr有值,尝试从data中取值并拼接成key值
-      let keyValue: string | undefined;
+      let keyValue: any;
       if (req.keyAttr) {
         if (isArray(req.keyAttr)) {
           // 如果是数组，拼接多个字段值
@@ -90,7 +95,8 @@ export class NetDataUtils {
       }
 
       // 如果没有值,尝试通过KeyParamName去获取值,按照顺序只取一个
-      if (!keyValue) {
+      // 注意:0 与空字符串也是合法键值,不能用 falsy 判断
+      if (isUndefined(keyValue) || isNull(keyValue)) {
         for (const keyName of KeyParamName) {
           const val = get(data, keyName);
           if (!isUndefined(val) && !isNull(val)) {
@@ -101,13 +107,14 @@ export class NetDataUtils {
       }
 
       // 如果还是没有获取值,则生成一个全局唯一ID
-      if (!keyValue) {
+      if (isUndefined(keyValue) || isNull(keyValue) || keyValue === '') {
         keyValue = `key_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
       }
 
-      // 设置key值到data对象中
-      set(data, KeyAttr, keyValue);
-      return data;
+      // 浅拷贝注入 key,不修改入参(store 中的声明对象可能是冻结/共享引用)
+      return { ...data, [KeyAttr]: keyValue };
     }
+
+    return data;
   };
 }

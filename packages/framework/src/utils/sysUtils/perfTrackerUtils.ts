@@ -20,6 +20,21 @@ interface PerfStats {
 // 存储所有函数的统计数据，键为专属ID (string)
 const trackerMap = new Map<string, PerfStats>();
 
+// 性能追踪开关:默认仅开发环境开启,生产环境包装函数零计时开销
+let perfEnabled: boolean = !!import.meta.env?.DEV;
+
+/**
+ * 设置性能追踪开关(如压测时需在生产环境采集,可显式开启)
+ */
+export const setPerfEnabled = (enabled: boolean): void => {
+  perfEnabled = enabled;
+};
+
+/**
+ * 查询性能追踪开关当前状态
+ */
+export const isPerfEnabled = (): boolean => perfEnabled;
+
 /**
  * 默认的初始化统计数据
  */
@@ -48,6 +63,11 @@ export function PerfTrackUtils<T extends (...args: any[]) => any>(id: string, fu
 
   // 返回一个新的函数，它在调用原始函数前后进行计时和统计
   const trackedFunc = function (this: unknown, ...args: Parameters<T>): ReturnType<T> {
+    // 开关关闭时直接透传,不计时、不统计,保证生产环境零开销
+    if (!perfEnabled) {
+      return (func as (...args: unknown[]) => ReturnType<T>).apply(this, args);
+    }
+
     const stats = trackerMap.get(id)!;
     const startTime = performance.now();
     let result: ReturnType<T> | undefined;
@@ -146,8 +166,10 @@ export function resetStats(id?: string): void {
       logger.warn(`[PerfTracker] 警告：尝试清零不存在的ID: "${id}"。`);
     }
   } else {
-    // 清除所有统计记录
-    trackerMap.clear();
+    // 逐项重置而非 clear():包装函数仍持有 id,清空后再次调用会读写 undefined 崩溃
+    trackerMap.forEach((_stats, currentId) => {
+      trackerMap.set(currentId, { ...initialStats });
+    });
     logger.debug('[PerfTracker] 所有函数的统计记录已全部清零。');
   }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KeyAttr } from '@/interface';
+import ViewPathUtils from '@/utils/viewPathUtils';
 import { getActivePath, getArrayIndexByKey, getRealPath } from './storeDataPath';
 import { ParamKey } from '../interface';
 import type { IStoreBase } from '../interface';
@@ -24,6 +25,17 @@ const createFakeState = (overrides: Record<string, any> = {}) =>
     ...overrides,
   }) as unknown as IStoreBase;
 
+// @Active 动态解析的完整桩:视图声明 + 焦点键值 + 数据树
+const createActiveState = (activeKey?: string) =>
+  createFakeState({
+    getView: (viewId?: string) =>
+      viewId === 'table1' ? { id: 'table1', path: ['table'] } : undefined,
+    getViewParamByKey: (viewId: string, key: string) =>
+      viewId === 'table1' && key === ParamKey.Active ? activeKey : undefined,
+    getData: (path: any) =>
+      JSON.stringify(path) === JSON.stringify(['table']) ? rows : undefined,
+  });
+
 describe('getRealPath', () => {
   const zGet = () => createFakeState();
 
@@ -43,20 +55,41 @@ describe('getRealPath', () => {
     expect(getRealPath('table', zGet)).toEqual(['table']);
   });
 
-  it('@Active 引用路径解析为视图参数中的焦点路径', () => {
-    const activePath = ['table', 2];
-    const state = createFakeState({
-      getViewParamByKey: (viewId: string, key: string) =>
-        viewId === 'table1' && key === ParamKey.ActivePath ? activePath : undefined,
-    });
-    expect(getRealPath('@Active:table1', () => state)).toEqual(activePath);
+  it('@Active 引用路径按当前焦点键值动态解析(不依赖缓存的 @ActivePath)', () => {
+    expect(getRealPath('@Active:table1', () => createActiveState('b'))).toEqual(['table', 1]);
   });
 
-  it('@Active 引用路径在焦点路径缺失时返回空数组', () => {
-    const state = createFakeState({
-      getViewParamByKey: () => undefined,
-    });
-    expect(getRealPath('@Active:table1', () => state)).toEqual([]);
+  it('@Active 未选中焦点行时返回 undefined(安全失败,禁止拼接后读写错误位置)', () => {
+    expect(getRealPath('@Active:table1', () => createActiveState(undefined))).toBeUndefined();
+  });
+
+  it('@Active 焦点行不存在时返回 undefined', () => {
+    expect(getRealPath('@Active:table1', () => createActiveState('missing'))).toBeUndefined();
+  });
+
+  it('@Row 引用按行键值解析为行数据路径(与渲染下标无关)', () => {
+    expect(getRealPath(ViewPathUtils.row('table1', 'b'), () => createActiveState())).toEqual([
+      'table',
+      1,
+    ]);
+  });
+
+  it('@Row 行键值不存在时返回 undefined(安全失败)', () => {
+    expect(
+      getRealPath(ViewPathUtils.row('table1', 'missing'), () => createActiveState()),
+    ).toBeUndefined();
+  });
+
+  it('@Row 引用与字段名拼接为单元格路径', () => {
+    expect(
+      getRealPath([ViewPathUtils.row('table1', 'a'), 'name'], () => createActiveState()),
+    ).toEqual(['table', 0, 'name']);
+  });
+
+  it('数组路径首位的未解析引用使整体返回 undefined(禁止拼接后落错位置)', () => {
+    expect(
+      getRealPath(['@Active:table1', 'name'], () => createActiveState(undefined)),
+    ).toBeUndefined();
   });
 
   it('字面量路径缓存生效:相同内容返回同一引用', () => {
@@ -93,13 +126,7 @@ describe('getArrayIndexByKey', () => {
 });
 
 describe('getActivePath', () => {
-  const tableState = () =>
-    createFakeState({
-      getView: (viewId?: string) =>
-        viewId === 'table1' ? { id: 'table1', path: ['table'] } : undefined,
-      getData: (path: any) =>
-        JSON.stringify(path) === JSON.stringify(['table']) ? rows : undefined,
-    });
+  const tableState = () => createActiveState();
 
   it('根据焦点行 KeyAttr 计算焦点路径', () => {
     expect(getActivePath('table1', tableState(), 'b')).toEqual(['table', 1]);
@@ -119,7 +146,11 @@ describe('getActivePath', () => {
     expect(getActivePath('table1', tableState(), 'missing')).toBeUndefined();
   });
 
-  it('循环引用超过 32 层时返回空数组防护', () => {
+  it('视图不存在时返回 undefined(安全失败)', () => {
+    expect(getActivePath('ghost', tableState(), 'a')).toBeUndefined();
+  });
+
+  it('循环引用超过 32 层时返回 undefined 防护', () => {
     // 构造 40 层 @Active 链式引用,触发 deep 防护
     const views: Record<string, any> = {};
     for (let i = 0; i < 40; i++) {
@@ -128,6 +159,6 @@ describe('getActivePath', () => {
     const state = createFakeState({
       getView: (viewId?: string) => views[viewId as string],
     });
-    expect(getActivePath('v0', state, 'any')).toEqual([]);
+    expect(getActivePath('v0', state, 'any')).toBeUndefined();
   });
 });

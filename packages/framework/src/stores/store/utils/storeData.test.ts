@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { KeyAttr } from '@/interface';
 import { getData, initDataAndReq, setData, setDataByFn } from './storeData';
 import type DataBase from '@/data/dataBase';
@@ -15,6 +15,9 @@ const createRunner = (data: Record<string, any> = {}) => {
     view: {},
     viewParams: {},
     handler: {},
+    // @引用解析所需的查询桩:默认全部未命中(视图/焦点不存在),由具体用例覆盖
+    getView: () => undefined,
+    getViewParamByKey: () => undefined,
   } as unknown as IStoreBase;
   const zGet = () => state;
   // 记录每次更新的 action 标注,供断言 devtools 动作标注
@@ -109,7 +112,7 @@ describe('setDataByFn', () => {
 
 describe('initDataAndReq', () => {
   it('根据 Data 声明初始化请求节点并维护父子关系', () => {
-    // 参数引用的 path 以 { id } 对象形态声明父节点(现有实现按 path.id 解析父节点)
+    // 参数引用的 path 以 { id } 对象形态声明父节点
     // 节点按 SysDataProps 契约预置 parentIds/childIds
     const data = {
       mainTable: { id: 'table', url: '/demo/base/table', keyAttr: 'id', childIds: [], parentIds: [] },
@@ -128,6 +131,17 @@ describe('initDataAndReq', () => {
     expect(reqStore['table'].childIds).toContain('formData');
   });
 
+  it('业务未声明 parentIds/childIds/criteria 时由框架兜底初始化', () => {
+    const data = {
+      mainTable: { id: 'table', url: '/demo/base/table' },
+    } as unknown as DataBase;
+
+    const [, reqStore] = initDataAndReq(data);
+    expect(reqStore['table'].parentIds).toEqual([]);
+    expect(reqStore['table'].childIds).toEqual([]);
+    expect(reqStore['table'].criteria).toEqual({});
+  });
+
   it('参数引用的父节点不存在时跳过该引用', () => {
     const data = {
       formData: {
@@ -142,13 +156,81 @@ describe('initDataAndReq', () => {
     expect(reqStore['formData'].parentIds).toHaveLength(0);
   });
 
-  it('重复 id 的节点以最后一个声明为准(现状语义)', () => {
+  it('依赖提取支持字符串与数组首段形式', () => {
+    const data = {
+      a: { id: 'a', url: '/a' },
+      b: { id: 'b', url: '/b', params: [{ field: 'x', path: 'a' }] },
+      c: { id: 'c', url: '/c', params: [{ field: 'x', path: ['a', 'rows'] }] },
+    } as unknown as DataBase;
+
+    const [, reqStore] = initDataAndReq(data);
+    expect(reqStore['b'].parentIds).toContain('a');
+    expect(reqStore['c'].parentIds).toContain('a');
+    expect(reqStore['a'].childIds).toEqual(expect.arrayContaining(['b', 'c']));
+  });
+
+  it('dependsOn 显式声明与 params.path 推导的依赖合并', () => {
+    const data = {
+      a: { id: 'a', url: '/a' },
+      b: { id: 'b', url: '/b' },
+      c: { id: 'c', url: '/c', dependsOn: ['a'], params: [{ field: 'x', path: 'b' }] },
+    } as unknown as DataBase;
+
+    const [, reqStore] = initDataAndReq(data);
+    expect(reqStore['c'].parentIds).toEqual(expect.arrayContaining(['a', 'b']));
+  });
+
+  it('依赖自身的声明被忽略', () => {
+    const data = {
+      a: { id: 'a', url: '/a', dependsOn: ['a'] },
+    } as unknown as DataBase;
+
+    const [, reqStore] = initDataAndReq(data);
+    expect(reqStore['a'].parentIds).toHaveLength(0);
+  });
+
+  it('声明成环时不抛出异常(初始化期报错,运行期由请求链兜底)', () => {
+    const data = {
+      a: { id: 'a', url: '/a', dependsOn: ['b'] },
+      b: { id: 'b', url: '/b', dependsOn: ['a'] },
+    } as unknown as DataBase;
+
+    expect(() => initDataAndReq(data)).not.toThrow();
+    const [, reqStore] = initDataAndReq(data);
+    expect(reqStore['a'].parentIds).toContain('b');
+    expect(reqStore['b'].parentIds).toContain('a');
+  });
+
+  it('重复 id 的节点保留首个声明(后声明的同名节点被忽略)', () => {
     const data = {
       a: { id: 'same', url: '/a' },
       b: { id: 'same', url: '/b' },
     } as unknown as DataBase;
     const [, reqStore] = initDataAndReq(data);
-    expect(reqStore['same'].url).toBe('/b');
+    expect(reqStore['same'].url).toBe('/a');
+  });
+});
+
+describe('引用未解析路径的安全失败', () => {
+  it('setData 在引用未解析时拒绝写入(不落到数据根节点)', () => {
+    const { zGet, zSet, actions } = createRunner({ table: [{ id: 1 }] });
+    // 视图缺失 → @Active 未解析
+    setData(['@Active:ghost', 'name'], 9, zGet, zSet);
+    expect(getData(['name'], zGet)).toBeUndefined();
+    expect(actions).toHaveLength(0);
+  });
+
+  it('setDataByFn 在引用未解析时不执行回调', () => {
+    const { zGet, zSet, actions } = createRunner({ table: [{ id: 1 }] });
+    const fn = vi.fn();
+    setDataByFn(['@Active:ghost', 'name'], fn, zGet, zSet);
+    expect(fn).not.toHaveBeenCalled();
+    expect(actions).toHaveLength(0);
+  });
+
+  it('getData 在引用未解析时返回 undefined', () => {
+    const { zGet } = createRunner({ table: [{ id: 1 }] });
+    expect(getData(['@Active:ghost', 'name'], zGet)).toBeUndefined();
   });
 });
 

@@ -10,6 +10,8 @@ export default defineConfig({
     // 自动生成类型声明文件
     dts({
       insertTypesEntry: true,
+      // 测试文件不生成类型声明(避免 vitest 类型进入产物)
+      exclude: ['**/*.test.ts', '**/*.test.tsx'],
     }),
   ],
   resolve: {
@@ -28,11 +30,12 @@ export default defineConfig({
     },
     rollupOptions: {
       // 外部化所有 peer 依赖，避免将宿主应用已有的依赖重复打包
+      // 正则覆盖子路径引用(如 react/jsx-runtime、antd/es/* 的内部引用)
       external: [
-        'react',
-        'react-dom',
-        'antd',
-        '@ant-design/icons',
+        /^react($|\/)/,
+        /^react-dom($|\/)/,
+        /^antd($|\/)/,
+        /^@ant-design\/icons($|\/)/,
         'ahooks',
         'axios',
         'lodash',

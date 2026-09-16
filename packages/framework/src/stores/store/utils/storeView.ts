@@ -95,9 +95,12 @@ export const setViewParamByKey = (viewId: string, key: string, value: string, zS
 
   zSet(
     (state: IStoreBase) => {
-      // 如果设置了焦点参数,自动计算对应的焦点路径
+      // 如果设置了焦点参数,自动计算对应的焦点路径(解析失败时不写入,避免脏键)
       if (key === ParamKey.Active) {
-        set(state.viewParams, [viewId, ParamKey.ActivePath], getActivePath(viewId, state, value));
+        const activePath = getActivePath(viewId, state, value);
+        if (!isUndefined(activePath)) {
+          set(state.viewParams, [viewId, ParamKey.ActivePath], activePath);
+        }
       }
 
       set(state.viewParams, [viewId, key], value);
@@ -125,12 +128,22 @@ export const setViewParams = (
       }
       // 如果焦点行不为空,
       const activeKey = get(values, ParamKey.Active);
-      if (!isUndefined(activeKey)) {
-        set(state.viewParams, [viewId, ParamKey.ActivePath], getActivePath(viewId, state, activeKey));
-      }
       if (init) {
+        // 先整体写入参数,再计算焦点路径:避免后写的 values 覆盖刚写入的 @ActivePath
         set(state.viewParams, viewId, values);
+        if (!isUndefined(activeKey)) {
+          const activePath = getActivePath(viewId, state, activeKey);
+          if (!isUndefined(activePath)) {
+            set(state.viewParams, [viewId, ParamKey.ActivePath], activePath);
+          }
+        }
         return state;
+      }
+      if (!isUndefined(activeKey)) {
+        const activePath = getActivePath(viewId, state, activeKey);
+        if (!isUndefined(activePath)) {
+          set(state.viewParams, [viewId, ParamKey.ActivePath], activePath);
+        }
       }
       const params = get(state.viewParams, viewId, {});
       set(state.viewParams, viewId, { ...params, ...values });

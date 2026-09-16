@@ -1,55 +1,124 @@
 import PathUtils from '@/utils/pathUtils';
 import { PerfTrackUtils } from '@/utils/sysUtils/perfTrackerUtils';
 import logger from '@/utils/sysUtils/logger';
-import { cloneDeep, get, isFunction, isObject, isString, isUndefined, set } from 'lodash';
+import { cloneDeep, get, isArray, isFunction, isObject, isString, isUndefined, set } from 'lodash';
 import type DataBase from '@/data/dataBase';
 import { type DataReqStore, type DataStore, type DPath, type IStoreBase, type ZSet } from '../interface';
 import { getDataSource, getRealPath } from './storeDataPath';
 
-// 初始化数据请求数据,返回数据请求接口和初始化的数据
+// 判断是否为数据节点 id:以 @ 开头的是系统引用(如 @Active:xxx),不构成父子依赖
+const isDataNodeId = (value: unknown): value is string =>
+  isString(value) && value.length > 0 && !value.startsWith('@');
+
+// 从 params.path 声明中提取被依赖的数据节点 id(字符串/数组首段/{id}对象三种形式)
+const extractParentId = (path: unknown): string | undefined => {
+  if (isDataNodeId(path)) {
+    return path;
+  }
+  if (isArray(path) && path.length > 0) {
+    return isDataNodeId(path[0]) ? path[0] : undefined;
+  }
+  if (isObject(path)) {
+    const id = get(path, 'id');
+    return isDataNodeId(id) ? id : undefined;
+  }
+  return undefined;
+};
+
+// 建立父子依赖(双向登记,去重)
+const addDependency = (reqStore: DataReqStore, childId: string, parentId: string) => {
+  if (parentId === childId) {
+    logger.error(`数据节点${childId}依赖自身,忽略该依赖`);
+    return;
+  }
+  const parentNode = get(reqStore, parentId);
+  const childNode = get(reqStore, childId);
+  if (isUndefined(parentNode)) {
+    logger.warn(`数据节点${childId}依赖的父节点${parentId}不存在,跳过该依赖`);
+    return;
+  }
+  if (!parentNode.childIds.includes(childId)) {
+    parentNode.childIds.push(childId);
+  }
+  if (!childNode.parentIds.includes(parentId)) {
+    childNode.parentIds.push(parentId);
+  }
+};
+
+// 环检测(DFS):声明成环会导致请求链相互等待,初始化期暴露,运行期由请求链 visited 兜底
+const detectDependencyCycles = (reqStore: DataReqStore) => {
+  const done = new Set<string>();
+  const inStack = new Set<string>();
+  const dfs = (id: string, chain: string[]) => {
+    if (done.has(id)) {
+      return;
+    }
+    if (inStack.has(id)) {
+      logger.error(`数据节点依赖存在循环:${[...chain, id].join('→')},请检查 params.path/dependsOn 声明`);
+      return;
+    }
+    inStack.add(id);
+    const node = get(reqStore, id);
+    if (!isUndefined(node)) {
+      node.parentIds.forEach((parentId: string) => dfs(parentId, [...chain, id]));
+    }
+    inStack.delete(id);
+    done.add(id);
+  };
+  Object.keys(reqStore).forEach((id) => dfs(id, []));
+};
+
+/**
+ * 初始化数据请求数据,返回数据请求接口和初始化的数据
+ * 契约:
+ * 1. 节点 id 重复时保留首个声明并报错,后声明的同名节点被忽略(避免先注册的视图引用被静默改写)
+ * 2. parentIds/childIds/criteria 由框架兜底初始化,业务无需(也不应)预声明
+ * 3. 父子依赖来源:params.path 数据引用(字符串/数组首段/{id}对象)与 dependsOn 显式声明
+ */
 export const initDataAndReq = (data: DataBase): [DataStore, DataReqStore] => {
   const result: DataReqStore = {};
   const initData: DataStore = {};
 
-  // 获取声明的所有节点
+  // 第一遍:登记全部节点,重复 id 保留首个声明
   for (const key in data) {
     const d = get(data, key);
     if (!isObject(d) || !isString(d.id)) {
       continue;
     }
-    if (!isUndefined(get(initData, d.id))) {
-      logger.warn(`数据请求${d.id}已存在,跳过初始化`);
+    if (!isUndefined(get(result, d.id))) {
+      logger.error(`数据节点${d.id}重复声明,保留首个声明,忽略:${key}`);
       continue;
     }
     set(result, d.id, cloneDeep(d));
   }
 
-  // 计算所有数据节点的父节点和子节点
-  for (const key in result) {
-    const d = get(result, key);
-    if (!isObject(d)) {
-      continue;
-    }
+  // 第二遍:兜底初始化运行字段(业务声明不携带这些字段,避免未声明时读写崩溃)
+  for (const id in result) {
+    const d = result[id];
+    d.parentIds = isArray(d.parentIds) ? d.parentIds : [];
+    d.childIds = isArray(d.childIds) ? d.childIds : [];
+    d.criteria = isObject(d.criteria) ? d.criteria : {};
+  }
+
+  // 第三遍:建立父子依赖
+  for (const id in result) {
+    const d = result[id];
     d.params?.forEach((param) => {
-      const parentId = get(param, ['path', 'id']);
-      if (!isString(parentId)) {
-        return;
-      }
-      const parentNode = get(result, parentId);
-      if (isUndefined(parentNode)) {
-        logger.warn(`数据请求${parentId}不存在,跳过初始化`);
-        return;
-      }
-      // 更新当前节点
-      if (!parentNode.childIds.includes(d.id)) {
-        parentNode.childIds.push(d.id);
-      }
-      // 更新当前节点的parentIds
-      if (!d.parentIds.includes(parentId)) {
-        d.parentIds.push(parentId);
+      const parentId = extractParentId(get(param, 'path'));
+      if (!isUndefined(parentId)) {
+        addDependency(result, id, parentId);
       }
     });
+    if (isArray(d.dependsOn)) {
+      d.dependsOn.forEach((parentId) => {
+        if (isString(parentId)) {
+          addDependency(result, id, parentId);
+        }
+      });
+    }
   }
+
+  detectDependencyCycles(result);
 
   return [initData, result];
 };
@@ -61,6 +130,10 @@ export const initDataAndReq = (data: DataBase): [DataStore, DataReqStore] => {
  */
 export const getData = PerfTrackUtils('getData', (path: DPath, zGet: () => IStoreBase) => {
   const rPath = getRealPath(path, zGet);
+  // 引用未解析(未选中焦点行/行不存在/视图缺失):安全失败返回 undefined
+  if (isUndefined(rPath)) {
+    return undefined;
+  }
   if (rPath.length === 0) {
     return zGet().data;
   }
@@ -78,6 +151,11 @@ export const setData = (path: DPath, value: any, zGet: () => IStoreBase, zSet: Z
     return;
   }
   const rPath = getRealPath(path, zGet);
+  // 引用未解析时拒绝写入:禁止拼接后落到数据根节点等错误位置
+  if (isUndefined(rPath)) {
+    logger.warn(`setData 路径未解析,拒绝写入:${JSON.stringify(path)}`);
+    return;
+  }
   if (rPath.length === 0) {
     return;
   }
@@ -102,6 +180,11 @@ export const setDataByFn = (
     return;
   }
   const rPath = getRealPath(path, zGet);
+  // 引用未解析时拒绝执行:同上,防止回调意外写入错误位置
+  if (isUndefined(rPath)) {
+    logger.warn(`setDataByFn 路径未解析,拒绝执行:${JSON.stringify(path)}`);
+    return;
+  }
   if (rPath.length === 0) {
     return;
   }
@@ -120,34 +203,4 @@ export const setDataByFn = (
     false,
     { type: 'setDataByFn', path: PathUtils.toString(rPath) },
   );
-};
-
-const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
-/**设置缓动触发值的更新 */
-export const setDataDebounce = (
-  path: DPath,
-  value: any,
-  zGet: () => IStoreBase,
-  delay: number = 300,
-) => {
-  if (isUndefined(path)) {
-    return;
-  }
-  // 1. 获取该 path 对应的唯一 Key
-  const newPath = getRealPath(path, zGet);
-  const key = PathUtils.toString(newPath);
-
-  // 2. 检查该 path 是否已经有正在等待的更新，如果有，取消它
-  if (debounceTimers.has(key)) {
-    clearTimeout(debounceTimers.get(key));
-  }
-
-  // 3. 创建一个新的定时器
-  const timerId = setTimeout(() => {
-    zGet().setData(newPath, value);
-    debounceTimers.delete(key);
-  }, delay);
-
-  // 4. 将新定时器存入 Map
-  debounceTimers.set(key, timerId);
 };

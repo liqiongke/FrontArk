@@ -17,11 +17,11 @@ const ViewTable: React.FC<SysViewProps> = (props) => {
   const [data] = useDataById(view.dataId);
 
   // 生成表格列
-  // 单元格取数路径 = 基础路径 + 行下标 + 字段名;基础路径优先取显式 path,
-  // 未声明时回退 dataId(数据节点 id 即数据树路径首段),否则单元格路径会退化为 [下标, 字段] 而取不到数据
-  const colnums = useMemo(
-    () => TableUtils.createColumns(view.items, view.path ?? view.dataId),
-    [view.items, view.path, view.dataId],
+  // 单元格取数路径 = @Row 行引用 + 字段名(按行键值身份寻址,与渲染下标无关);
+  // 基础路径优先取显式 path,未声明时回退 dataId,供行键值缺失时下标寻址兜底
+  const columns = useMemo(
+    () => TableUtils.createColumns(props.viewId, view.items, view.path ?? view.dataId),
+    [props.viewId, view.items, view.path, view.dataId],
   );
 
   // 设置自定义组件
@@ -31,9 +31,8 @@ const ViewTable: React.FC<SysViewProps> = (props) => {
     },
   });
 
-  const scroll = useRef({
-    y: view.height ?? 400,
-  });
+  // scroll 配置仅随 height 变化,useMemo 保证引用稳定
+  const scroll = useMemo(() => ({ y: view.height ?? 400 }), [view.height]);
 
   return (
     <div className="view-table">
@@ -41,11 +40,14 @@ const ViewTable: React.FC<SysViewProps> = (props) => {
       <TableIdContext value={props.viewId}>
         <SearchPanel viewId={props.viewId} items={view.searchItems} />
         <Table
-          scroll={scroll.current}
+          scroll={scroll}
           virtual={true}
+          // 关闭内部分页:antd 默认 pageSize=10 会切片 dataSource,导致渲染行下标与数据下标错位,
+          // 框架列表数据由请求全量驱动,翻页应通过请求参数(如分页接口)实现
+          pagination={false}
           rowHoverable={false}
           rowKey={KeyAttr}
-          columns={colnums}
+          columns={columns}
           components={components.current}
           dataSource={isArray(data) ? data : []}
         />

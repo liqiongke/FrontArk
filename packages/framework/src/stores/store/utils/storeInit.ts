@@ -5,13 +5,12 @@ import type HandlerBase from '@/handler/handlerBase';
 import type ViewBase from '../../../comp/viewBase';
 import { type IStoreBase, PathKey, type ZSet } from '../interface';
 import { initDataAndReq } from './storeData';
-import StoreReq from './storeReq';
 import { initView } from './storeView';
 
 // 预渲染类型,需要在初始化页面的时候,将组件渲染到视图上
 const PreRenderType = [ViewType.LayoutModal, ViewType.LayoutDrawer];
 
-// 初始化store,并返回视图实例
+// 初始化store,并返回视图实例(纯初始化,不发起请求;请求由 startRequests 在 effect 提交后启动)
 export const initStore = <H extends HandlerBase, D extends DataBase>(
   ViewClass: new (handler: H, data: D) => ViewBase<H, D>,
   DataClass: new () => D,
@@ -28,7 +27,6 @@ export const initStore = <H extends HandlerBase, D extends DataBase>(
 
   const handler = new HandlerClass();
   handler.init(zGet);
-  StoreReq.init(zGet, zSet);
 
   // 初始化视图
   const data = new DataClass();
@@ -47,9 +45,6 @@ export const initStore = <H extends HandlerBase, D extends DataBase>(
     false,
     { type: 'initStore' },
   );
-
-  // 发送初始化数据的请求
-  StoreReq.fetchAllReq();
 
   return [view, getPreRenderIds(view)];
 };
