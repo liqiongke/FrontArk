@@ -25,6 +25,7 @@ export type { default as DataProps } from '@data/interface';
 
 // 组件类型
 export { ViewType as VType } from '@view/interface';
+export { RenderMode } from '@view/table/interface';
 export { PathKey } from '@store/interface';
 
 // 控件类型

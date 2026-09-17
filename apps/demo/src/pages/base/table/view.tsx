@@ -1,4 +1,4 @@
-import { Ctrl, DataBase, VType, ViewBase, type VProps } from '@jl/framework';
+import { Ctrl, DataBase, RenderMode, VType, ViewBase, type VProps } from '@jl/framework';
 import type Data from './data';
 import type Handler from './handler';
 
@@ -7,6 +7,9 @@ class View extends ViewBase<Handler, Data> {
     id: 'table1',
     type: VType.Table,
     dataId: this.data.mainTable.id,
+    // 启用结构订阅模式:字段编辑仅更新对应控件,不再带动表格外壳更新
+    // (本页无本地排序/过滤/行选择依赖;行键缺失/重复/非字符串时框架自动回退经典模式)
+    renderMode: RenderMode.Subscription,
     searchItems: [
       { title: '产品ID', field: 'id' },
       { title: '产品名称', field: 'name' },
