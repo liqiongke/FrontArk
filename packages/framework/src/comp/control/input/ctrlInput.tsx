@@ -18,7 +18,7 @@ const CtrlInput: React.FC<SysInteractiveCtrlProps<CtrlInputProps>> = (props) => 
   if (sourceView === ViewType.Table) {
     textAlign = 'right';
   }
-  return <Input style={{ textAlign }} value={value} onChange={onCtrlChange} />;
+  return <Input style={{ textAlign }} value={value ?? ''} onChange={onCtrlChange} />;
 };
 
 export default CtrlInput;

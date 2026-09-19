@@ -1,10 +1,9 @@
 import PathUtils from '@/utils/pathUtils';
-import { PerfTrackUtils } from '@/utils/sysUtils/perfTrackerUtils';
 import logger from '@/utils/sysUtils/logger';
 import { cloneDeep, get, isArray, isFunction, isObject, isString, isUndefined, set } from 'lodash';
 import type DataBase from '@/data/dataBase';
 import { type DataReqStore, type DataStore, type DPath, type IStoreBase, type ZSet } from '../interface';
-import { getDataSource, getRealPath } from './storeDataPath';
+import { getDataSource, getRealPath, readData } from './storeDataPath';
 
 // 判断是否为数据节点 id:以 @ 开头的是系统引用(如 @Active:xxx),不构成父子依赖
 const isDataNodeId = (value: unknown): value is string =>
@@ -128,22 +127,7 @@ export const initDataAndReq = (data: DataBase): [DataStore, DataReqStore] => {
  * 注意:返回值必须保持引用稳定(zustand v5 的 selector 依赖 useSyncExternalStore,
  * 要求快照可缓存),路径无数据时返回 undefined,不可返回新建对象/数组,否则会导致无限重渲染
  */
-export const getData = PerfTrackUtils('getData', (path: DPath, zGet: () => IStoreBase) => {
-  const rPath = getRealPath(path, zGet);
-  // 引用未解析(未选中焦点行/行不存在/视图缺失):安全失败返回 undefined
-  if (isUndefined(rPath)) {
-    return undefined;
-  }
-  if (rPath.length === 0) {
-    return zGet().data;
-  }
-  const dataSource = getDataSource(rPath[0], zGet());
-  const p = dataSource ? rPath.slice(1) : rPath;
-  if (p.length === 0) {
-    return dataSource ?? zGet().data;
-  }
-  return get(dataSource ?? zGet().data, p);
-});
+export const getData = (path: DPath, zGet: () => IStoreBase) => readData(zGet(), path);
 
 // 设置指定路径下的数据
 export const setData = (path: DPath, value: any, zGet: () => IStoreBase, zSet: ZSet) => {

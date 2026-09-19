@@ -3,7 +3,8 @@ import type { DataNodePath } from './data';
 
 class Handler extends HandlerBase {
   onPrintData = () => {
-    // console.log(this.getData([PathKey.Req, 'table']));
+    // 显式提交焦点行待写输入，再读取；getData 本身不触发写入。
+    this.flushDataScope(['@Active:table1']);
     console.log(this.getData([PathKey.Data]));
   };
   onSetData = () => {

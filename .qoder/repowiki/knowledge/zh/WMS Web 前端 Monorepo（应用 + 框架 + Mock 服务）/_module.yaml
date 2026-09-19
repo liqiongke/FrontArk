@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: WMS Web 前端工程（框架包、Mock 服务与 Demo 应用）
+title: WMS Web 前端 Monorepo（应用 + 框架 + Mock 服务）
 scope: []
 source_files: []
 depends_on: []

@@ -76,8 +76,9 @@ export class NetDataUtils {
 
     if (isObject(data)) {
       // 当前值已经设置了key,原样返回
-      if (!isUndefined(get(data, KeyAttr))) {
-        return data;
+      const existingKey = get(data, KeyAttr);
+      if (!isUndefined(existingKey)) {
+        return isNumber(existingKey) ? { ...data, [KeyAttr]: String(existingKey) } : data;
       }
       // 如果req.keyAttr有值,尝试从data中取值并拼接成key值
       let keyValue: any;
@@ -112,7 +113,7 @@ export class NetDataUtils {
       }
 
       // 浅拷贝注入 key,不修改入参(store 中的声明对象可能是冻结/共享引用)
-      return { ...data, [KeyAttr]: keyValue };
+      return { ...data, [KeyAttr]: isNumber(keyValue) ? String(keyValue) : keyValue };
     }
 
     return data;

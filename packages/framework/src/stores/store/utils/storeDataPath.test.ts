@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { KeyAttr } from '@/interface';
 import ViewPathUtils from '@/utils/viewPathUtils';
-import { getActivePath, getArrayIndexByKey, getRealPath } from './storeDataPath';
+import { getActivePath, getArrayIndexByKey, getRealPath, readData, resolvePath } from './storeDataPath';
+import createBaseStore from '../storeBase';
 import { ParamKey } from '../interface';
 import type { IStoreBase } from '../interface';
 
@@ -28,12 +29,9 @@ const createFakeState = (overrides: Record<string, any> = {}) =>
 // @Active 动态解析的完整桩:视图声明 + 焦点键值 + 数据树
 const createActiveState = (activeKey?: string) =>
   createFakeState({
-    getView: (viewId?: string) =>
-      viewId === 'table1' ? { id: 'table1', path: ['table'] } : undefined,
-    getViewParamByKey: (viewId: string, key: string) =>
-      viewId === 'table1' && key === ParamKey.Active ? activeKey : undefined,
-    getData: (path: any) =>
-      JSON.stringify(path) === JSON.stringify(['table']) ? rows : undefined,
+    view: { table1: { id: 'table1', path: ['table'] } },
+    viewParams: { table1: { [ParamKey.Active]: activeKey } },
+    data: { table: rows },
   });
 
 describe('getRealPath', () => {
@@ -125,6 +123,43 @@ describe('getArrayIndexByKey', () => {
   });
 });
 
+describe('快照纯读取与绑定安全', () => {
+  it('旧快照不通过 action 闭包读取新数据、焦点或视图', () => {
+    const store = createBaseStore();
+    store.setState({ data: { table: rows }, view: { table1: { dataId: 'table' } },
+      viewParams: { table1: { [ParamKey.Active]: 'a' } } });
+    const old = store.getState();
+    old.setData(['table', 0, 'name'], 'new-a');
+    old.setViewParamByKey('table1', ParamKey.Active, 'b');
+    expect(readData(old, ['@Active:table1', 'name'])).toBe('row-a');
+    expect(readData(old, ['@Row:table1:a', 'name'])).toBe('row-a');
+    expect(readData(store.getState(), ['@Active:table1', 'name'])).toBe('row-b');
+    expect(readData(store.getState(), ['@Row:table1:a', 'name'])).toBe('new-a');
+  });
+
+  it('嵌套动态数据源解析完整路径且不遗漏尾段', () => {
+    const state = createFakeState({
+      view: { groups: { dataId: 'groups' }, lines: { path: ['@Active:groups', 'lines'] } },
+      viewParams: { groups: { [ParamKey.Active]: 'g1' } },
+      data: { groups: [{ [KeyAttr]: 'g1', lines: [{ [KeyAttr]: 'a', price: 3 }] }] },
+    });
+    expect(resolvePath(state, ['@Row:lines:a', 'price'])).toEqual(['groups', 0, 'lines', 0, 'price']);
+    expect(readData(state, ['@Row:lines:a', 'price'])).toBe(3);
+  });
+
+  it('重复键、跨类型同形键拒绝定位，数字键可兼容读取', () => {
+    expect(getArrayIndexByKey([{ [KeyAttr]: 'a' }, { [KeyAttr]: 'a' }], 'a')).toBe(-1);
+    expect(getArrayIndexByKey([{ [KeyAttr]: 1 }, { [KeyAttr]: '1' }], '1')).toBe(-1);
+    expect(getArrayIndexByKey([{ [KeyAttr]: 1 }], '1')).toBe(0);
+  });
+
+  it('行引用循环和非法 URI 编码安全失败', () => {
+    const state = createFakeState({ view: { loop: { path: ['@Row:loop:a'] } } });
+    expect(resolvePath(state, '@Row:loop:a')).toBeUndefined();
+    expect(resolvePath(state, '@Row:loop:%')).toBeUndefined();
+  });
+});
+
 describe('getActivePath', () => {
   const tableState = () => createActiveState();
 
@@ -134,10 +169,8 @@ describe('getActivePath', () => {
 
   it('未声明 path 时回退 dataId 计算焦点路径(与 ViewTable 列取数约定一致)', () => {
     const state = createFakeState({
-      getView: (viewId?: string) =>
-        viewId === 'table1' ? { id: 'table1', dataId: 'table' } : undefined,
-      getData: (path: any) =>
-        JSON.stringify(path) === JSON.stringify(['table']) ? rows : undefined,
+      view: { table1: { id: 'table1', dataId: 'table' } },
+      data: { table: rows },
     });
     expect(getActivePath('table1', state, 'a')).toEqual(['table', 0]);
   });
@@ -157,7 +190,7 @@ describe('getActivePath', () => {
       views[`v${i}`] = { id: `v${i}`, path: `@Active:v${i + 1}` };
     }
     const state = createFakeState({
-      getView: (viewId?: string) => views[viewId as string],
+      view: views,
     });
     expect(getActivePath('v0', state, 'any')).toBeUndefined();
   });

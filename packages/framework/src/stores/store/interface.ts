@@ -110,6 +110,8 @@ export interface IStoreData {
   view: ViewStore;
   // 存储视图参数
   viewParams: ViewParamsStore;
+  // 显式取消编辑的字段版本，只用于让对应输入草稿失效
+  inputResetVersions: Record<string, number>;
   // 存储视图方法
   handler: HandlerStore;
 }
@@ -154,6 +156,10 @@ export interface IStoreActions {
   setDataDebounce: (path: DPath, data: any) => void;
   // 立即提交指定路径(缺省为全部)的防抖待写数据
   flushData: (path?: DPath) => void;
+  // 精确取消与区域提交/取消，按路径段及行身份匹配
+  cancelData: (path?: DPath) => void;
+  flushDataScope: (path: DPath) => void;
+  cancelDataScope: (path: DPath) => void;
   // 获取指定路径下的数据
   getData: (path: DPath) => any;
   // 根据Data的id获取对应的数据路径,因为所有的dataPath都是存储在data中的

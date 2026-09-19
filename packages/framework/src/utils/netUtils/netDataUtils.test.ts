@@ -33,7 +33,7 @@ describe('NetDataUtils.initData', () => {
 
   it('keyAttr 显式声明取字段,0 值也是合法键值(不能用 falsy 判断)', () => {
     const result = NetDataUtils.initData({ code: 0 }, { ...req, keyAttr: 'code' });
-    expect(result[KeyAttr]).toBe(0);
+    expect(result[KeyAttr]).toBe('0');
   });
 
   it('keyAttr 数组形式拼接多字段', () => {

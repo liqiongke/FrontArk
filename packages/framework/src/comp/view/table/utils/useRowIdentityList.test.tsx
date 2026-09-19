@@ -40,7 +40,9 @@ const setupStore = (rows: any[]) => {
 
 // 挂载探针组件捕获 hook 返回值(缓存对象引用,断言复用语义)
 let captured: RowIdentityState | undefined;
+let probeRenders = 0;
 const Probe: React.FC = () => {
+  probeRenders += 1;
   captured = useRowIdentityList('table1');
   return null;
 };
@@ -69,6 +71,7 @@ describe('useRowIdentityList(结构订阅)', () => {
 
   beforeEach(() => {
     captured = undefined;
+    probeRenders = 0;
   });
 
   const mountWith = (rows: any[]) => {
@@ -79,23 +82,27 @@ describe('useRowIdentityList(结构订阅)', () => {
 
   it('数据就绪时生成与数据等长且顺序一致的行身份列表', () => {
     const rows = makeRows(3);
-    const store = mountWith(rows);
+    mountWith(rows);
 
     expect(captured!.fallback).toBe(false);
     expect(captured!.rows).toHaveLength(3);
     expect(captured!.rows.map((row) => row[KeyAttr])).toEqual(['r0', 'r1', 'r2']);
-    expect(captured!.rawData).toBe(store.getState().data['table']);
+    expect(captured).not.toHaveProperty('rawData');
     mounted.unmount();
   });
 
   it('字段修改(数组引用变化但行键序列不变)时行列表引用复用', () => {
     const store = mountWith(makeRows(3));
     const prevRows = captured!.rows;
+    const prevSnapshot = captured;
+    const renders = probeRenders;
 
     act(() => {
       store.getState().setData(['table', 0, 'price'], 1);
     });
 
+    expect(captured).toBe(prevSnapshot);
+    expect(probeRenders).toBe(renders);
     expect(captured!.rows).toBe(prevRows);
     expect(captured!.fallback).toBe(false);
     mounted.unmount();
@@ -186,7 +193,7 @@ describe('useRowIdentityList(结构订阅)', () => {
     mountWith(rows);
 
     expect(captured!.fallback).toBe(true);
-    expect(captured!.rawData).toBe(rows);
+    expect(captured!.fallback && captured!.rawData).toBe(rows);
     mounted.unmount();
   });
 
@@ -204,6 +211,43 @@ describe('useRowIdentityList(结构订阅)', () => {
     mountWith([{ [KeyAttr]: 1, id: 1 }]);
 
     expect(captured!.fallback).toBe(true);
+    mounted.unmount();
+  });
+
+  it('同键不同数据源必须产生新的结构快照', () => {
+    const store = mountWith(makeRows(2));
+    const previous = captured;
+    act(() => {
+      store.getState().setData('other', makeRows(2));
+      store.getState().setView('table1', { id: 'table1', type: 'VIEW_TABLE', dataId: 'other' });
+    });
+    expect(captured).not.toBe(previous);
+    expect(captured!.rows.map((row) => row[KeyAttr])).toEqual(['r0', 'r1']);
+    mounted.unmount();
+  });
+
+  it('降级与恢复正常模式均通知，降级期间读取最新原始数据', () => {
+    const store = mountWith(makeRows(2));
+    const previous = captured;
+    act(() => store.getState().setData('table', [{ id: 'no-key', price: 1 }]));
+    expect(captured!.fallback).toBe(true);
+    expect(captured).not.toBe(previous);
+    act(() => store.getState().setData(['table', 0, 'price'], 2));
+    expect(captured!.fallback && captured!.rawData).toEqual([{ id: 'no-key', price: 2 }]);
+    act(() => store.getState().setData('table', makeRows(2)));
+    expect(captured!.fallback).toBe(false);
+    expect(captured).not.toHaveProperty('rawData');
+    mounted.unmount();
+  });
+
+  it('非数组源变更仍复用空快照，相同值写入不增加渲染', () => {
+    const store = mountWith([]);
+    const previous = captured;
+    const renders = probeRenders;
+    act(() => store.getState().setData('table', undefined));
+    act(() => store.getState().setData('table', null));
+    expect(captured).toBe(previous);
+    expect(probeRenders).toBe(renders);
     mounted.unmount();
   });
 

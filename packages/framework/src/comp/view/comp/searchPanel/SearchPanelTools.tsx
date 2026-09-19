@@ -16,8 +16,8 @@ const SearchPanelTools: FC<SearchPanelToolsProps> = (props) => {
 
   return (
     <div className="search-panel-tools">
-      <Button onClick={onSearch} type="primary" shape="circle" icon={<SearchOutlined />} />
-      <Button onClick={onReset} shape="circle" icon={<UndoOutlined />} />
+      <Button aria-label="搜索" onClick={onSearch} type="primary" shape="circle" icon={<SearchOutlined />} />
+      <Button aria-label="重置" onClick={onReset} shape="circle" icon={<UndoOutlined />} />
     </div>
   );
 };

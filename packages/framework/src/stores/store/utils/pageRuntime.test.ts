@@ -4,7 +4,7 @@ import NetUtils from '@/utils/netUtils';
 import type DataBase from '@/data/dataBase';
 import createBaseStore from '../storeBase';
 import { initDataAndReq } from './storeData';
-import { ParamKey } from '../interface';
+import { ParamKey, PathKey } from '../interface';
 
 // 组装真实 store + 数据声明 + 视图声明(集成 storeBase/immer/依赖初始化/页面运行时)
 const createPageStore = (dataDecl: Record<string, any>, views: Record<string, any> = {}) => {
@@ -60,6 +60,113 @@ describe('PageRuntime 防抖隔离(F01/F03)', () => {
     store.getState().setDataDebounce(['form', 'name'], 'late');
     vi.advanceTimersByTime(1000);
     expect(store.getState().getData(['form', 'name'])).toBeUndefined();
+  });
+});
+
+describe('防抖身份与提交边界', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+  const setupRows = () => {
+    const store = createPageStore({}, { table1: { id: 'table1', dataId: 'table' } });
+    store.getState().setData('table', [
+      { [KeyAttr]: 'a', price: 1, stock: 2 },
+      { [KeyAttr]: 'b', price: 3, stock: 4 },
+    ]);
+    store.getState().setViewParamByKey('table1', ParamKey.Active, 'a');
+    return store;
+  };
+
+  it('切换焦点并重排后仍提交原行，连续编辑按身份合并', () => {
+    const store = setupRows();
+    const s = store.getState();
+    s.setDataDebounce(['@Active:table1', 'price'], 10);
+    s.setViewParamByKey('table1', ParamKey.Active, 'b');
+    s.setDataDebounce(['@Active:table1', 'price'], 20);
+    s.setDataByFn('table', (rows) => rows.reverse());
+    s.setDataDebounce(['@Row:table1:a', 'price'], 30);
+    vi.advanceTimersByTime(299);
+    expect(s.getData(['@Row:table1:a', 'price'])).toBe(1);
+    vi.advanceTimersByTime(1);
+    expect(s.getData(['@Row:table1:a', 'price'])).toBe(30);
+    expect(s.getData(['@Row:table1:b', 'price'])).toBe(20);
+  });
+
+  it('目标行删除后丢弃任务，不覆盖占据原下标的行', () => {
+    const store = setupRows();
+    const s = store.getState();
+    s.setDataDebounce(['@Active:table1', 'price'], 10);
+    s.setDataByFn('table', (rows) => rows.splice(0, 1));
+    vi.advanceTimersByTime(300);
+    expect(s.getData('table')).toEqual([{ [KeyAttr]: 'b', price: 3, stock: 4 }]);
+  });
+
+  it('视图切换数据源不把已排队的写入转移到新数据源', () => {
+    const store = setupRows();
+    const s = store.getState();
+    s.setData('other', [{ [KeyAttr]: 'a', price: 100 }]);
+    s.setDataDebounce(['@Active:table1', 'price'], 10);
+    s.setView('table1', { id: 'table1', dataId: 'other' });
+    vi.advanceTimersByTime(300);
+    expect(s.getData(['table', 0, 'price'])).toBe(10);
+    expect(s.getData(['other', 0, 'price'])).toBe(100);
+  });
+
+  it('嵌套集合祖先重排后按各层身份提交', () => {
+    const store = createPageStore({});
+    const s = store.getState();
+    s.setData('groups', [
+      { [KeyAttr]: 'g1', rows: [{ [KeyAttr]: 'a', price: 1 }] },
+      { [KeyAttr]: 'g2', rows: [{ [KeyAttr]: 'a', price: 2 }] },
+    ]);
+    s.setDataDebounce(['groups', 0, 'rows', 0, 'price'], 10);
+    s.setDataByFn('groups', (groups) => groups.reverse());
+    vi.advanceTimersByTime(300);
+    expect(s.getData(['groups', 1, 'rows', 0, 'price'])).toBe(10);
+    expect(s.getData(['groups', 0, 'rows', 0, 'price'])).toBe(2);
+  });
+
+  it('精确 flush 与 scope 不混淆，别名路径及重排行可匹配', () => {
+    const store = setupRows();
+    const s = store.getState();
+    s.setDataDebounce(['@Active:table1', 'price'], 10);
+    s.setDataDebounce(['@Active:table1', 'stock'], 20);
+    s.setDataByFn('table', (rows) => rows.reverse());
+    s.flushData(['@Row:table1:a']);
+    expect(s.getData(['@Row:table1:a', 'price'])).toBe(1);
+    s.flushData([PathKey.Data, 'table', 1, 'price']);
+    expect(s.getData(['@Row:table1:a', 'price'])).toBe(10);
+    expect(s.getData(['@Row:table1:a', 'stock'])).toBe(2);
+    s.flushDataScope(['@Row:table1:a']);
+    expect(s.getData(['@Row:table1:a', 'stock'])).toBe(20);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('取消区域按路径段匹配，不取消相似名称和其他字段', () => {
+    const store = createPageStore({});
+    const s = store.getState();
+    s.setDataDebounce(['form', 'name'], 'drop');
+    s.setDataDebounce(['form', 'nameExtra'], 'keep');
+    s.setDataDebounce(['form2', 'name'], 'other');
+    s.cancelDataScope(['form', 'name']);
+    vi.advanceTimersByTime(300);
+    expect(s.getData(['form', 'name'])).toBeUndefined();
+    expect(s.getData(['form', 'nameExtra'])).toBe('keep');
+    expect(s.getData(['form2', 'name'])).toBe('other');
+  });
+
+  it('搜索先提交该请求的条件，不提前提交其他编辑任务', async () => {
+    const store = createPageStore({ table: { id: 'table', url: '/list' } }, {
+      table1: { id: 'table1', dataId: 'table' },
+    });
+    const spy = vi.spyOn(NetUtils, 'get').mockResolvedValue({ code: 200, data: [] } as any);
+    const s = store.getState();
+    s.setDataDebounce([PathKey.Req, 'table', 'criteria', 'name'], 'latest');
+    s.setDataDebounce(['other', 'name'], 'pending');
+    await s.refreshByViewId('table1');
+    expect(spy).toHaveBeenCalledWith('/list', { name: 'latest' }, expect.anything());
+    expect(s.getData(['other', 'name'])).toBeUndefined();
+    s.cancelData();
   });
 });
 

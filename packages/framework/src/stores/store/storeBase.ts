@@ -30,6 +30,7 @@ const createBaseStore = () => {
           view: {},
           viewParams: {},
           handler: {},
+          inputResetVersions: {},
           init: (ViewClass, DataClass, HandlerClass) =>
             initStore(ViewClass, DataClass, HandlerClass, set, get),
           // 启动初始数据请求(幂等,可在 StrictMode 效应重放时重复调用)
@@ -69,6 +70,9 @@ const createBaseStore = () => {
           setDataByFn: (path: DPath, dataFn: (data: any) => any) => setDataByFn(path, dataFn, get, set),
           setDataDebounce: (path: DPath, value: any) => runtime.setDataDebounce(path, value),
           flushData: (path?: DPath) => runtime.flushData(path),
+          cancelData: (path?: DPath) => runtime.cancelData(path),
+          flushDataScope: (path: DPath) => runtime.flushDataScope(path),
+          cancelDataScope: (path: DPath) => runtime.cancelDataScope(path),
           /**
            * 获取指定路径的数据
            * 注意:返回值必须保持引用稳定(zustand v5 的 selector 依赖 useSyncExternalStore,

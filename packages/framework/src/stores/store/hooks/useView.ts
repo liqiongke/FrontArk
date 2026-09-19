@@ -4,13 +4,14 @@ import { get, isUndefined } from 'lodash';
 import { useContext } from 'react';
 import StoreContext from '../storeContext';
 import { ParamKey } from '../interface';
+import { readView } from '../utils/storeDataPath';
 
 // 获取读取值
 export const useView = <V extends ViewStructType>(viewId: string): [V, (view: V) => void] => {
   const useStore = useContext(StoreContext);
 
   const view: V = useStore((state) => {
-    return state.getView(viewId) as V;
+    return readView(state, viewId) as V;
   });
 
   const setViewState = useStore((state) => state.setView);
@@ -30,7 +31,7 @@ export const useParamByKey = (viewId: string | undefined, key?: ParamKey) => {
     if (isUndefined(viewId) || viewId.length === 0) {
       return undefined;
     }
-    const result = state.getViewParams(viewId);
+    const result = get(state.viewParams, viewId);
     if (isUndefined(key) || key === ParamKey.All) {
       return result;
     }

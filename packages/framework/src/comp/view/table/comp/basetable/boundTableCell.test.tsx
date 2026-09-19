@@ -170,6 +170,35 @@ describe('BoundTableCell(单元格隔离,渲染计数)', () => {
     expect(ctrlRenders('r1', 'price')).toBe(1);
   });
 
+  it('显式列 path 优先于行身份，并响应运行时路径配置变化', () => {
+    act(() => {
+      store.getState().setData('summary', { price: '共享价格', next: '更新路径' });
+      store.getState().setView('table1', {
+        ...store.getState().getView('table1'),
+        items: [
+          { field: 'price', path: ['summary', 'price'] },
+          { field: 'stock' },
+        ],
+      });
+    });
+    expect(cellText(container, 'price-r0')).toBe('共享价格');
+    expect(cellText(container, 'price-r1')).toBe('共享价格');
+    act(() => store.getState().setData(['table', 0, 'price'], 999));
+    expect(cellText(container, 'price-r0')).toBe('共享价格');
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [{ field: 'price', path: ['summary', 'next'] }, { field: 'stock' }],
+    }));
+    expect(cellText(container, 'price-r0')).toBe('更新路径');
+    expect(cellText(container, 'stock-r0')).toBe('5');
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [{ field: 'price' }, { field: 'stock' }],
+    }));
+    expect(cellText(container, 'price-r0')).toBe('999');
+    expect(cellText(container, 'price-r1')).toBe('200');
+  });
+
   it('新增行不触发既有单元格控件更新,新行控件按需渲染', () => {
     act(() => {
       store.getState().setDataByFn(['table'], (rows: any[]) => {

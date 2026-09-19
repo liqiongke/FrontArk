@@ -33,6 +33,15 @@ abstract class HandlerBase {
     this.getStore().setData(path, value);
   }
 
+  // 需要最新输入的业务命令应显式提交，普通 getData 始终只读。
+  public flushData(path?: DPath) { this.getStore().flushData(path); }
+  public flushDataScope(path: DPath) { this.getStore().flushDataScope(path); }
+  public cancelData(path?: DPath) { this.getStore().cancelData(path); }
+  public cancelDataScope(path: DPath) { this.getStore().cancelDataScope(path); }
+  public setDataByFn(path: DPath, update: (data: any) => void) {
+    this.getStore().setDataByFn(path, update);
+  }
+
   // 设置视图参数
   public setViewParam(viewId: string, key: string, value: any) {
     this.getStore().setViewParamByKey(viewId, key, value);

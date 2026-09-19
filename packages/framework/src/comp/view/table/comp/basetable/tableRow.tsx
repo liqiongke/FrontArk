@@ -23,7 +23,7 @@ const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>((props, re
     if (isUndefined(tableId)) {
       return false;
     }
-    return state.getViewParamByKey(tableId, ParamKey.Active) === rowKey;
+    return get(state.viewParams, [tableId, ParamKey.Active]) === rowKey;
   });
   const setViewParamByKey = useStore((state) => state.setViewParamByKey);
   const { children, className, style } = props;

@@ -1,9 +1,9 @@
 import { KeyAttr } from '@/interface';
-import { useDataById } from '@/stores/store/hooks/useValue';
+import { useData } from '@/stores/store/hooks/useValue';
 import { useView } from '@/stores/store/hooks/useView';
 import { Table } from 'antd';
 import { isArray } from 'lodash';
-import { useMemo, useRef } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import SearchPanel from '../comp/searchPanel/SearchPanel';
 import { type SysViewProps } from '../interface';
 import TableRow from './comp/basetable/tableRow';
@@ -19,11 +19,11 @@ const EMPTY_LIST: IdentityRow[] = [];
 /**
  * 表格主体:列定义/行组件/搜索面板装配,与 dataSource 来源(完整记录 or 行身份)无关
  */
-const TableShell: React.FC<{
+const TableShell = memo(function TableShell({ viewId, view, dataSource }: {
   viewId: string;
   view: ViewTableProps;
   dataSource: IdentityRow[];
-}> = ({ viewId, view, dataSource }) => {
+}) {
   // 生成表格列
   // 单元格取数路径由 BoundTableCell 内部按 view.path ?? view.dataId 约定解析
   const columns = useMemo(
@@ -61,14 +61,14 @@ const TableShell: React.FC<{
       </TableIdContext>
     </div>
   );
-};
+});
 
 /**
  * 经典模式(默认):订阅完整数据数组,
  * 记录变化(任何字段修改)都会进入表格父级更新链路;行为与历史版本一致
  */
 const RecordTable: React.FC<{ viewId: string; view: ViewTableProps }> = ({ viewId, view }) => {
-  const [data] = useDataById(view.dataId);
+  const data = useData(view.path ?? view.dataId);
   return (
     <TableShell
       viewId={viewId}

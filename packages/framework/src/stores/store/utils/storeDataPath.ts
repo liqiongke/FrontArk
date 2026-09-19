@@ -1,230 +1,175 @@
 import { KeyAttr } from '@/interface';
-import PathUtils from '@/utils/pathUtils';
-import logger from '@/utils/sysUtils/logger';
-import { isArray, isNumber, isString, isUndefined } from 'lodash';
-import { type DPath, type IStoreBase, ParamKey, PathKey, PathSplit } from '../interface';
+import { PerfTrackUtils } from '@/utils/sysUtils/perfTrackerUtils';
+import { get, isArray, isNumber, isString, isUndefined } from 'lodash';
+import { type DPath, type IStoreBase, type IStoreData, ParamKey, PathKey } from '../interface';
 
-// 字面量路径解析缓存:路径是有限集合(声明在业务代码中),按序列化结果缓存避免高频订阅场景重复解析
-// 仅缓存不含 @引用 的字面量路径;含 @Active/@Row 等引用的路径依赖动态值,不可缓存
 const literalPathCache = new Map<string, Array<string | number>>();
-const LITERAL_PATH_CACHE_MAX = 2000;
+const activeIndexCache = new WeakMap<object, Map<string, number>>();
 
-const cacheLiteralPath = (key: string, resolved: Array<string | number>) => {
-  if (literalPathCache.size >= LITERAL_PATH_CACHE_MAX) {
-    literalPathCache.clear();
+/** 所有读取只使用传入快照，不调用闭包绑定实时 get() 的 store action。 */
+export const readView = (state: IStoreData, viewId?: string) =>
+  isString(viewId) ? get(state.view, viewId) : undefined;
+
+export const getDataSource = (pathKey: unknown, state: IStoreData) => {
+  switch (pathKey) {
+    case PathKey.Req: return state.req;
+    case PathKey.View: return state.view;
+    case PathKey.ViewParam: return state.viewParams;
+    case PathKey.Data: return state.data;
   }
-  literalPathCache.set(key, resolved);
-  return resolved;
 };
 
-/**
- * 将引用路径转换成实际的数据路径
- * @param path 原始路径
- * @param zGet 获取store状态的函数
- * @param viewIds 已处理的视图ID列表，防止循环引用
- * @returns 转换后的路径数组(返回值为缓存引用,调用方只读,不可修改);
- *          引用无法解析时(未选中焦点行/行键值不存在/视图缺失)返回 undefined,
- *          调用方必须安全失败:读取返回 undefined,写入拒绝执行
- */
-export const getRealPath = (
-  path: DPath | undefined,
-  zGet: () => IStoreBase,
-  viewIds: Array<string> = [],
-): Array<string | number> | undefined => {
-  // 1. 处理 undefined：返回空数组(表示数据根)
-  if (isUndefined(path)) {
-    return [];
-  }
-
-  // 2. 处理数字：直接作为路径的一部分返回
-  if (isNumber(path)) {
-    const key = `n:${path}`;
-    return literalPathCache.get(key) ?? cacheLiteralPath(key, [path]);
-  }
-
-  // 3. 处理数组：递归处理每一项并合并
-  if (isArray(path) && path.length > 0) {
-    const firstElement = path[0];
-    // 仅检查首位是否为特殊引用
-    const isSpecialPath = isString(firstElement) && firstElement.startsWith(PathKey.SysHead);
-
-    if (!isSpecialPath) {
-      // 字面量数组路径:解析结果恒定,按序列化结果缓存(JSON 序列化对字符串/数字数组是单射的)
-      const key = `a:${JSON.stringify(path)}`;
-      return literalPathCache.get(key) ?? cacheLiteralPath(key, [...path]);
-    }
-    // 如果首位是特殊引用：
-    // 1. 递归解析首位，得到绝对路径的头部（解析成功即为绝对路径的起点）
-    const resolvedHead = getRealPath(firstElement, zGet, viewIds);
-
-    // 2. 引用未解析时整体路径视为未解析,禁止拼接后落错位置
-    if (isUndefined(resolvedHead)) {
-      return undefined;
-    }
-
-    // 3. 拼接头部和尾部
-    return [...resolvedHead, ...path.slice(1)];
-  }
-
-  // 4. 处理字符串
-  if (isString(path) && path.length > 0) {
-    // 处理按照焦点行路径获取数据 (@Active):每次访问时按当前数据动态解析,
-    // 列表重排/焦点变化后自动指向正确记录,不依赖点击时下标的缓存
-    if (path.startsWith(PathKey.Active)) {
-      const viewId = path.split(PathSplit)[1];
-      const activeKey = zGet().getViewParamByKey(viewId, ParamKey.Active);
-      if (isUndefined(activeKey)) {
-        return undefined;
-      }
-      const activePath = getActivePath(viewId, zGet(), activeKey);
-      return isArray(activePath) && activePath.length > 0 ? activePath : undefined;
-    }
-    // 处理按照行键值定位数据行 (@Row):以记录身份寻址,与渲染下标无关
-    if (path.startsWith(PathKey.Row)) {
-      return resolveRowPath(path, zGet);
-    }
-    // 普通字符串直接返回
-    const key = `s:${path}`;
-    return literalPathCache.get(key) ?? cacheLiteralPath(key, [path]);
-  }
-
-  return [];
-};
-
-/**
- * 解析 @Row:<viewId>:<rowKey> 引用为实际数据路径
- * 行键值经 encodeURIComponent 编码,支持包含分隔符的键值
- */
-const resolveRowPath = (
-  path: string,
-  zGet: () => IStoreBase,
-): Array<string | number> | undefined => {
-  const payload = path.slice(PathKey.Row.length + PathSplit.length);
-  const sepIndex = payload.indexOf(PathSplit);
-  if (sepIndex <= 0) {
-    return undefined;
-  }
-  const viewId = payload.slice(0, sepIndex);
-  const rowKey = decodeURIComponent(payload.slice(sepIndex + 1));
-  const view = zGet().getView(viewId);
-  const basePath = view?.path ?? (isString(view?.dataId) ? [view.dataId] : undefined);
-  if (isUndefined(basePath)) {
-    return undefined;
-  }
-  const data = zGet().getData(basePath);
-  // 使用引用级缓存索引 O(1) 定位(数组被修改会生成新引用,旧索引随 WeakMap 自动失效)
-  const index = getArrayIndexByKey(data, rowKey);
-  if (index < 0) {
-    return undefined;
-  }
-  return [...(isArray(basePath) ? basePath : [basePath]), index];
-};
-
-/**
- * 活动行索引缓存
- * 以数组引用为键:immer 的结构共享保证未被修改的数组引用不变(索引持续有效),
- * 数组一旦被修改会生成新引用,旧索引随 WeakMap 自动失效,无需手动清理
- */
-const activeIndexCache = new WeakMap<object, Map<string | number, number>>();
-
-const buildActiveIndex = (data: Array<any>) => {
-  const indexMap = new Map<string | number, number>();
-  data.forEach((item, index) => {
-    const key = item?.[KeyAttr];
-    if (!isUndefined(key)) {
-      indexMap.set(key, index);
-    }
-  });
-  return indexMap;
-};
-
-/**
- * 按 KeyAttr 在数组中定位下标,优先使用引用级缓存索引,未命中时回退 findIndex
- * @param data 数据数组(通常是表格等列表数据)
- * @param activeKey 活动行的 KeyAttr 值
- * @returns 下标,未找到返回 -1
- */
-export const getArrayIndexByKey = (data: unknown, activeKey: string | number): number => {
-  if (!isArray(data) || data.length === 0) {
-    return -1;
-  }
+/** 数字键在兼容模式下可读取；字符串/数字同形键和重复键一律视为歧义。 */
+export const getArrayIndexByKey = (data: unknown, rowKey: string | number): number => {
+  if (!isArray(data)) return -1;
   let indexMap = activeIndexCache.get(data);
-  if (isUndefined(indexMap)) {
-    indexMap = buildActiveIndex(data);
+  if (!indexMap) {
+    indexMap = new Map();
+    data.forEach((item, index) => {
+      const key = item?.[KeyAttr];
+      if ((!isString(key) && !isNumber(key)) || String(key).length === 0) return;
+      const normalized = String(key);
+      indexMap!.set(normalized, indexMap!.has(normalized) ? -1 : index);
+    });
     activeIndexCache.set(data, indexMap);
   }
-  const index = indexMap.get(activeKey);
-  if (!isUndefined(index)) {
-    return index;
-  }
-  // 兜底:索引未命中时回退 findIndex,命中后重建索引以覆盖极端的索引过期场景
-  const fallbackIndex = data.findIndex((item) => item?.[KeyAttr] === activeKey);
-  if (fallbackIndex >= 0) {
-    activeIndexCache.set(data, buildActiveIndex(data));
-  }
-  return fallbackIndex;
+  return indexMap.get(String(rowKey)) ?? -1;
 };
 
-/**
- * 根据路径获取值
- */
-export const getDataSource = (pathKey: any, store: IStoreBase) => {
-  switch (pathKey) {
-    case PathKey.Req:
-      return store.req;
-    case PathKey.View:
-      return store.view;
-    case PathKey.ViewParam:
-      return store.viewParams;
-    case PathKey.Data:
-      return store.data;
-  }
+const readResolved = (state: IStoreData, path: Array<string | number>) => {
+  const source = getDataSource(path[0], state);
+  const parts = isUndefined(source) ? path : path.slice(1);
+  const root = source ?? state.data;
+  return parts.length === 0 ? root : get(root, parts);
 };
 
-/**
- * 根据key值获取焦点行的实际路径
- * @param viewId
- * @param state
- * @param activeKey
- * @param deep 递归深度，默认0层
- * @returns 焦点行路径;焦点行不存在或引用循环时返回 undefined(安全失败)
- */
+/** 递归解析完整绑定路径；所有 @Active/@Row 共用循环保护与同一快照。 */
+export const resolvePath = (
+  state: IStoreData,
+  path: DPath,
+  visited: readonly string[] = [],
+): Array<string | number> | undefined => {
+  if (isUndefined(path)) return [];
+  const parts = isArray(path) ? path : [path];
+  const head = parts[0];
+  if (isString(head) && (head.startsWith('@Active:') || head.startsWith('@Row:'))) {
+    if (visited.length >= 32 || visited.includes(head)) return undefined;
+    const active = head.startsWith('@Active:');
+    const payload = head.slice(active ? '@Active:'.length : '@Row:'.length);
+    const separator = payload.indexOf(':');
+    if (!active && separator <= 0) return undefined;
+    const viewId = active ? payload : payload.slice(0, separator);
+    let rowKey: string | number | undefined;
+    try {
+      rowKey = active
+        ? get(state.viewParams, [viewId, ParamKey.Active])
+        : decodeURIComponent(payload.slice(separator + 1));
+    } catch {
+      return undefined;
+    }
+    if (!isString(rowKey) && !isNumber(rowKey)) return undefined;
+    const view = readView(state, viewId);
+    const source = view?.path ?? (isString(view?.dataId) ? [view.dataId] : undefined);
+    if (isUndefined(source)) return undefined;
+    const base = resolvePath(state, source, [...visited, head]);
+    if (isUndefined(base)) return undefined;
+    const index = getArrayIndexByKey(readResolved(state, base), rowKey);
+    return index < 0 ? undefined : [...base, index, ...parts.slice(1)];
+  }
+  const key = JSON.stringify(parts);
+  let cached = literalPathCache.get(key);
+  if (!cached) {
+    if (literalPathCache.size >= 2000) literalPathCache.clear();
+    cached = [...parts];
+    literalPathCache.set(key, cached);
+  }
+  return cached;
+};
+
+// 统计放在统一读取入口，保留 getData 调试指标对 Hook 与命令式读取的覆盖；不代表 render 次数。
+export const readData = PerfTrackUtils('getData', (state: IStoreData, path: DPath): any => {
+  const resolved = resolvePath(state, path);
+  return isUndefined(resolved) ? undefined : readResolved(state, resolved);
+});
+
+/** 请求与视图数据绑定使用同一解析契约。 */
+export const readReqNodeId = (state: IStoreData, viewId: string): string | undefined => {
+  const view = readView(state, viewId);
+  const source = view?.path ?? view?.dataId;
+  if (isUndefined(source)) return undefined;
+  const resolved = resolvePath(state, source);
+  const id = resolved?.[0] === PathKey.Data ? resolved[1] : resolved?.[0];
+  return isString(id) && !id.startsWith('@') ? id : undefined;
+};
+
+/** 保留命令式调用接口，入口处只取一次快照。 */
+export const getRealPath = (path: DPath, zGet: () => IStoreBase, viewIds: string[] = []) =>
+  resolvePath(zGet(), path, viewIds);
+
 export const getActivePath = (
   viewId: string,
-  state: IStoreBase,
+  state: IStoreData,
   activeKey: string | number,
-  deep: number = 0,
+  deep = 0,
 ): DPath => {
-  // 预防循环引用
-  if (deep > 32) {
-    logger.warn(`@Active 引用链超过32层,疑似循环引用:${viewId}`);
-    return undefined;
-  }
-
-  const view = state.getView(viewId);
-  if (isUndefined(view)) {
-    return undefined;
-  }
-  // 与 ViewTable 列取数约定一致:未声明 path 时回退 dataId(数据节点 id 即数据树路径首段)
-  const path = view.path ?? (isString(view.dataId) ? [view.dataId] : undefined);
-  if (isUndefined(path)) {
-    return undefined;
-  }
-  if (isArray(path) && path.length > 0) {
-    const firstItem = path[0];
-    if (isString(firstItem) && firstItem.startsWith(PathKey.Active)) {
-      const newViewId = firstItem.split(PathSplit)[1];
-      return getActivePath(newViewId, state, activeKey, deep + 1);
-    }
-  }
-
-  if (isString(path) && path.startsWith(PathKey.Active)) {
-    const newViewId = path.split(PathSplit)[1];
-    return getActivePath(newViewId, state, activeKey, deep + 1);
-  }
-
-  const data = state.getData(path);
-  // 使用引用级缓存索引 O(1) 定位,替代对全量数据的 findIndex O(n) 扫描
-  const index = getArrayIndexByKey(data, activeKey);
-  return index >= 0 ? PathUtils.mergePath(path, index) : undefined;
+  if (deep >= 32) return undefined;
+  const view = readView(state, viewId);
+  const source = view?.path ?? (isString(view?.dataId) ? [view.dataId] : undefined);
+  if (isUndefined(source)) return undefined;
+  const base = resolvePath(state, source, [`@Active:${viewId}`]);
+  if (isUndefined(base)) return undefined;
+  const index = getArrayIndexByKey(readResolved(state, base), activeKey);
+  return index < 0 ? undefined : [...base, index];
 };
+
+export type BindingSegment = string | number | { rowKey: string };
+export type DataBinding = BindingSegment[];
+
+/** 冻结数据源及各层行身份；祖先列表重排也不能让防抖任务串行。 */
+export const captureBinding = (state: IStoreData, path: DPath): DataBinding | undefined => {
+  if (isUndefined(path)) return undefined;
+  const resolved = resolvePath(state, path);
+  if (isUndefined(resolved) || resolved.length === 0) return undefined;
+  const source = getDataSource(resolved[0], state);
+  const canonical = isUndefined(source) ? [PathKey.Data, ...resolved] : resolved;
+  const binding: DataBinding = [canonical[0]];
+  let value: any = getDataSource(canonical[0], state);
+  for (const part of canonical.slice(1)) {
+    const record = value?.[part];
+    if (isArray(value) && /^\d+$/.test(String(part)) && !isUndefined(record?.[KeyAttr])) {
+      const key = record[KeyAttr];
+      if ((!isString(key) && !isNumber(key)) || getArrayIndexByKey(value, key) < 0) {
+        return undefined;
+      }
+      binding.push({ rowKey: String(key) });
+    } else {
+      binding.push(part);
+    }
+    value = record;
+  }
+  return binding;
+};
+
+/** 到提交时重新按被冻结的身份定位，原记录不存在时拒绝写入。 */
+export const resolveBinding = (state: IStoreData, binding: DataBinding): DPath => {
+  const path: Array<string | number> = [binding[0] as string];
+  let value: any = getDataSource(path[0], state);
+  for (const segment of binding.slice(1)) {
+    const part = typeof segment === 'object' ? getArrayIndexByKey(value, segment.rowKey) : segment;
+    if (typeof segment === 'object' && part === -1) return undefined;
+    path.push(part);
+    value = value?.[part];
+  }
+  return path;
+};
+
+export const bindingKey = (state: IStoreData, path: DPath): string | undefined => {
+  const binding = captureBinding(state, path);
+  return isUndefined(binding) ? undefined : JSON.stringify(binding);
+};
+
+/** 按路径段比较，name 不会匹配 nameExtra，@Data 别名与行身份可互通。 */
+export const bindingMatches = (binding: DataBinding, scope: DataBinding, exact = false) =>
+  (!exact || binding.length === scope.length) &&
+  scope.length <= binding.length &&
+  scope.every((part, index) => JSON.stringify(part) === JSON.stringify(binding[index]));

@@ -3,24 +3,14 @@ schema_version: 1
 locale: zh-CN
 branch: master
 nodes_managed: true
-exported_at: "2026-09-17T08:01:08Z"
+exported_at: "2026-09-18T02:00:43Z"
 modules:
     "":
-        dir_name: FrontArk 企业级 React 框架 Monorepo 根
-        title: FrontArk 企业级 React 框架 Monorepo 根
-        scope:
-            - .gitignore
-            - .prettierignore
-            - .prettierrc
-            - .stylelintignore
-            - eslint.config.js
-            - package.json
-            - pnpm-workspace.yaml
-            - pnpm-lock.yaml
-            - turbo.json
+        dir_name: WMS Web 前端 Monorepo（应用 + 框架 + Mock 服务）
+        title: WMS Web 前端 Monorepo（应用 + 框架 + Mock 服务）
+        scope: []
         source_files: []
-        children:
-            - docs
+        children: []
         depends_on: []
         related_to: []
     docs:

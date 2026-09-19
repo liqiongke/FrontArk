@@ -1,4 +1,5 @@
 import StoreContext from '@/stores/store/storeContext';
+import { readView } from '@/stores/store/utils/storeDataPath';
 import CtrlFactory from '@/comp/ctrlFactory';
 import PathUtils from '@utils/pathUtils';
 import ViewPathUtils from '@/utils/viewPathUtils';
@@ -42,7 +43,7 @@ interface BoundTableCellProps {
  *   字段值变化由内部控件(CtrlText/CtrlInput 等)的路径订阅独立驱动;
  * - 列配置/基础路径由组件内部按 viewId 订阅(不订阅整份 view/data):
  *   配置变化时即使 rc-table 复用旧内容元素,本组件仍能拿到最新配置;
- * - 单元格取数路径优先按行键值(@Row 身份寻址,与渲染下标无关),
+ * - 显式 item.path 优先；未声明时按行键值(@Row 身份寻址,与渲染下标无关),
  *   行键值缺失(数据未经 initData 注入 @key)时回退下标寻址兜底
  */
 const BoundTableCellBase: React.FC<BoundTableCellProps> = ({
@@ -55,13 +56,13 @@ const BoundTableCellBase: React.FC<BoundTableCellProps> = ({
 
   // 列配置/基础路径拆分订阅:selector 只返回 store 内引用或原始值,保持快照引用稳定
   const items = useStore(
-    (state) => (state.getView(viewId) as ViewTableProps | undefined)?.items,
+    (state) => (readView(state, viewId) as ViewTableProps | undefined)?.items,
   );
   const viewPath = useStore(
-    (state) => (state.getView(viewId) as ViewTableProps | undefined)?.path,
+    (state) => (readView(state, viewId) as ViewTableProps | undefined)?.path,
   );
   const dataId = useStore((state) => {
-    const view = state.getView(viewId) as ViewTableProps | undefined;
+    const view = readView(state, viewId) as ViewTableProps | undefined;
     // 与 ViewTable 列取数约定一致:未声明 path 时回退 dataId
     return isUndefined(view?.path) ? view?.dataId : undefined;
   });
@@ -82,9 +83,9 @@ const BoundTableCellBase: React.FC<BoundTableCellProps> = ({
   const field = item?.field;
 
   const cellPath = useMemo(() => {
-    if (isUndefined(item) || isUndefined(field)) {
-      return undefined;
-    }
+    if (isUndefined(item)) return undefined;
+    if (!isUndefined(item.path)) return item.path;
+    if (isUndefined(field)) return undefined;
     if (isUndefined(rowKey)) {
       return PathUtils.itemPath(item, basePath, fallbackIndex);
     }

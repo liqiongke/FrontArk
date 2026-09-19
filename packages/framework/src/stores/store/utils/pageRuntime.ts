@@ -3,8 +3,8 @@ import logger from '@/utils/sysUtils/logger';
 import NetUtils from '@/utils/netUtils';
 import { NetDataUtils } from '@/utils/netUtils/netDataUtils';
 import { cloneDeep, get, isArray, isFunction, isString, isUndefined, set } from 'lodash';
-import { type DPath, type IStoreBase, type ReqMetaInfo, type ZSet } from '../interface';
-import { getRealPath } from './storeDataPath';
+import { type DPath, type IStoreBase, PathKey, type ReqMetaInfo, type ZSet } from '../interface';
+import { bindingMatches, captureBinding, type DataBinding, readReqNodeId, resolveBinding } from './storeDataPath';
 
 // 重试基础延迟(毫秒),按重试次数线性递增:300ms、600ms、900ms...
 const RETRY_BASE_DELAY = 300;
@@ -22,8 +22,8 @@ interface InflightRequest {
 // 防抖待写任务
 interface DebounceTask {
   timer: ReturnType<typeof setTimeout>;
-  // 已解析路径:触发写入时直接复用,避免重复解析及解析结果漂移
-  path: Array<string | number>;
+  // 入队时冻结行身份，提交时重新定位，不能缓存数组下标
+  binding: DataBinding;
   value: any;
 }
 
@@ -37,7 +37,7 @@ export default class PageRuntime {
   private readonly zSet: ZSet;
   // 进行中的请求,按数据节点 id 登记
   private inflight = new Map<string, InflightRequest>();
-  // 防抖待写任务,按解析后路径序列化登记
+  // 防抖待写任务，按被冻结的数据源和行身份字段登记
   private debounceTimers = new Map<string, DebounceTask>();
   // 页面是否已释放:释放后不再调度新请求/防抖写入
   private disposed = false;
@@ -48,20 +48,8 @@ export default class PageRuntime {
   }
 
   /** 视图对应的请求节点 id:view.path 字符串/数组首段,未声明时回退 view.dataId */
-  public getReqNodeId = (viewId: string): string | undefined => {
-    const view = this.zGet().getView(viewId);
-    if (isUndefined(view)) {
-      return undefined;
-    }
-    const path = view.path;
-    if (isString(path) && path.length > 0) {
-      return path;
-    }
-    if (isArray(path) && path.length > 0 && isString(path[0])) {
-      return path[0];
-    }
-    return isString(view.dataId) ? view.dataId : undefined;
-  };
+  public getReqNodeId = (viewId: string): string | undefined =>
+    readReqNodeId(this.zGet(), viewId);
 
   /**
    * 获取指定视图的搜索条件(criteria)
@@ -111,6 +99,7 @@ export default class PageRuntime {
       logger.warn(`视图${viewId}对应的请求节点不存在`);
       return Promise.resolve(undefined);
     }
+    this.flushDataScope([PathKey.Req, reqId, 'criteria']);
     return this.fetchData(reqId);
   };
 
@@ -122,44 +111,64 @@ export default class PageRuntime {
     if (this.disposed || isUndefined(path)) {
       return;
     }
-    const rPath = getRealPath(path, this.zGet);
-    if (isUndefined(rPath)) {
+    const binding = captureBinding(this.zGet(), path);
+    if (isUndefined(binding)) {
       logger.warn(`防抖写入路径未解析,拒绝调度:${JSON.stringify(path)}`);
       return;
     }
-    if (rPath.length === 0) {
-      return;
-    }
-    const key = JSON.stringify(rPath);
+    const key = JSON.stringify(binding);
     const prev = this.debounceTimers.get(key);
-    if (!isUndefined(prev)) {
-      clearTimeout(prev.timer);
-    }
+    if (prev) clearTimeout(prev.timer);
     const timer = setTimeout(() => {
       this.debounceTimers.delete(key);
-      this.zGet().setData(rPath, value);
+      this.commitEdit(binding, value);
     }, delay);
-    this.debounceTimers.set(key, { timer, path: rPath, value });
+    this.debounceTimers.set(key, { timer, binding, value });
   };
 
-  /** 立即提交防抖待写数据(不传 path 时全部提交),供 dispose 与外部手动触发 */
-  public flushData = (path?: DPath) => {
-    if (this.debounceTimers.size === 0) {
+  private commitEdit = (binding: DataBinding, value: any) => {
+    const path = resolveBinding(this.zGet(), binding);
+    if (isUndefined(path)) {
+      logger.warn(`防抖目标记录已不存在,丢弃写入:${JSON.stringify(binding)}`);
       return;
     }
-    let exactKey: string | undefined;
-    if (!isUndefined(path)) {
-      const rPath = getRealPath(path, this.zGet);
-      exactKey = isUndefined(rPath) ? '' : JSON.stringify(rPath);
-    }
-    this.debounceTimers.forEach((task, key) => {
-      if (!isUndefined(exactKey) && key !== exactKey) {
-        return;
-      }
+    this.zGet().setData(path, value);
+  };
+
+  /** 精确路径接口保持原语义，不传路径表示全部待写任务。 */
+  public flushData = (path?: DPath) => this.finishEdits(path, true, false);
+  public cancelData = (path?: DPath) => this.finishEdits(path, true, true);
+  public flushDataScope = (path: DPath) => {
+    if (!isUndefined(path)) this.finishEdits(path, false, false);
+  };
+  public cancelDataScope = (path: DPath) => {
+    if (!isUndefined(path)) this.finishEdits(path, false, true);
+  };
+
+  private finishEdits = (path: DPath, exact: boolean, cancel: boolean) => {
+    const scope = isUndefined(path) ? undefined : captureBinding(this.zGet(), path);
+    if (!isUndefined(path) && isUndefined(scope)) return;
+    const cancelled: string[] = [];
+    // 先移除选中任务再提交，防止订阅回调登记的新任务被同一轮迭代消费。
+    const tasks = [...this.debounceTimers].filter(([, task]) =>
+      isUndefined(scope) || bindingMatches(task.binding, scope, exact),
+    );
+    tasks.forEach(([key, task]) => {
       clearTimeout(task.timer);
       this.debounceTimers.delete(key);
-      this.zGet().setData(task.path, task.value);
     });
+    tasks.forEach(([key, task]) => {
+      if (cancel) cancelled.push(key);
+      else this.commitEdit(task.binding, task.value);
+    });
+    if (cancelled.length > 0) {
+      this.zSet((state) => {
+        cancelled.forEach((key) => {
+          state.inputResetVersions[key] = (state.inputResetVersions[key] ?? 0) + 1;
+        });
+        return state;
+      }, false, { type: 'cancelEdits' });
+    }
   };
 
   /**
