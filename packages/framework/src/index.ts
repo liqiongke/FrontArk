@@ -5,6 +5,7 @@ export { default as createUserStore } from '@/stores/user/userStore';
 // 工具类型
 export { default as NetUtils } from '@utils/netUtils';
 export { default as ViewPathUtils } from '@utils/viewPathUtils';
+export { default as TauriUtils } from '@utils/tauriUtils';
 
 // 统一日志工具
 export { default as logger, getLogLevel, setLogLevel } from '@utils/sysUtils/logger';

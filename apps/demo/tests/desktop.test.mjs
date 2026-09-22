@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { createHashNavigation, isDesktop } from '../src/init/platform.ts';
 
@@ -33,4 +34,24 @@ test('跳转只替换 hash，不依赖 history，保留 hashchange 触发条件'
 
 test('没有桌面构建标识时默认不启用桌面模式', () => {
   assert.equal(isDesktop, false);
+});
+
+test('主窗口隐藏系统标题栏，同时保留缩放能力', () => {
+  const config = JSON.parse(readFileSync(new URL('../src-tauri/tauri.conf.json', import.meta.url), 'utf8'));
+  const mainWindow = config.app.windows.find((window) => window.label === 'main');
+  assert.equal(mainWindow.decorations, false);
+  assert.equal(mainWindow.resizable, true);
+  assert.equal(config.app.withGlobalTauri, false);
+  assert.ok(config.app.security.capabilities.includes('default'));
+});
+
+test('只为主窗口授权关闭和无边框拖动所需的能力', () => {
+  const capability = JSON.parse(readFileSync(new URL('../src-tauri/capabilities/default.json', import.meta.url), 'utf8'));
+  assert.deepEqual(capability.windows, ['main']);
+  assert.equal(capability.remote, undefined);
+  assert.deepEqual(capability.permissions, [
+    'core:default',
+    'core:window:allow-close',
+    'core:window:allow-start-dragging',
+  ]);
 });

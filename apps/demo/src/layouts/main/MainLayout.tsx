@@ -1,5 +1,5 @@
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
-import { NetUtils } from '@jl/framework';
+import { NetUtils, TauriUtils } from '@jl/framework';
 import { useMemoizedFn } from 'ahooks';
 import type { MenuProps } from 'antd';
 import { Button, Layout, message, theme } from 'antd';
@@ -17,6 +17,7 @@ const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [menuItems, setMenuItems] = useState<MenuProps['items']>([]);
   const location = useLocation();
+  const dragRegion = TauriUtils.isAvailable() ? true : undefined;
 
   // 获取菜单数据
   const fetchMenuData = useMemoizedFn(async () => {
@@ -55,8 +56,8 @@ const MainLayout = () => {
             className="trigger-button"
           />
 
-          <div className="tab-area">
-            <div className="tab-content">Tab 标签页区域</div>
+          <div className="tab-area" data-tauri-drag-region={dragRegion}>
+            <div className="tab-content" data-tauri-drag-region={dragRegion}>Tab 标签页区域</div>
           </div>
 
           <AvatarComponent />

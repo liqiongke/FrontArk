@@ -36,6 +36,8 @@ export default defineConfig({
         /^react-dom($|\/)/,
         /^antd($|\/)/,
         /^@ant-design\/icons($|\/)/,
+        // Tauri SDK 是框架运行依赖，保持子路径按需加载，不打进框架入口。
+        /^@tauri-apps\/api($|\/)/,
         'ahooks',
         'axios',
         'lodash',

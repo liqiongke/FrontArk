@@ -1,11 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "仅允许主窗口使用 Tauri 基础能力",
+  "description": "仅允许主窗口使用基础能力、关闭窗口和拖动窗口",
   "windows": [
     "main"
   ],
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging"
   ]
 }

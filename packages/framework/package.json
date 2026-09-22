@@ -54,6 +54,7 @@
     "vitest": "^5.0.0"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
     "immer": "^10.2.0",
     "zustand": "^5.0.8"
   }
