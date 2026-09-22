@@ -1,4 +1,4 @@
-import { AUTH_TOKEN_KEY, AUTH_TOKEN_EXPIRE_KEY } from './interface';
+import { AUTH_TOKEN_KEY, AUTH_TOKEN_EXPIRE_KEY, type LoginNavigation } from './interface';
 
 class TokenUtils {
   // 设置token和过期时间
@@ -40,22 +40,28 @@ class TokenUtils {
   };
 
   // 处理未授权情况
-  static clearTokenAndJumpToLogin = (loginUrl: string) => {
+  static clearTokenAndJumpToLogin = (loginUrl: string, navigation?: LoginNavigation) => {
     this.clearToken();
 
+    if (navigation) {
+      if (navigation.getPathname() !== loginUrl) {
+        navigation.replace(loginUrl);
+      }
+      return;
+    }
+
     if (window.location.pathname !== loginUrl) {
-      // 清空历史记录
+      // 替换当前历史项，保留原 Web 导航行为。
       window.history.replaceState(null, '', loginUrl);
-      // 跳转至登录页
       window.location.replace(loginUrl);
     }
   };
 
   // 检查token是否存在
-  static checkToken = (loginUrl: string) => {
+  static checkToken = (loginUrl: string, navigation?: LoginNavigation) => {
     const token = this.getToken();
     if (!token) {
-      this.clearTokenAndJumpToLogin(loginUrl);
+      this.clearTokenAndJumpToLogin(loginUrl, navigation);
     }
   };
 }

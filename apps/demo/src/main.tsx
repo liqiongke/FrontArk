@@ -1,7 +1,8 @@
 import { ConfigProvider } from 'antd';
 import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, useRoutes } from 'react-router-dom';
+import { BrowserRouter, HashRouter, useRoutes } from 'react-router-dom';
+import { isDesktop } from './init/platform';
 import routes from '~react-pages';
 import init from './init/init';
 import LoginLayout from './layouts/login/LoginLayout';
@@ -43,10 +44,12 @@ if (import.meta.hot) {
   });
 }
 
+const Router = isDesktop ? HashRouter : BrowserRouter;
+
 root.render(
   <StrictMode>
-    <BrowserRouter>
+    <Router>
       <App />
-    </BrowserRouter>
+    </Router>
   </StrictMode>,
 );

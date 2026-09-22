@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'dist-desktop', 'src-tauri']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

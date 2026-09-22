@@ -11,7 +11,7 @@ export { default as logger, getLogLevel, setLogLevel } from '@utils/sysUtils/log
 export type { LogLevel } from '@utils/sysUtils/logger';
 
 // 请求返回的数据类型
-export type { Result } from '@utils/netUtils/interface';
+export type { Result, LoginNavigation } from '@utils/netUtils/interface';
 
 // 根视图
 export { default as ViewRoot } from '@/ViewRoot';

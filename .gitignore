@@ -33,3 +33,9 @@ coverage/
 stats.html
 .vite
 /.turbo
+
+# Tauri 桌面构建产物
+/dist-desktop/
+/apps/demo/dist-desktop/
+/apps/demo/src-tauri/target/
+/apps/demo/src-tauri/gen/schemas/

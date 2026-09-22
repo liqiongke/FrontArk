@@ -1,6 +1,7 @@
 // 网络请求初始化
 import { NetUtils } from '@jl/framework';
 import { message } from 'antd';
+import { createHashNavigation, isDesktop } from './platform';
 
 const netInit = () => {
   NetUtils.init(
@@ -13,6 +14,8 @@ const netInit = () => {
       }
       message.error(`${type}错误[code ${code}]: ${msg}`);
     },
+    undefined,
+    isDesktop ? createHashNavigation() : undefined,
   );
 };
 

@@ -10,7 +10,10 @@
     "build": "tsc -b && vite build --mode production",
     "build:dev": "tsc -b && vite build --mode dev",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:desktop:frontend": "cross-env VITE_APP_TARGET=desktop pnpm --dir ../.. exec turbo run dev:mock --filter=web --filter=mock-server",
+    "build:desktop:frontend": "cross-env VITE_APP_TARGET=desktop pnpm run build",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
@@ -26,11 +29,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@tauri-apps/cli": "^2.11.5",
     "@types/lodash": "^4.17.20",
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react-swc": "^4.2.1",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.24",

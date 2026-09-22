@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import { isString } from 'lodash';
-import { type ErrorHandler, type Result } from './interface';
+import { type ErrorHandler, type LoginNavigation, type Result } from './interface';
 import TokenUtils from './tokenUtils';
 
 class NetUtils {
@@ -14,6 +14,8 @@ class NetUtils {
   static service: AxiosInstance;
   // 过期时间
   static tokenExpireTime: number;
+  // 可选的应用导航策略，未提供时使用原 Web 跳转方式。
+  private static loginNavigation?: LoginNavigation;
 
   /**
    * 初始化网络请求
@@ -26,7 +28,10 @@ class NetUtils {
     loginAPI: string,
     errorHandler: ErrorHandler,
     tokenExpireTime: number = 7200000,
+    loginNavigation?: LoginNavigation,
   ) => {
+    // 每次初始化都赋值，包括 undefined，避免上一应用的导航策略残留。
+    this.loginNavigation = loginNavigation;
     this.baseUrl = baseURL;
     this.loginUrl = loginUrl;
     this.loginAPI = loginAPI;
@@ -72,7 +77,7 @@ class NetUtils {
       },
     );
 
-    TokenUtils.checkToken(this.loginUrl);
+    TokenUtils.checkToken(this.loginUrl, this.loginNavigation);
   };
 
   // 这里的登录接口需要从 .env 中配置 VITE_API_LOGIN
@@ -101,11 +106,11 @@ class NetUtils {
   };
 
   static checkToken = () => {
-    TokenUtils.checkToken(this.loginUrl);
+    TokenUtils.checkToken(this.loginUrl, this.loginNavigation);
   };
 
   static handleUnauthorized = () => {
-    TokenUtils.clearTokenAndJumpToLogin(this.loginUrl);
+    TokenUtils.clearTokenAndJumpToLogin(this.loginUrl, this.loginNavigation);
   };
 
   /**

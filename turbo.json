@@ -16,9 +16,7 @@
       "persistent": true
     },
     "dev:mock": {
-      // "dependsOn": [
-      //   "^dev:mock"
-      // ],
+      "passThroughEnv": ["VITE_APP_TARGET"],
       "cache": false,
       "persistent": true
     },

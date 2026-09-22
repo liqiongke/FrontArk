@@ -7,8 +7,14 @@ import { getFrameworkAliases } from '../../packages/framework/alias';
 export default defineConfig(({ mode }) => {
   // 根据mode加载对应的环境变量
   const env = loadEnv(mode, process.cwd(), '');
+  const isDesktop = env.VITE_APP_TARGET === 'desktop';
 
   return {
+    base: isDesktop ? './' : '/',
+    clearScreen: !isDesktop,
+    build: {
+      outDir: isDesktop ? 'dist-desktop' : 'dist',
+    },
     plugins: [
       react(),
       Pages({
@@ -20,7 +26,12 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     server: {
-      port: Number(env.VITE_SERVER_PORT) || 3000,
+      host: isDesktop ? '127.0.0.1' : undefined,
+      port: isDesktop ? 7000 : Number(env.VITE_SERVER_PORT) || 3000,
+      strictPort: isDesktop,
+      watch: {
+        ignored: ['**/src-tauri/**'],
+      },
     },
     resolve: {
       alias: {

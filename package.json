@@ -7,7 +7,10 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:mock": "turbo run dev:mock",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "dev:desktop": "pnpm --filter web exec tauri dev",
+    "build:desktop": "pnpm --filter web exec tauri build --bundles nsis",
+    "desktop:info": "pnpm --filter web exec tauri info"
   },
   "keywords": [],
   "author": "",

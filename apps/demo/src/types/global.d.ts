@@ -1,3 +1,7 @@
+interface ImportMetaEnv {
+  readonly VITE_APP_TARGET?: 'web' | 'desktop';
+}
+
 declare module '~react-pages' {
   import { type RouteObject } from 'react-router-dom'
   const routes: RouteObject[]
