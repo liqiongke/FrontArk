@@ -1,5 +1,5 @@
-import { CloseOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
-import { NetUtils, TauriUtils } from '@jl/framework';
+import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { NetUtils, TauriUtils, WindowControls } from '@jl/framework';
 import { Button, Card, Form, Input, Typography, message } from 'antd';
 import { isUndefined } from 'lodash';
 import React, { useState } from 'react';
@@ -20,13 +20,6 @@ const LoginLayout: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
   const [loading, setLoading] = useState(false);
   const canCloseWindow = TauriUtils.isAvailable();
-  const closeWindow = async () => {
-    try {
-      await TauriUtils.closeCurrentWindow();
-    } catch {
-      messageApi.error('关闭窗口失败，请重试');
-    }
-  };
   const user = Store.user((state) => state.user);
   const setUser = Store.user((state) => state.setUser);
   const onFinish = async (values: LoginForm) => {
@@ -62,14 +55,7 @@ const LoginLayout: React.FC = () => {
       {canCloseWindow && (
         <div className="login-window-bar">
           <div className="login-window-drag" data-tauri-drag-region />
-          <Button
-            type="text"
-            className="login-window-close"
-            icon={<CloseOutlined />}
-            aria-label="关闭系统"
-            title="关闭系统"
-            onClick={closeWindow}
-          />
+          <WindowControls variant="light" />
         </div>
       )}
       <Card className="login-card">

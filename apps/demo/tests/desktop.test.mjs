@@ -45,13 +45,15 @@ test('主窗口隐藏系统标题栏，同时保留缩放能力', () => {
   assert.ok(config.app.security.capabilities.includes('default'));
 });
 
-test('只为主窗口授权关闭和无边框拖动所需的能力', () => {
+test('只为主窗口授权关闭、窗口控制和无边框拖动所需的能力', () => {
   const capability = JSON.parse(readFileSync(new URL('../src-tauri/capabilities/default.json', import.meta.url), 'utf8'));
   assert.deepEqual(capability.windows, ['main']);
   assert.equal(capability.remote, undefined);
   assert.deepEqual(capability.permissions, [
     'core:default',
     'core:window:allow-close',
+    'core:window:allow-minimize',
+    'core:window:allow-toggle-maximize',
     'core:window:allow-start-dragging',
   ]);
 });

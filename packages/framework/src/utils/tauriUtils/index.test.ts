@@ -66,6 +66,62 @@ describe('TauriUtils', () => {
     expect(onClosed).toHaveBeenCalledOnce();
   });
 
+  it('普通浏览器不可用时，最小化、最大化与状态订阅一并拒绝且不发送 IPC', async () => {
+    const ipc = vi.fn();
+    mockIPC(ipc);
+    mockWindows('main');
+
+    await expect(TauriUtils.minimizeCurrentWindow()).rejects.toThrow('仅在 Tauri 桌面环境中可用');
+    await expect(TauriUtils.toggleMaximizeCurrentWindow()).rejects.toThrow('仅在 Tauri 桌面环境中可用');
+    await expect(TauriUtils.watchCurrentWindowMaximized(() => {})).rejects.toThrow('仅在 Tauri 桌面环境中可用');
+    expect(ipc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { method: 'minimizeCurrentWindow', command: 'plugin:window|minimize' },
+    { method: 'toggleMaximizeCurrentWindow', command: 'plugin:window|toggle_maximize' },
+  ] as const)('$method 通过 SDK 请求对应窗口命令，不硬编码窗口标签', async ({ method, command }) => {
+    vi.stubGlobal('isTauri', true);
+    mockWindows('main');
+    const ipc = vi.fn().mockResolvedValue(undefined);
+    mockIPC(ipc);
+
+    await expect(TauriUtils[method]()).resolves.toBeUndefined();
+    expect(ipc).toHaveBeenCalledTimes(1);
+    expect(ipc).toHaveBeenCalledWith(command, { label: 'main' });
+  });
+
+  it('订阅时先同步初始最大化状态，随后随窗口尺寸变化持续推送', async () => {
+    vi.stubGlobal('isTauri', true);
+    // 事件订阅需经 transformCallback 注册回调，node 环境补齐 SDK 读取的 window.crypto。
+    vi.stubGlobal('window', { close: vi.fn(), crypto: globalThis.crypto });
+    mockWindows('main');
+    let maximized = false;
+    const ipc = vi.fn().mockImplementation((command: string) => {
+      if (command === 'plugin:window|is_maximized') {
+        return Promise.resolve(maximized);
+      }
+      return Promise.resolve(1);
+    });
+    mockIPC(ipc, { shouldMockEvents: true });
+
+    const states: boolean[] = [];
+    const unlisten = await TauriUtils.watchCurrentWindowMaximized((state) => states.push(state));
+    // 订阅即同步一次当前状态，图标不会停在未知态。
+    expect(states).toEqual([false]);
+    expect(ipc).toHaveBeenCalledWith('plugin:window|is_maximized', { label: 'main' });
+
+    // 模拟原生 resize 事件（最大化、还原、拖拽边缘都会触发）。
+    maximized = true;
+    const { emit } = await import('@tauri-apps/api/event');
+    await emit('tauri://resize', { width: 800, height: 600 });
+    await vi.waitFor(() => expect(states).toEqual([false, true]));
+
+    unlisten();
+    const internals = window as unknown as { __TAURI_INTERNALS__: { callbacks: Map<number, unknown> } };
+    expect(internals.__TAURI_INTERNALS__.callbacks.size).toBe(0);
+  });
+
   it('原生权限或关闭请求失败时向调用方传递错误', async () => {
     vi.stubGlobal('isTauri', true);
     mockWindows('main');

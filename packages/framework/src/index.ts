@@ -6,6 +6,8 @@ export { default as createUserStore } from '@/stores/user/userStore';
 export { default as NetUtils } from '@utils/netUtils';
 export { default as ViewPathUtils } from '@utils/viewPathUtils';
 export { default as TauriUtils } from '@utils/tauriUtils';
+// 桌面窗口控制按钮组（最小化/最大化/关闭），与 TauriUtils 配套使用
+export { default as WindowControls } from '@utils/tauriUtils/windowControls';
 
 // 统一日志工具
 export { default as logger, getLogLevel, setLogLevel } from '@utils/sysUtils/logger';

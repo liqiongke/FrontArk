@@ -1,5 +1,5 @@
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
-import { NetUtils, TauriUtils } from '@jl/framework';
+import { NetUtils, TauriUtils, WindowControls } from '@jl/framework';
 import { useMemoizedFn } from 'ahooks';
 import type { MenuProps } from 'antd';
 import { Button, Layout, message, theme } from 'antd';
@@ -61,6 +61,9 @@ const MainLayout = () => {
           </div>
 
           <AvatarComponent />
+
+          {/* 无边框窗口的最小化/最大化/关闭按钮组，仅桌面环境渲染 */}
+          <WindowControls />
         </Header>
 
         {/* 路由页面区域 */}

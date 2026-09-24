@@ -10,7 +10,7 @@
   box-sizing: border-box;
 }
 
-// 无系统标题栏时，顶部空白区域用于拖动，关闭按钮独立于拖动区域。
+// 无系统标题栏时，顶部空白区域用于拖动，窗口控制按钮组（最小化/最大化/关闭）独立于拖动区域。
 .login-window-bar {
   position: fixed;
   inset: 0 0 auto;
@@ -21,19 +21,6 @@
 
   .login-window-drag {
     flex: 1;
-  }
-
-  .login-window-close {
-    width: 48px;
-    height: 40px;
-    border-radius: 0;
-    color: #fff;
-
-    &:hover,
-    &:focus-visible {
-      color: #fff !important;
-      background: #c42b1c !important;
-    }
   }
 }
 

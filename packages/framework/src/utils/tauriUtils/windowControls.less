@@ -1,0 +1,31 @@
+// 无边框桌面窗口右上角的最小化 / 最大化 / 关闭按钮组。
+.window-controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  user-select: none;
+
+  .window-controls-button {
+    width: 46px;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  // 关闭按钮遵循 Windows 标题栏惯例：悬停红色背景、白色图标。
+  .window-controls-close:hover,
+  .window-controls-close:focus-visible {
+    color: #fff !important;
+    background: #c42b1c !important;
+  }
+}
+
+// 浅色变体：适配登录页等深色背景的窗口栏，关闭按钮仍保持红色悬停。
+.window-controls-light .window-controls-button:not(.window-controls-close) {
+  color: #fff;
+
+  &:hover,
+  &:focus-visible {
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.25) !important;
+  }
+}

@@ -1,13 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "仅允许主窗口使用基础能力、关闭窗口和拖动窗口",
+  "description": "仅允许主窗口使用基础能力、窗口控制（关闭/最小化/最大化）和拖动窗口。is_maximized 与拖动区双击最大化由 core:default 内的 core:window:default 覆盖，无需单独授权",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
     "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
     "core:window:allow-start-dragging"
   ]
 }
