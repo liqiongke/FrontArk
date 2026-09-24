@@ -1,8 +1,16 @@
-import { type ColumnType } from 'antd/es/table';
 import { type ViewItem, type ViewStructBase, type ViewType } from '../interface';
 import { type SearchPlaneItem } from '../comp/searchPanel/interface';
 
-export type TableColumn = ColumnType<any>;
+/**
+ * 框架自有表格列描述（不再依赖第三方表格列类型）
+ * 仅承载当前 schema 已使用的能力：标题、宽度、字段、稳定键
+ */
+export interface TableColumn {
+  title: string;
+  width?: number;
+  dataIndex: string;
+  key: string;
+}
 
 /**
  * 表格渲染模式

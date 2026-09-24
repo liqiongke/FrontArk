@@ -3,8 +3,8 @@ import StoreContext from '@/stores/store/storeContext';
 import { useMemoizedFn } from 'ahooks';
 import { get, isUndefined } from 'lodash';
 import React, { useContext, useMemo } from 'react';
-import './index.less';
 import { useTableId } from '../../tableContext';
+import { tableRenderProbes } from '../../utils/tableTestProbes';
 
 interface TableRowProps {
   children?: React.ReactNode;
@@ -13,7 +13,10 @@ interface TableRowProps {
   [key: string]: any;
 }
 
+// 渲染表格行(tr)：保留行点击写入焦点参数、布尔 selector 仅通知新旧焦点行的语义
 const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>((props, ref) => {
+  // 框架自有测试探针:行外壳执行计数(见迁移计划 5.3)
+  tableRenderProbes.rowShell++;
   const rowKey = get(props, 'data-row-key');
   // viewId 来自表格视图上下文,不再硬编码业务 viewId;上下文缺失时不订阅焦点高亮
   const tableId = useTableId();
@@ -26,7 +29,8 @@ const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>((props, re
     return get(state.viewParams, [tableId, ParamKey.Active]) === rowKey;
   });
   const setViewParamByKey = useStore((state) => state.setViewParamByKey);
-  const { children, className, style } = props;
+  // data-index/data-row-key 等测量与定位属性透传到 DOM(虚拟器按 data-index 定位被测元素)
+  const { children, className, style, ...restProps } = props;
 
   const onClick = useMemoizedFn(() => {
     if (isUndefined(tableId)) {
@@ -36,13 +40,15 @@ const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>((props, re
   });
 
   const classText = useMemo(() => {
-    return isActive ? `${className} view-table-row-active` : `${className} view-table-row`;
+    return `view-table-row ${className ?? ''} cursor-pointer transition-colors hover:bg-accent/40 ${
+      isActive ? 'view-table-row-active bg-accent' : ''
+    }`;
   }, [className, isActive]);
 
   return (
-    <div ref={ref} key={rowKey} className={classText} style={style} onClick={onClick}>
+    <tr ref={ref} className={classText} style={style} onClick={onClick} {...restProps}>
       {children}
-    </div>
+    </tr>
   );
 });
 

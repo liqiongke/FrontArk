@@ -3,7 +3,6 @@ import KeyboardKey from '@/utils/baseUtils/keyboardUtils';
 import { useMemoizedFn } from 'ahooks';
 import { isArray } from 'lodash';
 import { type FC } from 'react';
-import './index.less';
 import { type SearchPlaneProps } from './interface';
 import SearchPanelForm from './SearchPanelForm';
 
@@ -35,7 +34,7 @@ const SearchPanel: FC<SearchPlaneProps> = (props) => {
   }
 
   return (
-    <div className="search-panel" onKeyDownCapture={handleKeyDown}>
+    <div className="search-panel w-full py-2" onKeyDownCapture={handleKeyDown}>
       <SearchPanelForm viewId={viewId} items={items} onSearch={onSearch} onReset={onReset} />
     </div>
   );

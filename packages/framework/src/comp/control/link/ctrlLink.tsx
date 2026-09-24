@@ -1,13 +1,9 @@
 import { isFunction, isUndefined } from 'lodash';
 import { useMemoizedFn, useSafeState } from 'ahooks';
-import { Typography } from 'antd';
 import { type SysCtrlProps } from '../interface';
 import { type CtrlLinkProps } from './interface';
-import './index.less';
 import { useEffect } from 'react';
 import { type OptionItem } from '@/interface';
-
-const { Link } = Typography;
 
 const CtrlLink: React.FC<SysCtrlProps<CtrlLinkProps>> = (props) => {
   const { ctrl } = props;
@@ -31,8 +27,13 @@ const CtrlLink: React.FC<SysCtrlProps<CtrlLinkProps>> = (props) => {
   }
 
   return (
-    <div className="ctrl-link">
-      <Link onClick={handleClick}>{href?.label || '链接'}</Link>
+    <div className="ctrl-link inline-flex">
+      <a
+        className="text-primary underline-offset-4 hover:underline cursor-pointer"
+        onClick={handleClick}
+      >
+        {href?.label || '链接'}
+      </a>
     </div>
   );
 };

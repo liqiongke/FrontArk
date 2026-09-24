@@ -1,15 +1,12 @@
-import { KeyAttr } from '@/interface';
 import { useData } from '@/stores/store/hooks/useValue';
 import { useView } from '@/stores/store/hooks/useView';
-import { Table } from 'antd';
 import { isArray } from 'lodash';
-import { memo, useMemo, useRef } from 'react';
+import { memo, useMemo } from 'react';
 import SearchPanel from '../comp/searchPanel/SearchPanel';
 import { type SysViewProps } from '../interface';
-import TableRow from './comp/basetable/tableRow';
+import VirtualTable from './comp/basetable/virtualTable';
 import TableIdContext from './tableContext';
 import { RenderMode, type ViewTableProps } from './interface';
-import './styles/index.less';
 import TableUtils from './utils/tableUtils';
 import useRowIdentityList, { type IdentityRow } from './utils/useRowIdentityList';
 
@@ -17,7 +14,7 @@ import useRowIdentityList, { type IdentityRow } from './utils/useRowIdentityList
 const EMPTY_LIST: IdentityRow[] = [];
 
 /**
- * 表格主体:列定义/行组件/搜索面板装配,与 dataSource 来源(完整记录 or 行身份)无关
+ * 表格主体:列定义/搜索面板/虚拟表格装配,与 dataSource 来源(完整记录 or 行身份)无关
  */
 const TableShell = memo(function TableShell({ viewId, view, dataSource }: {
   viewId: string;
@@ -31,32 +28,16 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource }: {
     [viewId, view.items],
   );
 
-  // 设置自定义组件
-  const components = useRef({
-    body: {
-      row: TableRow,
-    },
-  });
-
-  // scroll 配置仅随 height 变化,useMemo 保证引用稳定
-  const scroll = useMemo(() => ({ y: view.height ?? 400 }), [view.height]);
-
   return (
-    <div className="view-table">
-      {/* 向自定义行组件透传当前表格的 viewId,行组件据此订阅焦点高亮 */}
+    <div className="view-table bg-card px-3 py-2">
+      {/* 向行组件透传当前表格的 viewId,行组件据此订阅焦点高亮 */}
       <TableIdContext value={viewId}>
         <SearchPanel viewId={viewId} items={view.searchItems} />
-        <Table
-          scroll={scroll}
-          virtual={true}
-          // 关闭内部分页:antd 默认 pageSize=10 会切片 dataSource,导致渲染行下标与数据下标错位,
-          // 框架列表数据由请求全量驱动,翻页应通过请求参数(如分页接口)实现
-          pagination={false}
-          rowHoverable={false}
-          rowKey={KeyAttr}
+        <VirtualTable
+          viewId={viewId}
           columns={columns}
-          components={components.current}
           dataSource={dataSource}
+          height={view.height}
         />
       </TableIdContext>
     </div>
@@ -80,7 +61,7 @@ const RecordTable: React.FC<{ viewId: string; view: ViewTableProps }> = ({ viewI
 
 /**
  * 结构订阅模式:表格结构只依赖有序行键序列,字段值由单元格控件按 @Row 自行订阅;
- * 普通字段编辑不再带动 Table/Cell 外壳更新(见 docs/design/table-cell-update-analysis.md 5.2)
+ * 普通字段编辑不再带动表格结构层/单元格外壳更新(见 docs/design/table-cell-update-analysis.md 5.2)
  */
 const SubscriptionTable: React.FC<{ viewId: string; view: ViewTableProps }> = ({
   viewId,

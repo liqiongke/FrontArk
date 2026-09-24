@@ -1,6 +1,5 @@
 import { floor, isArray } from 'lodash';
 import { type SearchPlaneFormProps } from './interface';
-import { Col, Row } from 'antd';
 import SearchPanelItem from './SearchPanelItem';
 import SearchPanelTools from './SearchPanelTools';
 
@@ -13,16 +12,25 @@ const SearchPanelForm: React.FC<SearchPlaneFormProps> = (props) => {
   }
 
   return (
-    <Row className="search-panel-form" gutter={[12, 6]}>
+    <div
+      className="search-panel-form grid gap-x-3 gap-y-1"
+      style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}
+    >
       {items.map((item, index) => (
-        <Col key={index + '_' + item.field} span={colSize}>
+        <div
+          key={index + '_' + item.field}
+          style={{ gridColumn: `span ${colSize} / span ${colSize}`, minWidth: 0 }}
+        >
           <SearchPanelItem viewId={viewId} item={item} />
-        </Col>
+        </div>
       ))}
-      <Col key="tools" span={colSize}>
+      <div
+        key="tools"
+        style={{ gridColumn: `span ${colSize} / span ${colSize}`, minWidth: 0 }}
+      >
         <SearchPanelTools onSearch={onSearch} onReset={onReset} />
-      </Col>
-    </Row>
+      </div>
+    </div>
   );
 };
 

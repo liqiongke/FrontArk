@@ -1,25 +1,17 @@
-import { Avatar, Button, Dropdown, Space, message } from 'antd';
-import { BellOutlined, FullscreenOutlined, PoweroffOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
-import '../styles.less';
+import { NetUtils, TauriUtils, notify } from '@jl/framework';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@jl/framework/ui';
 import { useMemoizedFn } from 'ahooks';
-import { NetUtils, TauriUtils } from '@jl/framework';
+import { Bell, Maximize, Power, Settings, User as UserIcon } from 'lucide-react';
 
 const AvatarComponent = () => {
-  const [messageApi, contextHolder] = message.useMessage();
-  const userMenuItems: MenuProps['items'] = [
-    { key: 'profile', label: '个人中心' },
-    { key: 'settings', label: '设置' },
-    { key: 'logout', label: '退出登录' },
-  ];
-  if (TauriUtils.isAvailable()) {
-    userMenuItems.push(
-      { type: 'divider' },
-      { key: 'closeSystem', label: '关闭系统', icon: <PoweroffOutlined />, danger: true },
-    );
-  }
-
-  const onClick = useMemoizedFn(async ({ key }: { key: string }) => {
+  const onClick = useMemoizedFn(async (key: string) => {
     switch (key) {
       case 'profile':
         break;
@@ -32,7 +24,7 @@ const AvatarComponent = () => {
         try {
           await TauriUtils.closeCurrentWindow();
         } catch {
-          messageApi.error('关闭系统失败，请重试');
+          notify.error('关闭系统失败，请重试');
         }
         break;
       default:
@@ -41,19 +33,41 @@ const AvatarComponent = () => {
   });
 
   return (
-    <div className="user-area">
-      {contextHolder}
-      <Space size="small">
-        <Button type="text" icon={<BellOutlined />} />
-        <Button type="text" icon={<SettingOutlined />} />
-        <Button type="text" icon={<FullscreenOutlined />} />
-        <Dropdown menu={{ items: userMenuItems, onClick }} placement="bottomRight" trigger={['click']}>
-          <Avatar
-            style={{ backgroundColor: '#1890ff', cursor: 'pointer' }}
-            icon={<UserOutlined />}
-          />
-        </Dropdown>
-      </Space>
+    <div className="user-area flex items-center gap-1 pr-5">
+      <Button variant="ghost" size="icon" aria-label="通知">
+        <Bell className="size-4" />
+      </Button>
+      <Button variant="ghost" size="icon" aria-label="设置">
+        <Settings className="size-4" />
+      </Button>
+      <Button variant="ghost" size="icon" aria-label="全屏">
+        <Maximize className="size-4" />
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="用户菜单"
+            className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground"
+          >
+            <UserIcon className="size-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onClick('profile')}>个人中心</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onClick('settings')}>设置</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onClick('logout')}>退出登录</DropdownMenuItem>
+          {TauriUtils.isAvailable() && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => onClick('closeSystem')}>
+                <Power className="size-4" />
+                关闭系统
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };

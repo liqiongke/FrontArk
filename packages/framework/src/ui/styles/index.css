@@ -1,0 +1,3 @@
+/* 框架样式入口：Tailwind v4 + 主题变量 + 框架布局类 */
+@import 'tailwindcss';
+@import './theme.css';

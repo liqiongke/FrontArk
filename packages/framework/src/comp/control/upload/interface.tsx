@@ -7,6 +7,7 @@ export interface CtrlUploadProps extends CtrlBase {
   maxSize?: number; // 文件大小限制（MB）
   maxCount?: number; // 最大上传数量
   action?: string; // 上传的URL
+  disabled?: boolean; // 禁用状态
   onUploadSuccess?: (file: any, response: any) => void; // 上传成功回调
   onUploadError?: (error: any) => void; // 上传失败回调
 }

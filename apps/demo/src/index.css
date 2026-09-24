@@ -1,0 +1,7 @@
+/*
+ * Demo 全局样式：Tailwind v4 + 框架主题变量。
+ * 框架源码被 demo 直接引用（vite alias），需将框架目录加入类名扫描范围。
+ */
+@import 'tailwindcss';
+@import '../../../packages/framework/src/ui/styles/theme.css';
+@source '../../../packages/framework/src';

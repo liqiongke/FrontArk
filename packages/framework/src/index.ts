@@ -13,6 +13,9 @@ export { default as WindowControls } from '@utils/tauriUtils/windowControls';
 export { default as logger, getLogLevel, setLogLevel } from '@utils/sysUtils/logger';
 export type { LogLevel } from '@utils/sysUtils/logger';
 
+// 统一消息服务（Sonner 封装）：应用根节点挂载 <Toaster/> 后可见
+export { notify } from '@utils/notify';
+
 // 请求返回的数据类型
 export type { Result, LoginNavigation } from '@utils/netUtils/interface';
 

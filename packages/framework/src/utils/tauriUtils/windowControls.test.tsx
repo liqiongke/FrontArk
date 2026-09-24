@@ -101,9 +101,9 @@ describe('WindowControls', () => {
     });
     await flush();
 
-    // 初始未最大化时展示最大化图标。
+    // 初始未最大化时展示最大化动作，点击按钮切换窗口状态。
     expect(button(container, '最大化窗口')).toBeTruthy();
-    expect(container.querySelector('[aria-label="border"]')).toBeTruthy();
+    expect(button(container, '最大化窗口')!.getAttribute('title')).toBe('最大化');
 
     // 拖动区双击、系统贴靠等外部最大化也会触发 resize 事件。
     maximized = true;
@@ -112,8 +112,8 @@ describe('WindowControls', () => {
       await emit('tauri://resize', { width: 800, height: 600 });
     });
 
-    expect(container.querySelector('[aria-label="switcher"]')).toBeTruthy();
     expect(button(container, '还原窗口')).toBeTruthy();
+    expect(button(container, '还原窗口')!.getAttribute('title')).toBe('还原');
 
     await act(async () => {
       root.unmount();

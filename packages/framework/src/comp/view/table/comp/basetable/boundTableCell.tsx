@@ -7,6 +7,7 @@ import { ViewType } from '@view/interface';
 import { isArray, isString, isUndefined } from 'lodash';
 import React, { useContext, useMemo } from 'react';
 import { type ViewTableProps } from '../../interface';
+import { tableRenderProbes } from '../../utils/tableTestProbes';
 
 interface BoundTableCellProps {
   /**
@@ -52,6 +53,8 @@ const BoundTableCellBase: React.FC<BoundTableCellProps> = ({
   rowKey,
   fallbackIndex,
 }) => {
+  // 框架自有测试探针:单元格外壳(memo 身份隔离层)执行计数(见迁移计划 5.3)
+  tableRenderProbes.cellShell++;
   const useStore = useContext(StoreContext);
 
   // 列配置/基础路径拆分订阅:selector 只返回 store 内引用或原始值,保持快照引用稳定

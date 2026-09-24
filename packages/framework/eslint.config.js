@@ -27,6 +27,17 @@ export default defineConfig([
       ],
       // TODO: 框架 store/请求层大量使用 any，属历史技术债，逐步收窄类型后恢复为 error
       '@typescript-eslint/no-explicit-any': 'warn',
+      // shadcn/ui 迁移完成后禁止 antd 与 less 回流（见 docs/design/antd-to-shadcn-migration-plan.md P7）
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['antd', 'antd/*', 'antd/*/*'], message: '已全面替换为 shadcn/ui，禁止引入 antd。' },
+            { group: ['@ant-design/*'], message: '已全面替换为 lucide-react 图标，禁止引入 @ant-design。' },
+            { group: ['**/*.less'], message: '样式统一使用 Tailwind，禁止引入 less。' },
+          ],
+        },
+      ],
     },
   },
   {
@@ -34,6 +45,13 @@ export default defineConfig([
     files: ['src/index.ts'],
     rules: {
       '@typescript-eslint/no-namespace': 'off',
+    },
+  },
+  {
+    // shadcn 组件文件惯例：与组件同文件导出 variants 等辅助常量(如 buttonVariants)
+    files: ['src/ui/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

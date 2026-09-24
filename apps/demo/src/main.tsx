@@ -1,13 +1,13 @@
-import { ConfigProvider } from 'antd';
 import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, HashRouter, useRoutes } from 'react-router-dom';
+import { Toaster } from '@jl/framework/ui';
 import { isDesktop } from './init/platform';
 import routes from '~react-pages';
 import init from './init/init';
 import LoginLayout from './layouts/login/LoginLayout';
 import MainLayout from './layouts/main/MainLayout';
-import themeCompact from './theme/themeCompact';
+import './index.css';
 
 const routesWithRedirect = [
   {
@@ -26,7 +26,9 @@ export const App: React.FC = () => {
 
   return (
     <Suspense fallback={<p>Loading...</p>}>
-      <ConfigProvider theme={themeCompact}>{element}</ConfigProvider>
+      {element}
+      {/* 统一消息容器（Sonner）：notify 与各处提示均渲染在此 */}
+      <Toaster position="top-center" />
     </Suspense>
   );
 };

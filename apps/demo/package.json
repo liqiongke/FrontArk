@@ -16,19 +16,22 @@
     "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@ant-design/icons": "^6.1.0",
+    "@hookform/resolvers": "^5.2.2",
     "@jl/framework": "workspace:*",
     "ahooks": "^3.9.6",
-    "antd": "^6.0.0",
     "axios": "^1.13.2",
     "lodash": "^4.17.21",
+    "lucide-react": "^1.48.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-hook-form": "^7.64.0",
     "react-router-dom": "^7.9.6",
-    "simplebar-react": "^3.3.2"
+    "simplebar-react": "^3.3.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2.11.5",
     "@types/lodash": "^4.17.20",
     "@types/node": "^24.10.0",
@@ -40,7 +43,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "less": "^4.4.2",
+    "tailwindcss": "^4.3.3",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.3",
     "vite": "^7.2.2",

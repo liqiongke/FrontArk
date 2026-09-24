@@ -1,21 +1,18 @@
-import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
-import { NetUtils, TauriUtils, WindowControls } from '@jl/framework';
+import { NetUtils, TauriUtils, WindowControls, notify } from '@jl/framework';
+import { Button } from '@jl/framework/ui';
 import { useMemoizedFn } from 'ahooks';
-import type { MenuProps } from 'antd';
-import { Button, Layout, message, theme } from 'antd';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import SimpleBar from 'simplebar-react';
 import 'simplebar-react/dist/simplebar.min.css';
+import type { MenuItem } from '../../interface/menu';
 import AvatarComponent from './comp/Avatar';
 import MenuComponent from './comp/Menu';
-import './styles.less';
-
-const { Header, Content } = Layout;
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [menuItems, setMenuItems] = useState<MenuProps['items']>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const location = useLocation();
   const dragRegion = TauriUtils.isAvailable() ? true : undefined;
 
@@ -26,10 +23,10 @@ const MainLayout = () => {
       if (data && data.code === 200) {
         setMenuItems(data.data || []);
       } else {
-        message.error(data?.message || '获取菜单数据失败');
+        notify.error(data?.message || '获取菜单数据失败');
       }
     } catch (error) {
-      message.error(`获取菜单数据失败:${error}`);
+      notify.error(`获取菜单数据失败:${error}`);
     }
   });
 
@@ -39,41 +36,43 @@ const MainLayout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  const {
-    token: { colorBgContainer },
-  } = theme.useToken();
-
   return (
-    <Layout className="main-layout">
+    <div className="main-layout flex h-screen overflow-hidden">
       <MenuComponent collapsed={collapsed} menuItems={menuItems} />
 
-      <Layout>
-        <Header className="main-header" style={{ background: colorBgContainer }}>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* 顶部导航栏 */}
+        <header className="flex h-12 shrink-0 items-center justify-between border-b bg-background">
           <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            variant="ghost"
+            size="icon"
+            className="size-12"
+            aria-label={collapsed ? '展开菜单' : '收起菜单'}
             onClick={() => setCollapsed(!collapsed)}
-            className="trigger-button"
-          />
+          >
+            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </Button>
 
-          <div className="tab-area" data-tauri-drag-region={dragRegion}>
-            <div className="tab-content" data-tauri-drag-region={dragRegion}>Tab 标签页区域</div>
+          <div className="h-full flex-1 pl-5" data-tauri-drag-region={dragRegion}>
+            <div className="flex h-full items-center" data-tauri-drag-region={dragRegion}>
+              Tab 标签页区域
+            </div>
           </div>
 
           <AvatarComponent />
 
           {/* 无边框窗口的最小化/最大化/关闭按钮组，仅桌面环境渲染 */}
           <WindowControls />
-        </Header>
+        </header>
 
         {/* 路由页面区域 */}
-        <Content className="main-content" style={{ background: colorBgContainer }}>
+        <main className="main-content min-h-[280px] flex-1 overflow-hidden bg-background">
           <SimpleBar style={{ height: '100%', maxHeight: 'calc(100vh - 48px)' }}>
             <Outlet />
           </SimpleBar>
-        </Content>
-      </Layout>
-    </Layout>
+        </main>
+      </div>
+    </div>
   );
 };
 

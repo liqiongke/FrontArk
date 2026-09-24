@@ -1,102 +1,115 @@
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { NetUtils, TauriUtils, WindowControls } from '@jl/framework';
-import { Button, Card, Form, Input, Typography, message } from 'antd';
+import { NetUtils, TauriUtils, WindowControls, notify } from '@jl/framework';
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@jl/framework/ui';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Lock, User as UserIcon } from 'lucide-react';
 import { isUndefined } from 'lodash';
-import React, { useState } from 'react';
+import React from 'react';
+import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import Store from '../../init/stores';
+import { z } from 'zod';
 import type { User } from '../../interface/user';
-import './styles.less';
+import Store from '../../init/stores';
 
-const { Title, Text } = Typography;
+const loginSchema = z.object({
+  username: z.string().min(1, '请输入用户名!').min(3, '用户名至少3位字符!'),
+  password: z.string().min(1, '请输入密码!').min(6, '密码至少6位字符!'),
+});
 
-interface LoginForm {
-  username: string;
-  password: string;
-}
+type LoginForm = z.infer<typeof loginSchema>;
 
 const LoginLayout: React.FC = () => {
   const navigate = useNavigate();
-  const [messageApi, contextHolder] = message.useMessage();
-  const [loading, setLoading] = useState(false);
   const canCloseWindow = TauriUtils.isAvailable();
   const user = Store.user((state) => state.user);
   const setUser = Store.user((state) => state.setUser);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { username: 'admin', password: '123456' },
+  });
+
   const onFinish = async (values: LoginForm) => {
-    setLoading(true);
     try {
       // 触发登录请求
       const result = await NetUtils.login<User>(values);
 
       if (result.code !== 200) {
-        messageApi.error(result.message || '登录失败，请检查用户名和密码');
+        notify.error(result.message || '登录失败，请检查用户名和密码');
         return;
       }
       const data = result.data;
       if (isUndefined(data)) {
-        messageApi.error(result.message || '登录失败，未找到返回的用户信息');
+        notify.error(result.message || '登录失败，未找到返回的用户信息');
         return;
       }
       setUser(data);
 
       // 跳转到首页
       navigate('/');
-      messageApi.success('登录成功!');
+      notify.success('登录成功!');
     } catch {
-      messageApi.error('登录失败，请检查用户名和密码');
-    } finally {
-      setLoading(false);
+      notify.error('登录失败，请检查用户名和密码');
     }
   };
 
   return (
-    <div className="login-container">
-      {contextHolder}
+    <div className="login-container flex min-h-screen w-screen items-center justify-center bg-linear-to-br from-[#667eea] to-[#764ba2] p-5 max-sm:p-4">
       {canCloseWindow && (
-        <div className="login-window-bar">
-          <div className="login-window-drag" data-tauri-drag-region />
+        <div className="fixed inset-x-0 top-0 z-10 flex h-10 select-none">
+          <div className="flex-1" data-tauri-drag-region />
           <WindowControls variant="light" />
         </div>
       )}
-      <Card className="login-card">
-        <div className="login-header">
-          <Title level={2}>欢迎登录:{user?.name}</Title>
-          <Text type="secondary">请输入您的登录凭据</Text>
-        </div>
+      <Card className="animate-in fade-in slide-in-from-bottom-6 w-full max-w-[400px] rounded-lg border-none bg-white/95 shadow-2xl backdrop-blur duration-500 max-sm:py-4">
+        <CardHeader className="mb-2 items-center text-center select-none">
+          <CardTitle className="text-primary text-2xl font-semibold">欢迎登录:{user?.name}</CardTitle>
+          <CardDescription>请输入您的登录凭据</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form noValidate onSubmit={handleSubmit(onFinish)} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <div className="relative">
+                <UserIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                <Input
+                  id="username"
+                  className="h-11 pl-9"
+                  placeholder="用户名"
+                  autoComplete="off"
+                  aria-invalid={errors.username ? true : undefined}
+                  {...register('username')}
+                />
+              </div>
+              {errors.username && <p className="text-destructive text-sm">{errors.username.message}</p>}
+            </div>
 
-        <Form name="login" onFinish={onFinish} autoComplete="off" size="large" initialValues={{ username: 'admin', password: '123456' }}>
-          <Form.Item
-            name="username"
-            rules={[
-              { required: true, message: '请输入用户名!' },
-              { min: 3, message: '用户名至少3位字符!' },
-            ]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="用户名" />
-          </Form.Item>
+            <div className="flex flex-col gap-1.5">
+              <div className="relative">
+                <Lock className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                <Input
+                  id="password"
+                  className="h-11 pl-9"
+                  type="password"
+                  placeholder="密码"
+                  autoComplete="off"
+                  aria-invalid={errors.password ? true : undefined}
+                  {...register('password')}
+                />
+              </div>
+              {errors.password && <p className="text-destructive text-sm">{errors.password.message}</p>}
+            </div>
 
-          <Form.Item
-            name="password"
-            rules={[
-              { required: true, message: '请输入密码!' },
-              { min: 6, message: '密码至少6位字符!' },
-            ]}
-          >
-            <Input.Password prefix={<LockOutlined />} placeholder="密码" />
-          </Form.Item>
-
-          <Form.Item>
             <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              className="login-button"
-              block
+              type="submit"
+              className="h-12 bg-linear-to-r from-[#1890ff] to-[#096dd9] text-base font-semibold text-white shadow-lg shadow-[#1890ff]/30 hover:from-[#40a9ff] hover:to-[#1890ff]"
+              disabled={isSubmitting}
             >
-              登录
+              {isSubmitting ? '登录中...' : '登录'}
             </Button>
-          </Form.Item>
-        </Form>
+          </form>
+        </CardContent>
       </Card>
     </div>
   );

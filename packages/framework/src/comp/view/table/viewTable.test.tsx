@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeyAttr } from '@/interface';
 import StoreContext from '@/stores/store/storeContext';
 import createBaseStore from '@/stores/store/storeBase';
@@ -11,30 +11,14 @@ import { ViewType } from '../interface';
 import ViewForm from '../form/viewForm';
 import ViewTable from './viewTable';
 import { RenderMode } from './interface';
-import type * as AntdModule from 'antd';
+import { resetTableRenderProbes, tableRenderProbes } from './utils/tableTestProbes';
 import type * as ValueModule from '@/stores/store/hooks/useValue';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const metrics = vi.hoisted(() => ({
-  tableEntries: 0, cellShells: 0, structures: 0, fields: new Map<string, number>(),
+  structures: 0,
+  fields: new Map<string, number>(),
 }));
-
-// 当前 antd 的 CJS Cell 函数体每次执行都会调用 useCellRender，即使内容命中缓存。
-// 只替换内存中的 Hook 导出并原样转发，不修改依赖文件，也不使用祖先 Profiler 推测 Cell。
-const cellProbe = await vi.hoisted(async () => {
-  const { createRequire } = await import('node:module');
-  const require = createRequire(import.meta.url);
-  const cellModule = require('@rc-component/table/lib/Cell/useCellRender') as {
-    default: (...args: unknown[]) => unknown;
-  };
-  const original = cellModule.default;
-  cellModule.default = (...args: unknown[]) => {
-    metrics.cellShells += 1;
-    return original(...args);
-  };
-  return { restore: () => { cellModule.default = original; } };
-});
-afterAll(() => cellProbe.restore());
 
 vi.mock('./utils/useRowIdentityList', async (importOriginal) => {
   const mod = await importOriginal<{ default: (viewId: string) => unknown }>();
@@ -44,15 +28,6 @@ vi.mock('./utils/useRowIdentityList', async (importOriginal) => {
   } };
 });
 
-// 这里只计 Table 的父级入口；不把 wrapper 次数宣称为内部 Cell 执行次数。
-vi.mock('antd', async (importOriginal) => {
-  const mod = await importOriginal<typeof AntdModule>();
-  const TableEntry = React.forwardRef<any, any>((props, ref) => {
-    metrics.tableEntries += 1;
-    return <mod.Table {...props} ref={ref} />;
-  });
-  return { ...mod, Table: TableEntry };
-});
 // useData 在真实 CtrlText 函数体内调用，计数包含其自订阅更新，区别于外部 wrapper。
 vi.mock('@/stores/store/hooks/useValue', async (importOriginal) => {
   const mod = await importOriginal<typeof ValueModule>();
@@ -93,11 +68,15 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     root.render(strict ? <React.StrictMode>{page}</React.StrictMode> : page);
   });
   const editInput = () => container.querySelector('.view-form-container input') as HTMLInputElement;
-  const tableText = () => container.querySelector('.ant-table')?.textContent;
+  const tableText = () => container.querySelector('[data-slot="view-table"]')?.textContent;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+    // jsdom 无布局引擎:offset 尺寸恒为 0,TanStack Virtual 会判定视口/行高为零而不渲染行。
+    // 统一 mock 视口与行高测量来源,保证虚拟窗口覆盖测试数据(配合 overscan)
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(1024);
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(34);
     vi.stubGlobal('matchMedia', vi.fn(() => ({
       matches: false, addListener() {}, removeListener() {},
       addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
@@ -122,12 +101,12 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     root = createRoot(container);
     renderPage();
     act(() => vi.advanceTimersByTime(100));
-    metrics.tableEntries = 0;
     metrics.structures = 0;
     metrics.fields.clear();
-    // 挂载期至少有真实 Cell 外壳执行，证明探针拦截的是 antd 实际使用的模块
-    expect(metrics.cellShells).toBeGreaterThan(0);
-    metrics.cellShells = 0;
+    // 挂载期至少有真实单元格外壳执行，证明框架探针覆盖实际渲染路径
+    expect(tableRenderProbes.cellShell).toBeGreaterThan(0);
+    expect(tableRenderProbes.structure).toBeGreaterThan(0);
+    resetTableRenderProbes();
   });
 
   afterEach(() => {
@@ -139,25 +118,25 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     vi.unstubAllGlobals();
   });
 
-  it.each([false, true])('输入后仅目标字段更新，Table 父级与 Cell 外壳不执行（StrictMode=%s）', (strict) => {
+  it.each([false, true])('输入后仅目标字段更新，表格结构与单元格外壳不执行（StrictMode=%s）', (strict) => {
     if (strict) {
       renderPage(true);
       act(() => vi.advanceTimersByTime(100));
-      metrics.tableEntries = 0;
+      resetTableRenderProbes();
       metrics.structures = 0;
       metrics.fields.clear();
     }
-    const shellsBeforeEdit = metrics.cellShells;
+    const shellsBeforeEdit = tableRenderProbes.cellShell;
     typeInto(editInput(), '999');
     expect(editInput().value).toBe('999');
     act(() => vi.advanceTimersByTime(299));
     expect(tableText()).not.toContain('999');
     act(() => vi.advanceTimersByTime(1));
     expect(tableText()).toContain('999');
-    expect(metrics.tableEntries).toBe(0);
+    expect(tableRenderProbes.structure).toBe(0);
     expect(metrics.structures).toBe(0);
-    // 输入与提交都不得带动真实 Ant Design Cell 外壳执行
-    expect(metrics.cellShells).toBe(shellsBeforeEdit);
+    // 输入与提交都不得带动真实单元格外壳执行
+    expect(tableRenderProbes.cellShell).toBe(shellsBeforeEdit);
     expect(fieldCount('a', 'price')).toBeGreaterThan(0);
     expect(fieldCount('a', 'stock')).toBe(0);
     expect(fieldCount('b', 'price')).toBe(0);
@@ -171,7 +150,7 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     act(() => vi.advanceTimersByTime(300));
     expect(store.getState().getData(['@Row:table1:a', 'price'])).toBe('999');
     expect(editInput().value).toBe('100');
-    expect(metrics.tableEntries).toBe(0);
+    expect(tableRenderProbes.structure).toBe(0);
   });
 
   it('取消同值提交前的草稿也能恢复输入，且不清空其他字段任务', () => {
@@ -186,11 +165,11 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(store.getState().getData(['@Row:table1:b', 'stock'])).toBe('77');
   });
 
-  it('同值写入不触发 Table、结构订阅或字段控件', () => {
+  it('同值写入不触发表格结构、结构订阅或字段控件', () => {
     act(() => store.getState().setData(['@Row:table1:a', 'price'], '100'));
-    expect(metrics.tableEntries).toBe(0);
+    expect(tableRenderProbes.structure).toBe(0);
     expect(metrics.structures).toBe(0);
-    expect(metrics.cellShells).toBe(0);
+    expect(tableRenderProbes.cellShell).toBe(0);
     expect(metrics.fields.size).toBe(0);
   });
 
@@ -199,7 +178,7 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
       ...store.getState().getView('table1'),
       items: [{ field: 'stock', title: '当前库存' }],
     }));
-    expect(metrics.tableEntries).toBeGreaterThan(0);
+    expect(tableRenderProbes.structure).toBeGreaterThan(0);
     expect(tableText()).toContain('当前库存');
     expect(tableText()).not.toContain('100');
     act(() => store.getState().setData(['@Row:table1:a', 'stock'], '777'));
@@ -215,9 +194,9 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(tableText()).toContain('888');
   });
 
-  it('同键整批替换不触发 Table，字段仍显示最新值', () => {
+  it('同键整批替换不触发结构层，字段仍显示最新值', () => {
     act(() => store.getState().setData('table', rows().map((row) => ({ ...row, price: '321' }))));
-    expect(metrics.tableEntries).toBe(0);
+    expect(tableRenderProbes.structure).toBe(0);
     expect(tableText()).toContain('321');
     expect(fieldCount('a', 'stock')).toBe(0);
     expect(fieldCount('b', 'stock')).toBe(0);
@@ -228,7 +207,7 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
       data.reverse();
       data.push({ [KeyAttr]: 'c', price: '333', stock: '8' });
     }));
-    expect(metrics.tableEntries).toBeGreaterThan(0);
+    expect(tableRenderProbes.structure).toBeGreaterThan(0);
     expect(tableText()).toContain('333');
     typeInto(editInput(), '888');
     act(() => vi.advanceTimersByTime(300));

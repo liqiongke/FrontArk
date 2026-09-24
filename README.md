@@ -191,7 +191,7 @@ pnpm mock
 - **框架**：React 18
 - **状态管理**：Zustand
 - **路由**：React Router 6
-- **UI 组件**：Ant Design
+- **UI 组件**：shadcn/ui（Tailwind CSS v4 + Radix UI）
 - **类型系统**：TypeScript
 - **构建工具**：Vite
 - **包管理**：PNPM

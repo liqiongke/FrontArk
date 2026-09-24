@@ -1,9 +1,7 @@
 import CtrlFactory from '@/comp/ctrlFactory';
 import { useView } from '@/stores/store/hooks/useView';
 import { type SysViewProps, ViewType } from '@view/interface';
-import { Space } from 'antd';
 import { type ViewToolBarProps } from './interface';
-import './styles/toolbar.less';
 
 const ViewToolBar: React.FC<SysViewProps> = (props) => {
   const [view] = useView<ViewToolBarProps>(props.viewId);
@@ -11,11 +9,11 @@ const ViewToolBar: React.FC<SysViewProps> = (props) => {
 
   return (
     <div className="view-toolbar-container">
-      <Space className="view-toolbar-space">
+      <div className="view-toolbar-space flex flex-wrap items-center gap-2">
         {items?.map((item, index) => (
           <CtrlFactory key={index} ctrl={item} sourceView={ViewType.Toolbar} />
         ))}
-      </Space>
+      </div>
     </div>
   );
 };

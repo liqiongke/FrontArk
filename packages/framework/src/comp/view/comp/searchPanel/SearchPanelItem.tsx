@@ -4,7 +4,6 @@ import { PathKey } from '@/stores/store/interface';
 import StoreContext from '@/stores/store/storeContext';
 import { type FC, useContext } from 'react';
 import { isString } from 'lodash';
-import './index.less';
 import { type SearchPlaneItemProps } from './interface';
 
 // 搜索下拉面板面板
@@ -19,9 +18,9 @@ const SearchPanelItem: FC<SearchPlaneItemProps> = (props) => {
   }
 
   return (
-    <div className="search-panel-item">
-      <div className="title">{item.title}</div>
-      <div className="ctrl">
+    <div className="search-panel-item flex h-(--density-control-height) items-center">
+      <div className="title w-[30%] shrink-0 truncate pr-1 text-sm text-muted-foreground">{item.title}</div>
+      <div className="ctrl w-[70%] min-w-0">
         <CtrlFactory
           ctrl={item.ctrl}
           path={[PathKey.Req, reqId, 'criteria', item.field]}
