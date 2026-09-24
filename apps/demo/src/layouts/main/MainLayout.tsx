@@ -38,9 +38,9 @@ const MainLayout = () => {
 
   return (
     <div className="main-layout flex h-screen overflow-hidden">
-      <MenuComponent collapsed={collapsed} menuItems={menuItems} />
+      <MenuComponent collapsed={collapsed} menuItems={menuItems} onExpand={() => setCollapsed(false)} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* 顶部导航栏 */}
         <header className="flex h-12 shrink-0 items-center justify-between border-b bg-background">
           <Button
@@ -66,7 +66,7 @@ const MainLayout = () => {
         </header>
 
         {/* 路由页面区域 */}
-        <main className="main-content min-h-[280px] flex-1 overflow-hidden bg-background">
+        <main className="main-content min-h-0 flex-1 overflow-hidden bg-background">
           <SimpleBar style={{ height: '100%', maxHeight: 'calc(100vh - 48px)' }}>
             <Outlet />
           </SimpleBar>

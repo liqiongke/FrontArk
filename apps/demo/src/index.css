@@ -5,3 +5,20 @@
 @import 'tailwindcss';
 @import '../../../packages/framework/src/ui/styles/theme.css';
 @source '../../../packages/framework/src';
+
+/* 重置由 Tailwind Preflight 提供，应用基础样式也放入 base 层，避免覆盖 utilities。 */
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  * {
+    @apply border-border;
+  }
+}

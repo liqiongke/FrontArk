@@ -56,7 +56,7 @@ const LoginLayout: React.FC = () => {
   };
 
   return (
-    <div className="login-container flex min-h-screen w-screen items-center justify-center bg-linear-to-br from-[#667eea] to-[#764ba2] p-5 max-sm:p-4">
+    <div className="login-container flex min-h-screen w-full items-center justify-center bg-linear-to-br from-[#667eea] to-[#764ba2] p-5 max-sm:p-4">
       {canCloseWindow && (
         <div className="fixed inset-x-0 top-0 z-10 flex h-10 select-none">
           <div className="flex-1" data-tauri-drag-region />
@@ -75,6 +75,7 @@ const LoginLayout: React.FC = () => {
                 <UserIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
                 <Input
                   id="username"
+                  aria-label="用户名"
                   className="h-11 pl-9"
                   placeholder="用户名"
                   autoComplete="off"
@@ -90,6 +91,7 @@ const LoginLayout: React.FC = () => {
                 <Lock className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
                 <Input
                   id="password"
+                  aria-label="密码"
                   className="h-11 pl-9"
                   type="password"
                   placeholder="密码"

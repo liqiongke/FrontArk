@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "dev:desktop:frontend": "cross-env VITE_APP_TARGET=desktop pnpm --dir ../.. exec turbo run dev:mock --filter=web --filter=mock-server",
     "build:desktop:frontend": "cross-env VITE_APP_TARGET=desktop pnpm run build",
-    "test": "node --experimental-strip-types --test tests/*.test.mjs"
+    "test": "node --experimental-strip-types --test tests/*.test.mjs && vitest run",
+    "test:ui": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -43,10 +44,12 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "jsdom": "^30.1.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.3",
     "vite": "^7.2.2",
-    "vite-plugin-pages": "^0.33.1"
+    "vite-plugin-pages": "^0.33.1",
+    "vitest": "^5.0.0"
   }
 }
