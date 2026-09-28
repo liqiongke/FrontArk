@@ -1,5 +1,5 @@
 import { NetUtils, TauriUtils, WindowControls, notify } from '@jl/framework';
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@jl/framework/ui';
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from '@jl/framework/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Lock, User as UserIcon } from 'lucide-react';
 import { isUndefined } from 'lodash';
@@ -56,21 +56,22 @@ const LoginLayout: React.FC = () => {
   };
 
   return (
-    <div className="login-container flex min-h-screen w-full items-center justify-center bg-linear-to-br from-[#667eea] to-[#764ba2] p-5 max-sm:p-4">
+    <div className="login-container flex min-h-screen w-full items-center justify-center bg-muted/40 px-4 py-12">
       {canCloseWindow && (
         <div className="fixed inset-x-0 top-0 z-10 flex h-10 select-none">
           <div className="flex-1" data-tauri-drag-region />
-          <WindowControls variant="light" />
+          <WindowControls />
         </div>
       )}
-      <Card className="animate-in fade-in slide-in-from-bottom-6 w-full max-w-[400px] rounded-lg border-none bg-white/95 shadow-2xl backdrop-blur duration-500 max-sm:py-4">
-        <CardHeader className="mb-2 items-center text-center select-none">
-          <CardTitle className="text-primary text-2xl font-semibold">欢迎登录:{user?.name}</CardTitle>
-          <CardDescription>请输入您的登录凭据</CardDescription>
+      <Card className="w-full max-w-sm rounded-xl shadow-sm">
+        <CardHeader className="gap-2 select-none">
+          <CardTitle className="text-2xl font-semibold tracking-tight">欢迎登录{user?.name ? `，${user.name}` : ''}</CardTitle>
+          <CardDescription>输入用户名和密码，登录工作台。</CardDescription>
         </CardHeader>
         <CardContent>
           <form noValidate onSubmit={handleSubmit(onFinish)} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="username">用户名</Label>
               <div className="relative">
                 <UserIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
                 <Input
@@ -86,7 +87,8 @@ const LoginLayout: React.FC = () => {
               {errors.username && <p className="text-destructive text-sm">{errors.username.message}</p>}
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password">密码</Label>
               <div className="relative">
                 <Lock className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
                 <Input
@@ -105,7 +107,7 @@ const LoginLayout: React.FC = () => {
 
             <Button
               type="submit"
-              className="h-12 bg-linear-to-r from-[#1890ff] to-[#096dd9] text-base font-semibold text-white shadow-lg shadow-[#1890ff]/30 hover:from-[#40a9ff] hover:to-[#1890ff]"
+              className="mt-1 h-11 w-full"
               disabled={isSubmitting}
             >
               {isSubmitting ? '登录中...' : '登录'}

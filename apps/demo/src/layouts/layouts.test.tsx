@@ -113,6 +113,16 @@ describe('界面迁移回归', () => {
     expect(mocks.error).not.toHaveBeenCalled();
   });
 
+  it('页面标题随路由切换，内容与顶部导航使用一致层级', async () => {
+    await mountApp('/base/table');
+    expect(container.querySelector('main h1')?.textContent).toBe('表格');
+    expect(container.querySelector('header')?.textContent).toContain('表格');
+    expect(container.textContent).not.toContain('Tab 标签页区域');
+    await flush(() => router!.navigate('/base/form'));
+    expect(container.querySelector('main h1')?.textContent).toBe('表单');
+    expect(container.querySelector('header')?.textContent).toContain('表单');
+  });
+
   it('直达子路由、后退和前进时同步选中项并展开所在分组', async () => {
     await mountApp('/base/form');
     expect(button('基础组件').getAttribute('aria-expanded')).toBe('true');
@@ -143,7 +153,12 @@ describe('界面迁移回归', () => {
 
   it('登录框使用一致尺寸和图标避让，提交后主界面与菜单可见', async () => {
     await mountApp('/login');
+    expect(container.querySelector('.login-container')?.className).toContain('bg-muted/40');
+    expect(container.querySelector('[data-slot="card"]')?.className).not.toContain('shadow-2xl');
+    expect(container.querySelector('button[type="submit"]')?.className).toContain('bg-primary');
+    expect(container.querySelector('button[type="submit"]')?.className).not.toContain('bg-linear');
     for (const id of ['username', 'password']) {
+      expect(container.querySelector(`label[for="${id}"]`)).not.toBeNull();
       const input = container.querySelector<HTMLInputElement>(`#${id}`)!;
       expect(input.classList.contains('w-full')).toBe(true);
       expect(input.classList.contains('h-11')).toBe(true);

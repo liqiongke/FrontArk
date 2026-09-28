@@ -18,6 +18,7 @@ class View extends ViewBase<Handler, Data> {
   modal: VProps.Modal = {
     id: 'modal',
     type: VType.LayoutModal,
+    title: '产品信息',
     viewId: this.form1.id,
   };
 
@@ -36,7 +37,8 @@ class View extends ViewBase<Handler, Data> {
   layout: VProps.Flex = {
     id: 'layout',
     type: VType.LayoutFlex,
-    items: [this.toolbar.id, this.modal.id],
+    // 弹窗由 ViewRoot 自动挂载，布局中只放触发工具栏。
+    items: [this.toolbar.id],
   };
 
   getRootId = () => this.layout.id;

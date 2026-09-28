@@ -14,7 +14,7 @@ const ViewTab: React.FC<SysViewProps> = (props) => {
   const { items = [] } = view;
 
   // 各页签首次访问后保留内容状态：访问过的页签内容保持挂载，
-  // 未访问过的懒挂载；隐藏内容由 Radix 置 hidden，不可交互
+  // 未访问过的懒挂载；forceMount 时显式隐藏非活动面板，避免内容同时显示。
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
 
   const currentKey = (activeKey as string) ?? get(items, [0, 'key']);
@@ -34,7 +34,7 @@ const ViewTab: React.FC<SysViewProps> = (props) => {
   }, [items, visited, currentKey]);
 
   return (
-    <Tabs value={currentKey} onValueChange={(key) => setActiveKey(key)}>
+    <Tabs className="min-w-0 gap-4" value={currentKey} onValueChange={(key) => setActiveKey(key)}>
       <TabsList>
         {items.map((item) => (
           <TabsTrigger key={item.key} value={item.key}>
@@ -43,7 +43,13 @@ const ViewTab: React.FC<SysViewProps> = (props) => {
         ))}
       </TabsList>
       {tabPanes.map((item) => (
-        <TabsContent key={item.key} value={item.key} forceMount className="mt-2">
+        <TabsContent
+          key={item.key}
+          value={item.key}
+          forceMount
+          hidden={item.key !== currentKey}
+          className="min-w-0 data-[state=inactive]:hidden"
+        >
           {item.visited ? <CompFactory viewId={item.viewId} /> : null}
         </TabsContent>
       ))}

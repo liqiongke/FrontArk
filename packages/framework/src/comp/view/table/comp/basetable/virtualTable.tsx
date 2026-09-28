@@ -89,22 +89,22 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
   const headerGroups = table.getHeaderGroups();
 
   return (
-    <div ref={scrollRef} className="overflow-auto" style={{ height: height ?? 400 }}>
+    <div ref={scrollRef} className="overflow-auto rounded-md border bg-card" style={{ height: height ?? 400 }}>
       <table className="w-full min-w-max text-sm" data-slot="view-table">
         <colgroup>
           {columns.map((col) => (
             <col key={col.key} style={isNumber(col.width) ? { width: col.width } : undefined} />
           ))}
         </colgroup>
-        <thead className="sticky top-0 z-10">
+        <thead className="sticky top-0 z-10 bg-card">
           {headerGroups.map((headerGroup) => (
-            <tr key={headerGroup.id} className="bg-card">
+            <tr key={headerGroup.id} className="bg-muted/50">
               {headerGroup.headers.map((header, headerIndex) => {
                 const width = columns[headerIndex]?.width;
                 return (
                   <th
                     key={header.id}
-                    className="border-border text-foreground h-10 border-b px-2 text-left align-middle font-medium whitespace-nowrap"
+                    className="border-border text-muted-foreground h-10 border-b px-3 text-left align-middle font-medium whitespace-nowrap"
                     style={isNumber(width) ? { width } : undefined}
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}
@@ -148,7 +148,7 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className="border-border p-2 align-middle whitespace-nowrap"
+                    className="border-border px-3 py-2 align-middle whitespace-nowrap"
                     style={{ height: virtualRow.size }}
                   >
                     <BoundTableCell

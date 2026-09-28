@@ -53,13 +53,16 @@ const ViewModal: React.FC<SysViewProps> = (props) => {
       {/* forceMount: 关闭后内容保持挂载（配合 hasOpened 懒挂载），data-[state=closed]:hidden 保证不可见不可交互 */}
       <DialogContent
         forceMount
+        aria-describedby={undefined}
         className="data-[state=closed]:hidden sm:max-w-lg"
         style={{ maxHeight: '85vh', overflow: 'auto' }}
       >
         <DialogHeader>
           <DialogTitle>{view.title ?? '对话框'}</DialogTitle>
         </DialogHeader>
-        <div className="min-w-0">{hasOpened ? <CompFactory viewId={view.viewId} /> : null}</div>
+        <div className="min-w-0 py-2 [&_.view-form-container]:rounded-none [&_.view-form-container]:border-0 [&_.view-form-container]:p-0">
+          {hasOpened ? <CompFactory viewId={view.viewId} /> : null}
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
             取消

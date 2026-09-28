@@ -47,31 +47,37 @@ class View extends ViewBase<Handler, Data> {
     toolList: [
       {
         type: Ctrl.Button,
+        variant: 'outline',
         text: '打印数据',
         onClick: this.handler.onPrintData,
       },
       {
         type: Ctrl.Button,
+        variant: 'outline',
         text: '设置数据',
         onClick: this.handler.onSetData,
       },
       {
         type: Ctrl.Button,
-        text: '获取getData使用情况',
+        variant: 'outline',
+        text: '查看读取统计',
         onClick: this.handler.printDataStats,
       },
       {
         type: Ctrl.Button,
-        text: '重置GetData使用情况',
+        variant: 'outline',
+        text: '重置读取统计',
         onClick: this.handler.resetDataStats,
       },
       {
         type: Ctrl.Button,
+        variant: 'outline',
         text: 'POST请求',
         onClick: this.handler.btnPostReqData,
       },
       {
         type: Ctrl.Button,
+        variant: 'outline',
         text: 'GET请求',
         onClick: this.handler.btnGetReqData,
       },
@@ -81,6 +87,7 @@ class View extends ViewBase<Handler, Data> {
   layout: VProps.Flex = {
     id: 'layout',
     type: VType.LayoutFlex,
+    gutter: 24,
     items: [this.form1.id, this.table1.id],
   };
 

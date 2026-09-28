@@ -3,6 +3,7 @@ import CtrlFactory from '../../ctrlFactory';
 import { ViewType } from '../interface';
 import { type FormItemProps } from './interface';
 import { Ctrl } from '@/comp/control/interface';
+import { cn } from '@/ui/lib/utils';
 
 interface ViewFormItemProps {
   item: FormItemProps;
@@ -11,13 +12,20 @@ interface ViewFormItemProps {
 
 // 渲染表单组件
 const ViewFormItem: React.FC<ViewFormItemProps> = ({ item, path }) => {
-  const { title, ctrl, span = 4 } = item;
+  const { title, ctrl, span } = item;
+  const isRange = ctrl?.type === Ctrl.DateRange || ctrl?.type === Ctrl.TimeRange;
   return (
     // span 按 24 列计算，动态值用内联样式而非动态 Tailwind 类名
-    <div style={{ gridColumn: `span ${span} / span ${span}`, minWidth: 0 }}>
-      <div className="form-item-container flex h-full w-full flex-col overflow-hidden">
+    <div
+      className={cn(
+        'min-w-0 col-span-24 @min-[32rem]/form:col-span-12',
+        !isRange && '@min-[56rem]/form:col-span-6',
+      )}
+      style={span === undefined ? undefined : { gridColumn: `span ${span} / span ${span}` }}
+    >
+      <div className="form-item-container flex h-full w-full flex-col gap-2">
         {title && (
-          <div className="form-item-label mb-0.5 text-left text-sm font-bold">
+          <div className="form-item-label text-left text-sm leading-5 font-medium">
             {title}
           </div>
         )}

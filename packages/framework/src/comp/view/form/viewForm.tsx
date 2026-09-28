@@ -9,9 +9,9 @@ const ViewForm: React.FC<SysViewProps> = (props) => {
   const [view] = useView<ViewFormProps>(props.viewId);
   const { items, path, toolList } = view;
   return (
-    <div className="view-form-container bg-card rounded-sm px-3 py-2">
+    <div className="view-form-container @container/form min-w-0 rounded-lg border bg-card p-4 text-card-foreground sm:p-6">
       {toolList && toolList.length > 0 && (
-        <div className="view-form-toolbar mb-4 flex flex-wrap items-center gap-2">
+        <div className="view-form-toolbar mb-5 flex flex-wrap items-center gap-2 border-b pb-5">
           {toolList.map((tool, index) => (
             <CtrlFactory key={index} ctrl={tool} sourceView={ViewType.Form} />
           ))}
@@ -20,10 +20,10 @@ const ViewForm: React.FC<SysViewProps> = (props) => {
 
       {/* 24 列 CSS Grid：span 语义与历史 antd Row/Col 保持一致，窄屏自动换行不产生横向溢出 */}
       <div
-        className="view-form-row grid w-full gap-x-3"
+        className="view-form-row grid w-full gap-x-4"
         style={{
           gridTemplateColumns: 'repeat(24, minmax(0, 1fr))',
-          rowGap: 'var(--density-form-gap-y, 0.5rem)',
+          rowGap: 'var(--density-form-gap-y, 1.5rem)',
         }}
       >
         {items?.map((item, index) => (

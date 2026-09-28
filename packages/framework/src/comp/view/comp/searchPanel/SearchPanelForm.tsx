@@ -1,11 +1,11 @@
-import { floor, isArray } from 'lodash';
+import { isArray } from 'lodash';
+import type { CSSProperties } from 'react';
 import { type SearchPlaneFormProps } from './interface';
 import SearchPanelItem from './SearchPanelItem';
 import SearchPanelTools from './SearchPanelTools';
 
 const SearchPanelForm: React.FC<SearchPlaneFormProps> = (props) => {
-  const { viewId, items, colNum = 6, onSearch, onReset } = props;
-  const colSize = floor(24 / colNum);
+  const { viewId, items, colNum = 4, onSearch, onReset } = props;
 
   if (!isArray(items) || items.length === 0) {
     return null;
@@ -13,20 +13,20 @@ const SearchPanelForm: React.FC<SearchPlaneFormProps> = (props) => {
 
   return (
     <div
-      className="search-panel-form grid gap-x-3 gap-y-1"
-      style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}
+      className="search-panel-form grid grid-cols-1 items-end gap-4 @min-[32rem]/search:grid-cols-2 @min-[56rem]/search:grid-cols-(--search-columns)"
+      style={{ '--search-columns': `repeat(${colNum}, minmax(0, 1fr))` } as CSSProperties}
     >
       {items.map((item, index) => (
         <div
           key={index + '_' + item.field}
-          style={{ gridColumn: `span ${colSize} / span ${colSize}`, minWidth: 0 }}
+          className="min-w-0"
         >
           <SearchPanelItem viewId={viewId} item={item} />
         </div>
       ))}
       <div
         key="tools"
-        style={{ gridColumn: `span ${colSize} / span ${colSize}`, minWidth: 0 }}
+        className="col-span-full flex justify-end"
       >
         <SearchPanelTools onSearch={onSearch} onReset={onReset} />
       </div>

@@ -9,6 +9,8 @@ import { ParamKey, PathKey } from '@/stores/store/interface';
 import NetUtils from '@/utils/netUtils';
 import { ViewType } from '../interface';
 import ViewForm from '../form/viewForm';
+import ViewTab from '../tab/viewTab';
+import { Ctrl } from '@/comp/control/interface';
 import ViewTable from './viewTable';
 import { RenderMode } from './interface';
 import { resetTableRenderProbes, tableRenderProbes } from './utils/tableTestProbes';
@@ -116,6 +118,82 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it('表格保留滚动容器、行分隔与当前焦点高亮', () => {
+    const table = container.querySelector('[data-slot="view-table"]')!;
+    expect(table.parentElement?.classList.contains('overflow-auto')).toBe(true);
+    expect(table.parentElement?.classList.contains('rounded-md')).toBe(true);
+    expect(table.parentElement?.classList.contains('border')).toBe(true);
+    const row = table.querySelector('.view-table-row-active')!;
+    expect(row.classList.contains('border-b')).toBe(true);
+    expect(row.classList.contains('bg-muted')).toBe(true);
+  });
+
+  it('表单默认按容器适配列宽，范围控件跨列且显式 span 保持兼容', () => {
+    act(() => store.getState().setView('form1', {
+      ...store.getState().getView('form1'),
+      items: [
+        { field: 'price', title: '价格' },
+        { field: 'period', title: '时间范围', ctrl: { type: Ctrl.TimeRange } },
+        { field: 'stock', title: '库存', span: 8 },
+      ],
+    }));
+    expect(container.querySelector('.view-form-container')?.className).toContain('@container/form');
+    const fields = container.querySelectorAll<HTMLElement>('.view-form-row > div');
+    expect(fields[0].className).toContain('@min-[56rem]/form:col-span-6');
+    expect(fields[0].style.gridColumn).toBe('');
+    expect(fields[1].className).toContain('@min-[32rem]/form:col-span-12');
+    expect(fields[1].className).not.toContain('col-span-6');
+    expect(fields[2].style.gridColumn).toBe('span 8 / span 8');
+    expect(container.querySelector('.form-item-label')?.className).toContain('font-medium');
+  });
+
+  it('页签切换只显示活动面板，已访问内容保持挂载', () => {
+    act(() => {
+      store.getState().setView('tabs', {
+        id: 'tabs', type: ViewType.LayoutTab,
+        items: [
+          { key: 'table', label: '表格', viewId: 'table1' },
+          { key: 'form', label: '表单', viewId: 'form1' },
+        ],
+      });
+      root.render(<StoreContext value={store}><ViewTab viewId="tabs" /></StoreContext>);
+    });
+    const tabs = container.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    const panels = container.querySelectorAll<HTMLElement>('[role="tabpanel"]');
+    const tableNode = panels[0].querySelector('.view-table');
+    expect(tableNode).not.toBeNull();
+    expect(panels[0].hidden).toBe(false);
+    expect(panels[1].hidden).toBe(true);
+    act(() => { tabs[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); });
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+    expect(panels[0].hidden).toBe(true);
+    expect(panels[1].hidden).toBe(false);
+    expect(panels[0].querySelector('.view-table')).toBe(tableNode);
+    const formNode = panels[1].querySelector('.view-form-container');
+    expect(formNode).not.toBeNull();
+    act(() => { tabs[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); });
+    expect(panels[0].hidden).toBe(false);
+    expect(panels[1].hidden).toBe(true);
+    expect(panels[1].querySelector('.view-form-container')).toBe(formNode);
+  });
+
+  it('schema 按钮透传视觉变体且不改变原点击回调', () => {
+    const onClick = vi.fn();
+    act(() => store.getState().setView('form1', {
+      ...store.getState().getView('form1'),
+      toolList: [
+        { type: Ctrl.Button, text: '次要操作', variant: 'outline', onClick },
+        { type: Ctrl.Button, text: '主操作' },
+      ],
+    }));
+    const buttons = container.querySelectorAll<HTMLButtonElement>('.view-form-toolbar button');
+    expect(buttons[0].classList.contains('border')).toBe(true);
+    expect(buttons[0].classList.contains('bg-primary')).toBe(false);
+    expect(buttons[1].classList.contains('bg-primary')).toBe(true);
+    act(() => buttons[0].click());
+    expect(onClick).toHaveBeenCalledOnce();
   });
 
   it.each([false, true])('输入后仅目标字段更新，表格结构与单元格外壳不执行（StrictMode=%s）', (strict) => {

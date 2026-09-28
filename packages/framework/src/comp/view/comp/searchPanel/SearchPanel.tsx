@@ -34,7 +34,7 @@ const SearchPanel: FC<SearchPlaneProps> = (props) => {
   }
 
   return (
-    <div className="search-panel w-full py-2" onKeyDownCapture={handleKeyDown}>
+    <div className="search-panel @container/search w-full rounded-lg border bg-card p-4 text-card-foreground sm:p-6" onKeyDownCapture={handleKeyDown}>
       <SearchPanelForm viewId={viewId} items={items} onSearch={onSearch} onReset={onReset} />
     </div>
   );

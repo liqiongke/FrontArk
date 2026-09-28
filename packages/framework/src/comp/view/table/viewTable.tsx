@@ -29,7 +29,7 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource }: {
   );
 
   return (
-    <div className="view-table bg-card px-3 py-2">
+    <div className="view-table min-w-0 space-y-5">
       {/* 向行组件透传当前表格的 viewId,行组件据此订阅焦点高亮 */}
       <TableIdContext value={viewId}>
         <SearchPanel viewId={viewId} items={view.searchItems} />

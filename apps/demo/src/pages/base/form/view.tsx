@@ -75,11 +75,13 @@ class View extends ViewBase<Handler, Data> {
       },
       {
         type: Ctrl.Button,
+        variant: 'outline',
         text: 'POST请求',
         onClick: this.handler.postData,
       },
       {
         type: Ctrl.Button,
+        variant: 'outline',
         text: 'GET请求',
         onClick: this.handler.getReqTableData,
       },

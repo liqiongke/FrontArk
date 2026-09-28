@@ -18,9 +18,9 @@ const SearchPanelItem: FC<SearchPlaneItemProps> = (props) => {
   }
 
   return (
-    <div className="search-panel-item flex h-(--density-control-height) items-center">
-      <div className="title w-[30%] shrink-0 truncate pr-1 text-sm text-muted-foreground">{item.title}</div>
-      <div className="ctrl w-[70%] min-w-0">
+    <div className="search-panel-item flex min-w-0 flex-col gap-2">
+      <div className="title text-sm leading-5 font-medium">{item.title}</div>
+      <div className="ctrl min-w-0">
         <CtrlFactory
           ctrl={item.ctrl}
           path={[PathKey.Req, reqId, 'criteria', item.field]}

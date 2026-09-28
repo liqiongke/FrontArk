@@ -32,7 +32,7 @@ const ViewDrawer: React.FC<SysViewProps> = (props) => {
   const side = view.placement || 'right';
   const sizeStyle: React.CSSProperties =
     side === 'left' || side === 'right'
-      ? { width: view.width, maxWidth: view.width }
+      ? { width: view.width, maxWidth: '100vw' }
       : { height: view.width };
 
   return (
@@ -41,13 +41,14 @@ const ViewDrawer: React.FC<SysViewProps> = (props) => {
       <SheetContent
         forceMount
         side={side}
+        aria-describedby={undefined}
         style={sizeStyle}
         className="data-[state=closed]:hidden overflow-auto gap-0 p-0 sm:max-w-none"
       >
-        <SheetHeader className="border-b">
+        <SheetHeader className="border-b p-6">
           <SheetTitle>{view.title ?? '面板'}</SheetTitle>
         </SheetHeader>
-        <div className="min-w-0 flex-1 overflow-auto p-4">
+        <div className="min-w-0 flex-1 overflow-auto p-6 [&_.view-form-container]:rounded-none [&_.view-form-container]:border-0 [&_.view-form-container]:p-0">
           {hasOpened ? <CompFactory viewId={view.viewId} /> : null}
         </div>
       </SheetContent>

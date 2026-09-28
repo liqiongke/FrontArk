@@ -12,7 +12,7 @@ const CtrlButton: React.FC<SysCtrlProps<CtrlButtonProps>> = (props) => {
 
   return (
     <div className="ctrl-button inline-flex">
-      <Button onClick={ctrl.onClick}>{ctrl.text ?? ''}</Button>
+      <Button variant={ctrl.variant} onClick={ctrl.onClick}>{ctrl.text ?? ''}</Button>
     </div>
   );
 };

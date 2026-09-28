@@ -100,18 +100,18 @@
 
 /*
  * 密度（默认/紧凑）：通过根节点 data-density 属性切换行高与间距，
- * Demo 默认紧凑（data-density="compact"），保持原有六列表单的布局密度。
+ * Demo 使用默认密度；紧凑模式保留为高密度业务页面的可选项。
  */
 :root,
 [data-density='default'] {
-  --density-form-gap-y: 0.5rem;
+  --density-form-gap-y: 1.5rem;
   --density-form-label-height: 2rem;
   --density-control-height: 2.25rem;
   --density-cell-padding-y: 0.5rem;
 }
 
 [data-density='compact'] {
-  --density-form-gap-y: 0.25rem;
+  --density-form-gap-y: 1rem;
   --density-form-label-height: 1.75rem;
   --density-control-height: 2rem;
   --density-cell-padding-y: 0.25rem;

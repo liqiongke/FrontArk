@@ -18,6 +18,7 @@ class View extends ViewBase<Handler, Data> {
   drawer: VProps.Drawer = {
     id: 'drawer',
     type: VType.LayoutDrawer,
+    title: '产品信息',
     width: 720,
     viewId: this.form1.id,
   };
@@ -37,7 +38,8 @@ class View extends ViewBase<Handler, Data> {
   layout: VProps.Flex = {
     id: 'layout',
     type: VType.LayoutFlex,
-    items: [this.toolbar.id, this.drawer.id],
+    // 抽屉由 ViewRoot 自动挂载，布局中只放触发工具栏。
+    items: [this.toolbar.id],
   };
 
   getRootId = () => this.layout.id;

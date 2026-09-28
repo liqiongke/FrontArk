@@ -40,8 +40,8 @@ const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>((props, re
   });
 
   const classText = useMemo(() => {
-    return `view-table-row ${className ?? ''} cursor-pointer transition-colors hover:bg-accent/40 ${
-      isActive ? 'view-table-row-active bg-accent' : ''
+    return `view-table-row ${className ?? ''} cursor-pointer border-b transition-colors ${
+      isActive ? 'view-table-row-active bg-muted hover:bg-muted' : 'hover:bg-muted/50'
     }`;
   }, [className, isActive]);
 

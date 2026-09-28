@@ -15,11 +15,13 @@ const SearchPanelTools: FC<SearchPanelToolsProps> = (props) => {
 
   return (
     <div className="search-panel-tools flex items-center gap-2">
-      <Button aria-label="搜索" size="icon-sm" className="rounded-full" onClick={onSearch}>
-        <Search />
-      </Button>
-      <Button aria-label="重置" size="icon-sm" variant="outline" className="rounded-full" onClick={onReset}>
+      <Button aria-label="重置" variant="outline" onClick={onReset}>
         <RotateCcw />
+        重置
+      </Button>
+      <Button aria-label="搜索" onClick={onSearch}>
+        <Search />
+        搜索
       </Button>
     </div>
   );
