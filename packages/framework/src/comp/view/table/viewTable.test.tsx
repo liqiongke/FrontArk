@@ -147,6 +147,60 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(fields[1].className).not.toContain('col-span-6');
     expect(fields[2].style.gridColumn).toBe('span 8 / span 8');
     expect(container.querySelector('.form-item-label')?.className).toContain('font-medium');
+    // 默认标签在左：标签列定宽 88px 左对齐，单元格宽度足够时切换为横向排布
+    const label = container.querySelector<HTMLElement>('.form-item-label')!;
+    expect(label.style.width).toBe('88px');
+    expect(label.className).toContain('text-left');
+    expect(container.querySelector('.form-item-container')?.className).toContain(
+      '@min-[17rem]/form-item:flex-row',
+    );
+  });
+
+  it('表单项可覆盖标签列宽与布局，纵向排布时不再固定标签列宽', () => {
+    act(() => store.getState().setView('form1', {
+      ...store.getState().getView('form1'),
+      labelWidth: 120,
+      labelAlign: 'right',
+      items: [
+        { field: 'price', title: '价格' },
+        { field: 'name', title: '产品名称', labelWidth: 160 },
+        { field: 'brand', title: '品牌', labelLayout: 'vertical' },
+      ],
+    }));
+    const labels = container.querySelectorAll<HTMLElement>('.form-item-label');
+    expect(labels[0].style.width).toBe('120px');
+    expect(labels[0].className).toContain('text-right');
+    expect(labels[1].style.width).toBe('160px');
+    // 纵向布局：标签不设固定列宽（对齐交给浏览器默认左对齐），也不触发横向排布的容器查询
+    expect(labels[2].style.width).toBe('');
+    expect(labels[2].className).not.toContain('text-right');
+    const rows = container.querySelectorAll<HTMLElement>('.form-item-container');
+    expect(rows[0].className).toContain('@min-[17rem]/form-item:flex-row');
+    expect(rows[2].className).not.toContain('@min-[17rem]/form-item:flex-row');
+  });
+
+  it('工具栏与表单项之间只有间距，没有分割线', () => {
+    act(() => store.getState().setView('form1', {
+      ...store.getState().getView('form1'),
+      bordered: false,
+      toolList: [{ type: Ctrl.Button, text: '主操作' }],
+    }));
+    const toolbar = container.querySelector<HTMLElement>('.view-form-toolbar')!;
+    expect(toolbar.classList.contains('border-b')).toBe(false);
+    expect(toolbar.classList.contains('pb-5')).toBe(false);
+    expect(toolbar.classList.contains('mb-4')).toBe(true);
+    // 无边框形态的面板自身不带边框、背景与内边距，留白交给外层布局
+    const panel = container.querySelector('.view-form-container')!;
+    expect(panel.classList.contains('p-4')).toBe(false);
+    expect(panel.classList.contains('border')).toBe(false);
+    expect(panel.classList.contains('bg-card')).toBe(false);
+    expect(panel.classList.contains('rounded-lg')).toBe(false);
+  });
+
+  it('有边框形态保留卡片内边距，与无边框形态互斥', () => {
+    const panel = container.querySelector('.view-form-container')!;
+    expect(panel.classList.contains('border')).toBe(true);
+    expect(panel.classList.contains('p-4')).toBe(true);
   });
 
   it('页签切换只显示活动面板，已访问内容保持挂载', () => {

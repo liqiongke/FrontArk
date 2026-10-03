@@ -1,4 +1,5 @@
 import CtrlFactory from '@/comp/ctrlFactory';
+import { cn } from '@/ui/lib/utils';
 import { useView } from '@/stores/store/hooks/useView';
 import PathUtils from '@utils/pathUtils';
 import { type SysViewProps, ViewType } from '@view/interface';
@@ -7,11 +8,26 @@ import ViewFormItem from './viewFormItem';
 
 const ViewForm: React.FC<SysViewProps> = (props) => {
   const [view] = useView<ViewFormProps>(props.viewId);
-  const { items, path, toolList } = view;
+  const {
+    items,
+    path,
+    toolList,
+    bordered = true,
+    labelLayout = 'horizontal',
+    labelWidth = 88,
+    labelAlign = 'left',
+  } = view;
   return (
-    <div className="view-form-container @container/form min-w-0 rounded-lg border bg-card p-4 text-card-foreground sm:p-6">
+    // 无边框形态下不提供内边距:面板自身不再套一层留白,统一交给页面/布局容器的 gutter
+    <div
+      className={cn(
+        'view-form-container @container/form min-w-0',
+        bordered && 'rounded-lg border bg-card p-4 text-card-foreground sm:p-6',
+      )}
+    >
+      {/* 工具栏与表单项之间仅用间距分隔,不再插入分割线 */}
       {toolList && toolList.length > 0 && (
-        <div className="view-form-toolbar mb-5 flex flex-wrap items-center gap-2 border-b pb-5">
+        <div className="view-form-toolbar mb-4 flex flex-wrap items-center gap-2">
           {toolList.map((tool, index) => (
             <CtrlFactory key={index} ctrl={tool} sourceView={ViewType.Form} />
           ))}
@@ -31,6 +47,9 @@ const ViewForm: React.FC<SysViewProps> = (props) => {
             key={item.field + index}
             item={item}
             path={PathUtils.itemPath(item, path)}
+            labelLayout={labelLayout}
+            labelWidth={labelWidth}
+            labelAlign={labelAlign}
           />
         ))}
       </div>

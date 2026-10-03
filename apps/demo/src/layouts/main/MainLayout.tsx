@@ -10,10 +10,14 @@ import type { MenuItem } from '../../interface/menu';
 import AvatarComponent from './comp/Avatar';
 import MenuComponent from './comp/Menu';
 
-const pageMeta: Record<string, { title: string; description: string }> = {
+const pageMeta: Record<string, { title: string; description: string; hideHeader?: boolean }> = {
   '/': { title: '首页', description: '浏览基础组件与组合示例。' },
   '/home': { title: '首页', description: '浏览基础组件与组合示例。' },
-  '/base/table': { title: '表格', description: '查询产品数据，点击数据行可在上方表单中查看和编辑。' },
+  '/base/table': {
+    title: '表格',
+    description: '查询产品数据，点击数据行可在上方表单中查看和编辑。',
+    hideHeader: true,
+  },
   '/base/form': { title: '表单', description: '预览字段控件，体验数据绑定与表单交互。' },
   '/base/modal': { title: '弹出框', description: '在对话框中查看和编辑信息。' },
   '/base/drawer': { title: '抽屉', description: '在侧边面板中处理信息，保留当前页面上下文。' },
@@ -86,8 +90,9 @@ const MainLayout = () => {
         {/* 路由页面区域 */}
         <main className="main-content min-h-0 flex-1 overflow-hidden bg-background">
           <SimpleBar style={{ height: '100%', maxHeight: 'calc(100vh - 48px)' }}>
-            <div className="mx-auto w-full max-w-screen-2xl space-y-6 p-4 md:p-6 lg:p-8">
-              {page && (
+            {/* 内容区不限最大宽度，铺满可用空间；表格/表单自行按栅格与 span 分配列宽 */}
+            <div className="w-full space-y-6 p-4 md:p-6 lg:p-8">
+              {page && !page.hideHeader && (
                 <div className="space-y-2">
                   <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>
                   <p className="text-sm leading-6 text-muted-foreground">{page.description}</p>

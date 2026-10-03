@@ -35,6 +35,8 @@ class View extends ViewBase<Handler, Data> {
   form1: VProps.Form = {
     id: 'form1',
     type: VType.Form,
+    // 本页表单不显示外层卡片边框
+    bordered: false,
     // 绑定 table1 的焦点行:字段路径解析为 [table, 焦点行下标, field],读取与回写都落在焦点行数据上
     // 表单按 path 取数(ViewForm 不消费 dataId),且 @Active: 引用必须指向视图 id 而非数据节点 id
     path: [DataBase.active(this.table1.id)],
