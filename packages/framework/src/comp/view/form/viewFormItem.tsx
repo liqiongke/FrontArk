@@ -54,7 +54,8 @@ const ViewFormItem: React.FC<ViewFormItemProps> = (props) => {
           <div
             className={cn(
               'form-item-label shrink-0 truncate text-sm leading-5 font-medium',
-              isHorizontal && (labelAlign === 'right' ? 'text-right' : 'text-left'),
+              // 横向：右对齐，标签文字紧贴自己的控件；纵向：与控件共享左边界，统一左对齐
+              isHorizontal ? (labelAlign === 'right' ? 'text-right' : 'text-left') : 'text-left',
             )}
             style={isHorizontal ? { width: typeof width === 'number' ? `${width}px` : width } : undefined}
             title={title}

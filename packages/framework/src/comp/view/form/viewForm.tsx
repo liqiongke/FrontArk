@@ -15,7 +15,8 @@ const ViewForm: React.FC<SysViewProps> = (props) => {
     bordered = true,
     labelLayout = 'horizontal',
     labelWidth = 88,
-    labelAlign = 'left',
+    // 默认右对齐：让标签文字紧贴自己的控件，避免短标签在视觉上归属到左侧相邻控件
+    labelAlign = 'right',
   } = view;
   return (
     // 无边框形态下不提供内边距:面板自身不再套一层留白,统一交给页面/布局容器的 gutter

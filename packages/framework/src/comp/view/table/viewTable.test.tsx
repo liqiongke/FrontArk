@@ -147,10 +147,10 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(fields[1].className).not.toContain('col-span-6');
     expect(fields[2].style.gridColumn).toBe('span 8 / span 8');
     expect(container.querySelector('.form-item-label')?.className).toContain('font-medium');
-    // 默认标签在左：标签列定宽 88px 左对齐，单元格宽度足够时切换为横向排布
+    // 默认标签在左：标签列定宽 88px 且右对齐（贴近自己的控件，而非左侧相邻控件）
     const label = container.querySelector<HTMLElement>('.form-item-label')!;
     expect(label.style.width).toBe('88px');
-    expect(label.className).toContain('text-left');
+    expect(label.className).toContain('text-right');
     expect(container.querySelector('.form-item-container')?.className).toContain(
       '@min-[17rem]/form-item:flex-row',
     );
@@ -160,7 +160,7 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     act(() => store.getState().setView('form1', {
       ...store.getState().getView('form1'),
       labelWidth: 120,
-      labelAlign: 'right',
+      labelAlign: 'left',
       items: [
         { field: 'price', title: '价格' },
         { field: 'name', title: '产品名称', labelWidth: 160 },
@@ -169,11 +169,11 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     }));
     const labels = container.querySelectorAll<HTMLElement>('.form-item-label');
     expect(labels[0].style.width).toBe('120px');
-    expect(labels[0].className).toContain('text-right');
+    expect(labels[0].className).toContain('text-left');
     expect(labels[1].style.width).toBe('160px');
-    // 纵向布局：标签不设固定列宽（对齐交给浏览器默认左对齐），也不触发横向排布的容器查询
+    // 纵向布局：标签不设固定列宽、与控件共享左边界，也不触发横向排布的容器查询
     expect(labels[2].style.width).toBe('');
-    expect(labels[2].className).not.toContain('text-right');
+    expect(labels[2].className).toContain('text-left');
     const rows = container.querySelectorAll<HTMLElement>('.form-item-container');
     expect(rows[0].className).toContain('@min-[17rem]/form-item:flex-row');
     expect(rows[2].className).not.toContain('@min-[17rem]/form-item:flex-row');

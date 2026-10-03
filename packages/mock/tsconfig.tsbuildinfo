@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/routes/demo/demobase.ts","./src/routes/login/index.ts","./src/routes/sys/index.ts","./src/routes/sys/menu.ts","./src/utils/datautils.ts"],"version":"5.9.3"}
