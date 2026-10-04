@@ -1,6 +1,6 @@
 import { useData } from '@/stores/store/hooks/useValue';
 import { useView } from '@/stores/store/hooks/useView';
-import { isArray, isString } from 'lodash';
+import { isArray, isObject, isString } from 'lodash';
 import { memo, useMemo } from 'react';
 import { cn } from '@/ui/lib/utils';
 import { type DPath } from '@/stores/store/interface';
@@ -8,6 +8,7 @@ import SearchPanel from '../comp/searchPanel/SearchPanel';
 import { type SysViewProps } from '../interface';
 import { PANEL_PADDED } from '../panel';
 import VirtualTable from './comp/basetable/virtualTable';
+import TablePagination from './comp/tablePagination';
 import TableIdContext from './tableContext';
 import { RenderMode, type ViewTableProps } from './interface';
 import TableUtils from './utils/tableUtils';
@@ -49,6 +50,13 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
           summaryText={view.summaryText}
           dataPath={dataPath}
         />
+        {/* 分页条放在滚动区之外：不随表格滚动，也不会被统计行压住 */}
+        {view.pagination && (
+          <TablePagination
+            viewId={viewId}
+            config={isObject(view.pagination) ? view.pagination : {}}
+          />
+        )}
       </TableIdContext>
     </div>
   );

@@ -68,6 +68,47 @@ export interface ViewTableProps extends ViewStructBase {
    * @desc 默认「合计」，用于说明该行的含义
    */
   summaryText?: string;
+
+  /**
+   * @name 服务端分页
+   * @desc 置为 true 或传入配置即启用。分页参数写入数据节点 criteria 后重新请求，
+   *       页码/每页条数/总条数取自响应体的 `@pagination`（后端未返回时不渲染分页条）。
+   *       首次请求的每页条数由后端默认值决定；需要指定时在数据节点的 params 中声明
+   *       （如 `{ field: 'pageSize', value: 20 }`），会随请求一并发出。
+   */
+  pagination?: boolean | TablePaginationConfig;
+}
+
+/** 服务端分页的响应元信息（响应体 `@pagination`） */
+export interface TablePaginationInfo {
+  /** 当前页码，从 1 开始 */
+  current: number;
+  /** 每页条数 */
+  pageSize: number;
+  /** 总条数 */
+  total: number;
+  /** 总页数，后端未返回时按 total/pageSize 推导 */
+  totalPages?: number;
+}
+
+export interface TablePaginationConfig {
+  /**
+   * @name 请求里的页码字段名
+   * @desc 默认 page，需与后端约定一致
+   */
+  pageField?: string;
+
+  /**
+   * @name 请求里的每页条数字段名
+   * @desc 默认 pageSize，需与后端约定一致
+   */
+  pageSizeField?: string;
+
+  /**
+   * @name 每页条数候选
+   * @desc 默认 [10, 20, 50, 100]
+   */
+  pageSizeOptions?: number[];
 }
 
 /**

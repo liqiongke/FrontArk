@@ -77,6 +77,14 @@ class View extends ViewBase<Handler, Data> {
       { title: '保修期', field: 'warranty' },
       { title: '创建时间', field: 'createTime' },
     ],
+    // 服务端分页:分页参数写入数据节点 criteria 后重新请求,页码/总数取自响应体的 @pagination
+    // 后端未返回 @pagination 时整条分页不渲染,因此这份配置对不支持的接口无害
+    pagination: {
+      // 字段名需与后端约定一致(本 mock 读 page/pageSize)
+      pageField: 'page',
+      pageSizeField: 'pageSize',
+      pageSizeOptions: [10, 20, 50],
+    },
     // 底部统计行:统计哪些列、用什么方式统计都在这里声明,不配置则不渲染
     // 数据来源是表格全量数据(含未进入虚拟窗口的行),字段编辑后自动重算
     summaryText: '合计',

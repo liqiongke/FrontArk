@@ -85,8 +85,8 @@ type Axis = 'v' | 'h';
 type AxisState = 'idle' | 'hover' | 'drag';
 
 const OPACITY_CLASS: Record<AxisState, string> = {
-  // 常态：浅灰半透明，鼠标移入后收紧透明度；过渡 500ms
-  idle: 'opacity-40',
+  // 常态：浅灰半透明（尽量不干扰数据），鼠标移入后收紧透明度；过渡 500ms
+  idle: 'opacity-25',
   hover: 'opacity-80',
   drag: 'opacity-100',
 };

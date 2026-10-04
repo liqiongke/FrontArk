@@ -353,6 +353,68 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(container.querySelector('tfoot')).toBeNull();
   });
 
+  it('分页条按响应元信息渲染，翻页写入 criteria 并重新请求', async () => {
+    vi.spyOn(NetUtils, 'get').mockResolvedValue({ code: 200, data: rows() } as any);
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      pagination: true,
+    }));
+    // 未拿到 @pagination 时不渲染分页条（后端不支持分页时这份配置是无害的）
+    expect(container.querySelector('[data-slot="pagination"]')).toBeNull();
+
+    act(() => store.setState({
+      reqMeta: {
+        table: { status: 'success', responseParams: { current: 1, pageSize: 10, total: 35 } },
+      },
+    } as never));
+
+    const nav = container.querySelector('[data-slot="pagination"]')!;
+    expect(nav).not.toBeNull();
+    // 35 条 / 每页 10 条 → 4 页
+    expect(nav.textContent).toContain('共 35 条');
+    expect(nav.textContent).toContain('4 页');
+    // 第 1 页时上一页不可用
+    expect((nav.querySelector('button[aria-label="上一页"]') as HTMLButtonElement).disabled).toBe(true);
+    expect((nav.querySelector('button[aria-current="page"]') as HTMLElement).textContent).toBe('1');
+
+    await act(async () => {
+      (nav.querySelector('button[aria-label="第 2 页"]') as HTMLButtonElement)
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    // 页码写入数据节点 criteria（由框架拼成请求参数）
+    expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'page'])).toBe(2);
+    expect(NetUtils.get).toHaveBeenCalled();
+
+    // 请求进行中禁用交互，避免连点造成竞态
+    act(() => store.setState({
+      reqMeta: {
+        table: { status: 'pending', responseParams: { current: 1, pageSize: 10, total: 35 } },
+      },
+    } as never));
+    expect((container.querySelector('button[aria-label="第 3 页"]') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('分页字段名可配置，末页时下一页不可用', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      pagination: { pageField: 'pageNo', pageSizeField: 'size', pageSizeOptions: [5, 10] },
+    }));
+    act(() => store.setState({
+      reqMeta: {
+        table: { status: 'success', responseParams: { current: 4, pageSize: 10, total: 35 } },
+      },
+    } as never));
+    const nav = container.querySelector('[data-slot="pagination"]')!;
+    expect((nav.querySelector('button[aria-label="下一页"]') as HTMLButtonElement).disabled).toBe(true);
+    act(() => {
+      (nav.querySelector('button[aria-label="第 2 页"]') as HTMLButtonElement)
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    // 使用配置里的自定义字段名
+    expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'pageNo'])).toBe(2);
+    expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'page'])).toBeUndefined();
+  });
+
   it('统计结果抹掉浮点噪声,不把 IEEE754 误差展示给用户', () => {
     act(() => store.getState().setView('table1', {
       ...store.getState().getView('table1'),

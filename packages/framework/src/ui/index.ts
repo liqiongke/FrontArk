@@ -12,6 +12,7 @@ export * from './components/dropdown-menu';
 export * from './components/input';
 export * from './components/label';
 export * from './components/overlay-scrollbar';
+export * from './components/pagination';
 export * from './components/popover';
 export * from './components/progress';
 export * from './components/radio-group';
