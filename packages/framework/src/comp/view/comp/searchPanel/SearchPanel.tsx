@@ -71,8 +71,10 @@ const SearchPanel: FC<SearchPlaneProps> = (props) => {
     return null;
   }
   return (
+    // 不再自带卡片外观:面板底色由所属容器（表格面板）统一提供，
+    // mb-4 是与下方表格的间距；无搜索项时组件整体不渲染，间距随之消失
     <div
-      className="search-panel @container/search w-full rounded-lg border bg-card p-4 text-card-foreground sm:p-6"
+      className="search-panel @container/search mb-4 w-full"
       onKeyDownCapture={handleKeyDown}
     >
       {mode === 'simple' ? (

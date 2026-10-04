@@ -3,6 +3,7 @@ import { cn } from '@/ui/lib/utils';
 import { useView } from '@/stores/store/hooks/useView';
 import PathUtils from '@utils/pathUtils';
 import { type SysViewProps, ViewType } from '@view/interface';
+import { PANEL_PADDED } from '../panel';
 import { type ViewFormProps } from './interface';
 import ViewFormItem from './viewFormItem';
 
@@ -12,18 +13,20 @@ const ViewForm: React.FC<SysViewProps> = (props) => {
     items,
     path,
     toolList,
-    bordered = true,
+    // 面板已由统一表面色与页面背景区分，默认不再叠加边框
+    bordered = false,
     labelLayout = 'horizontal',
     labelWidth = 88,
     // 默认右对齐：让标签文字紧贴自己的控件，避免短标签在视觉上归属到左侧相邻控件
     labelAlign = 'right',
   } = view;
   return (
-    // 无边框形态下不提供内边距:面板自身不再套一层留白,统一交给页面/布局容器的 gutter
+    // 统一面板：与表格共用同一底色/圆角/内边距，对外不留外边距，间距交给布局容器 gutter
     <div
       className={cn(
         'view-form-container @container/form min-w-0',
-        bordered && 'rounded-lg border bg-card p-4 text-card-foreground sm:p-6',
+        PANEL_PADDED,
+        bordered && 'border',
       )}
     >
       {/* 工具栏与表单项之间仅用间距分隔,不再插入分割线 */}

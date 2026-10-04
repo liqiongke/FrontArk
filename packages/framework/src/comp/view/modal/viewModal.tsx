@@ -60,7 +60,8 @@ const ViewModal: React.FC<SysViewProps> = (props) => {
         <DialogHeader>
           <DialogTitle>{view.title ?? '对话框'}</DialogTitle>
         </DialogHeader>
-        <div className="min-w-0 py-2 [&_.view-form-container]:rounded-none [&_.view-form-container]:border-0 [&_.view-form-container]:p-0">
+        {/* 弹窗自身已是承载面板:内嵌表单摘掉统一面板的底色/圆角/内边距,避免面板套面板 */}
+        <div className="min-w-0 py-2 [&_.view-form-container]:rounded-none [&_.view-form-container]:border-0 [&_.view-form-container]:bg-transparent [&_.view-form-container]:p-0">
           {hasOpened ? <CompFactory viewId={view.viewId} /> : null}
         </div>
         <DialogFooter>

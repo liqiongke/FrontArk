@@ -12,7 +12,7 @@ import ViewForm from '../form/viewForm';
 import ViewTab from '../tab/viewTab';
 import { Ctrl } from '@/comp/control/interface';
 import ViewTable from './viewTable';
-import { RenderMode } from './interface';
+import { RenderMode, SummaryType } from './interface';
 import { resetTableRenderProbes, tableRenderProbes } from './utils/tableTestProbes';
 import type * as ValueModule from '@/stores/store/hooks/useValue';
 
@@ -123,11 +123,66 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
   it('表格保留滚动容器、行分隔与当前焦点高亮', () => {
     const table = container.querySelector('[data-slot="view-table"]')!;
     expect(table.parentElement?.classList.contains('overflow-auto')).toBe(true);
-    expect(table.parentElement?.classList.contains('rounded-md')).toBe(true);
-    expect(table.parentElement?.classList.contains('border')).toBe(true);
+    // 边框/圆角/底色上移到统一面板,面板内的表格层只保留滚动容器
+    expect(table.parentElement?.classList.contains('border')).toBe(false);
+    expect(table.parentElement?.classList.contains('bg-card')).toBe(false);
+    const panel = container.querySelector('.view-table')!;
+    expect(panel.classList.contains('bg-surface')).toBe(true);
+    expect(panel.classList.contains('rounded-lg')).toBe(true);
+    expect(panel.classList.contains('p-4')).toBe(true);
     const row = table.querySelector('.view-table-row-active')!;
     expect(row.classList.contains('border-b')).toBe(true);
     expect(row.classList.contains('bg-muted')).toBe(true);
+  });
+
+  it('滚动条为覆盖式：两个方向的原生条都被隐藏，横纵各由自绘条接管', () => {
+    const table = container.querySelector('[data-slot="view-table"]')!;
+    const scroller = table.parentElement as HTMLElement;
+    // 滚动容器本身保持不变（虚拟器依赖它作为滚动元素）
+    expect(scroller.classList.contains('overflow-auto')).toBe(true);
+    // 原生滚动条两个方向都要隐藏：只隐藏单方向会在部分滚动条模式下残留原生条
+    expect(scroller.className).toContain('[scrollbar-width:none]');
+    expect(scroller.className).toContain('[&::-webkit-scrollbar]:hidden');
+    // 横纵两根自绘条都已挂载：jsdom 无布局引擎，判定为无需滚动而整条隐藏
+    const thumbs = container.querySelectorAll('[role="scrollbar"]');
+    expect(thumbs.length).toBe(2);
+    expect(thumbs[0].getAttribute('aria-orientation')).toBe('vertical');
+    expect(thumbs[1].getAttribute('aria-orientation')).toBe('horizontal');
+    thumbs.forEach((thumb) => {
+      expect((thumb.parentElement as HTMLElement).style.display).toBe('none');
+    });
+    // 轨道定位在相对容器内，且容器持有表头/统计行两个内缩依据
+    const overlay = (thumbs[0].parentElement as HTMLElement).parentElement as HTMLElement;
+    expect(overlay.classList.contains('absolute')).toBe(true);
+    // 回归防护：覆盖层铺满滚动区域，必须让指针事件穿透，
+    // 否则滚轮滚动与行点击都会被它吃掉（它只是滚动容器的兄弟节点）
+    expect(overlay.classList.contains('pointer-events-none')).toBe(true);
+    thumbs.forEach((thumb) => {
+      expect((thumb.parentElement as HTMLElement).classList.contains('pointer-events-auto')).toBe(true);
+    });
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      summaryItems: [{ field: 'price', type: SummaryType.Sum }],
+    }));
+    // 统计行存在时，滚动条的内缩依据（tfoot）已渲染
+    expect(container.querySelector('tfoot')).not.toBeNull();
+  });
+
+  it('搜索面板与表格合并到同一个面板,不再各自带边框与底色', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称' }],
+    }));
+    // 搜索区与表格同属一个面板,二者之间只有间距
+    const panel = container.querySelector('.view-table')!;
+    const search = panel.querySelector('.search-panel')!;
+    expect(search).not.toBeNull();
+    expect(search.classList.contains('border')).toBe(false);
+    expect(search.classList.contains('bg-card')).toBe(false);
+    expect(search.classList.contains('mb-4')).toBe(true);
+    expect(panel.querySelector('[data-slot="view-table"]')).not.toBeNull();
+    // 全页只有表格面板这一层边框容器:不应再出现独立的搜索卡片
+    expect(container.querySelectorAll('.view-table .search-panel.rounded-lg').length).toBe(0);
   });
 
   it('表单默认按容器适配列宽，范围控件跨列且显式 span 保持兼容', () => {
@@ -189,17 +244,32 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(toolbar.classList.contains('border-b')).toBe(false);
     expect(toolbar.classList.contains('pb-5')).toBe(false);
     expect(toolbar.classList.contains('mb-4')).toBe(true);
-    // 无边框形态的面板自身不带边框、背景与内边距，留白交给外层布局
+    // 默认形态:面板由统一表面色区分,不带边框;内边距与表格面板共用同一套数值
     const panel = container.querySelector('.view-form-container')!;
-    expect(panel.classList.contains('p-4')).toBe(false);
+    expect(panel.classList.contains('bg-surface')).toBe(true);
+    expect(panel.classList.contains('rounded-lg')).toBe(true);
+    expect(panel.classList.contains('p-4')).toBe(true);
     expect(panel.classList.contains('border')).toBe(false);
-    expect(panel.classList.contains('bg-card')).toBe(false);
-    expect(panel.classList.contains('rounded-lg')).toBe(false);
   });
 
-  it('有边框形态保留卡片内边距，与无边框形态互斥', () => {
+  it('表单与表格面板共用同一组外观类名,保证页面内区块视觉一致', () => {
+    const formPanel = container.querySelector('.view-form-container')!;
+    const tablePanel = container.querySelector('.view-table')!;
+    ['rounded-lg', 'bg-surface', 'p-4'].forEach((token) => {
+      expect(formPanel.classList.contains(token)).toBe(true);
+      expect(tablePanel.classList.contains(token)).toBe(true);
+    });
+  });
+
+  it('显式开启 bordered 时在统一面板上叠加边框', () => {
+    act(() => store.getState().setView('form1', {
+      ...store.getState().getView('form1'),
+      bordered: true,
+    }));
     const panel = container.querySelector('.view-form-container')!;
     expect(panel.classList.contains('border')).toBe(true);
+    // 边框只是叠加,统一面板的底色与内边距保持不变
+    expect(panel.classList.contains('bg-surface')).toBe(true);
     expect(panel.classList.contains('p-4')).toBe(true);
   });
 
@@ -248,6 +318,58 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(buttons[1].classList.contains('bg-primary')).toBe(true);
     act(() => buttons[0].click());
     expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it('统计行按配置统计指定列，并在字段编辑后重算而不带动表格结构层', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      summaryItems: [
+        { field: 'price', type: SummaryType.Sum },
+        { field: 'stock', type: SummaryType.Avg, formatter: (value) => `均${value}` },
+        { field: 'price', summary: (_values, rows) => `${rows.length}行` },
+      ],
+    }));
+    const summaryRow = () => container.querySelector('tfoot tr')!;
+    const cells = () => [...summaryRow().querySelectorAll('td')].map((td) => td.textContent);
+    // 首列承载统计行说明,统计值落在各自列
+    expect(cells()[0]).toContain('合计');
+    // price 配了两项统计:内置求和 100+100=200,自定义行数 2 行,同格并列展示
+    expect(cells()[0]).toContain('200');
+    expect(cells()[0]).toContain('2行');
+    // stock 为 5 与 6 的平均值,经 formatter 包装
+    expect(cells()[1]).toContain('均5.5');
+
+    const structuresBeforeEdit = tableRenderProbes.structure;
+    const shellsBeforeEdit = tableRenderProbes.cellShell;
+    act(() => store.getState().setData(['table', 0, 'price'], 400));
+    // 统计值随数据写入重算:400+100=500
+    expect(cells()[0]).toContain('500');
+    // 但统计行是独立订阅的兄弟组件,不得让表格结构层/单元格外壳重跑
+    expect(tableRenderProbes.structure).toBe(structuresBeforeEdit);
+    expect(tableRenderProbes.cellShell).toBe(shellsBeforeEdit);
+  });
+
+  it('未配置统计列时不渲染统计行', () => {
+    expect(container.querySelector('tfoot')).toBeNull();
+  });
+
+  it('统计结果抹掉浮点噪声,不把 IEEE754 误差展示给用户', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      summaryItems: [
+        // 自定义 formatter 直接拿到聚合值，因此噪声必须在聚合处就抹掉
+        { field: 'price', type: SummaryType.Sum, formatter: (value) => `¥${value}` },
+      ],
+    }));
+    act(() => {
+      store.getState().setData(['table', 0, 'price'], '0.1');
+      store.getState().setData(['table', 1, 'price'], '0.2');
+    });
+    // price 是表格第一列
+    const cell = container.querySelector('tfoot td:first-child')!;
+    // 0.1 + 0.2 的浮点结果是 0.30000000000000004
+    expect(cell.textContent).toContain('¥0.3');
+    expect(cell.textContent).not.toContain('0.300');
   });
 
   it.each([false, true])('输入后仅目标字段更新，表格结构与单元格外壳不执行（StrictMode=%s）', (strict) => {

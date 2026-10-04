@@ -48,7 +48,8 @@ const ViewDrawer: React.FC<SysViewProps> = (props) => {
         <SheetHeader className="border-b p-6">
           <SheetTitle>{view.title ?? '面板'}</SheetTitle>
         </SheetHeader>
-        <div className="min-w-0 flex-1 overflow-auto p-6 [&_.view-form-container]:rounded-none [&_.view-form-container]:border-0 [&_.view-form-container]:p-0">
+        {/* 抽屉自身已是承载面板:内嵌表单摘掉统一面板的底色/圆角/内边距,避免面板套面板 */}
+        <div className="min-w-0 flex-1 overflow-auto p-6 [&_.view-form-container]:rounded-none [&_.view-form-container]:border-0 [&_.view-form-container]:bg-transparent [&_.view-form-container]:p-0">
           {hasOpened ? <CompFactory viewId={view.viewId} /> : null}
         </div>
       </SheetContent>

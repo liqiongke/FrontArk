@@ -11,8 +11,9 @@ export type FormLabelLayout = 'horizontal' | 'vertical';
 export interface ViewFormProps extends ViewStructBase {
   type: ViewType.Form;
   /**
-   * @name 是否显示外层卡片边框
-   * 默认 true;置为 false 时面板不带边框、圆角、背景与内边距,内容与页面留白由外层布局统一提供
+   * @name 是否显示外层边框
+   * 默认 false:面板已由统一表面色(bg-surface)与页面背景区分,无需边框;
+   * 需要更明确的边界时置为 true,在统一面板之外再叠加一圈边框
    */
   bordered?: boolean;
   /**

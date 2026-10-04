@@ -1,4 +1,4 @@
-import { Ctrl, DataBase, RenderMode, VType, ViewBase, type VProps } from '@jl/framework';
+import { Ctrl, DataBase, RenderMode, SummaryType, VType, ViewBase, type VProps } from '@jl/framework';
 import type Data from './data';
 import type Handler from './handler';
 
@@ -76,6 +76,22 @@ class View extends ViewBase<Handler, Data> {
       { title: '颜色', field: 'color' },
       { title: '保修期', field: 'warranty' },
       { title: '创建时间', field: 'createTime' },
+    ],
+    // 底部统计行:统计哪些列、用什么方式统计都在这里声明,不配置则不渲染
+    // 数据来源是表格全量数据(含未进入虚拟窗口的行),字段编辑后自动重算
+    summaryText: '合计',
+    summaryItems: [
+      // 内置统计方式:sum/avg/count/max/min;formatter 仅作用于内置方式的数值展示
+      { field: 'price', type: SummaryType.Sum, formatter: (value) => `¥${value}` },
+      { field: 'stock', type: SummaryType.Sum },
+      { field: 'sales', type: SummaryType.Sum },
+      { field: 'rating', type: SummaryType.Avg },
+      // 自定义统计函数:入参为该列数值集合与全部行,可返回任意展示内容
+      {
+        field: 'status',
+        summary: (_values, rows) =>
+          `${rows.filter((row) => row.status === '在售').length} 个在售`,
+      },
     ],
   };
 

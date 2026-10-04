@@ -19,7 +19,7 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn('bg-background group/calendar p-3 [--cell-size:--spacing(8)]', className)}
+      className={cn('bg-card group/calendar p-3 [--cell-size:--spacing(8)]', className)}
       classNames={{
         ...defaultClassNames,
         root: cn('w-fit', defaultClassNames.root),

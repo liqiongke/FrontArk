@@ -9,9 +9,12 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { get, isNumber, isString, isUndefined } from 'lodash';
 import React, { useMemo, useRef } from 'react';
 import { KeyAttr } from '@/interface';
+import { type DPath } from '@/stores/store/interface';
+import OverlayScrollBar, { OVERLAY_SCROLL_CONTAINER_CLASS } from '@/ui/components/overlay-scrollbar';
 import TableRow from './tableRow';
 import BoundTableCell from './boundTableCell';
-import { type TableColumn } from '../../interface';
+import TableSummaryRow from './tableSummaryRow';
+import { type TableColumn, type TableSummaryItem } from '../../interface';
 import { tableRenderProbes } from '../../utils/tableTestProbes';
 
 // 行高估算值:动态测量(measureElement)前虚拟器使用的初始行高
@@ -28,16 +31,25 @@ interface VirtualTableProps {
   dataSource: unknown[];
   /** 表格高度:数字按像素,字符串按 CSS 值;未提供时默认 400px */
   height?: number | string;
+  /** 底部统计行配置,为空时不渲染 */
+  summaryItems?: TableSummaryItem[];
+  /** 统计行首列文案 */
+  summaryText?: string;
+  /** 表格数据路径,供统计行独立订阅全量数据 */
+  dataPath?: DPath;
 }
 
 // table-layout 由浏览器 auto 布局处理;列宽通过 colgroup 提供建议值,
 // 单个 table 内表头/表体天然对齐,横向滚动由外层 overflow 容器承担
 const VirtualTable: React.FC<VirtualTableProps> = (props) => {
-  const { viewId, columns, dataSource, height } = props;
+  const { viewId, columns, dataSource, height, summaryItems, summaryText, dataPath } = props;
   // 框架自有测试探针:表格结构层执行计数(见迁移计划 5.3)
   tableRenderProbes.structure++;
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 吸顶表头/吸底统计行的实高决定覆盖式滚动条的可见区间，由滚动条自行读取
+  const headerRef = useRef<HTMLTableSectionElement>(null);
+  const footerRef = useRef<HTMLTableSectionElement>(null);
 
   // TanStack Table v9:仅启用核心行模型(本框架不使用排序/过滤/分页)
   const features = useMemo(
@@ -89,90 +101,115 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
   const headerGroups = table.getHeaderGroups();
 
   return (
-    <div ref={scrollRef} className="overflow-auto rounded-md border bg-card" style={{ height: height ?? 400 }}>
-      <table className="w-full min-w-max text-sm" data-slot="view-table">
-        <colgroup>
-          {columns.map((col) => (
-            <col key={col.key} style={isNumber(col.width) ? { width: col.width } : undefined} />
-          ))}
-        </colgroup>
-        <thead className="sticky top-0 z-10 bg-card">
-          {headerGroups.map((headerGroup) => (
-            <tr key={headerGroup.id} className="bg-muted/50">
-              {headerGroup.headers.map((header, headerIndex) => {
-                const width = columns[headerIndex]?.width;
-                return (
-                  <th
-                    key={header.id}
-                    className="border-border text-muted-foreground h-10 border-b px-3 text-left align-middle font-medium whitespace-nowrap"
-                    style={isNumber(width) ? { width } : undefined}
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                );
-              })}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {rows.length === 0 && (
-            <tr>
-              <td
-                colSpan={columnCount}
-                className="text-muted-foreground py-8 text-center"
-              >
-                暂无数据
-              </td>
-            </tr>
+    // 外层只作为覆盖式滚动条的定位上下文;边框/圆角/底色由统一面板承担,本层不套框
+    <div className="relative min-w-0">
+      <div
+        ref={scrollRef}
+        // 纵向滚动条改为自绘覆盖式;横向仍交给原生滚动条(见 OVERLAY_SCROLL_CONTAINER_CLASS)
+        className={OVERLAY_SCROLL_CONTAINER_CLASS}
+        style={{ height: height ?? 400 }}
+      >
+        <table className="w-full min-w-max text-sm" data-slot="view-table">
+          <colgroup>
+            {columns.map((col) => (
+              <col key={col.key} style={isNumber(col.width) ? { width: col.width } : undefined} />
+            ))}
+          </colgroup>
+          {/* 表头吸顶需要不透明底色,取统一面板的底色,滚动时不会漏出下方行内容 */}
+          <thead ref={headerRef} className="sticky top-0 z-10 bg-surface">
+            {headerGroups.map((headerGroup) => (
+              <tr key={headerGroup.id} className="bg-muted/50">
+                {headerGroup.headers.map((header, headerIndex) => {
+                  const width = columns[headerIndex]?.width;
+                  return (
+                    <th
+                      key={header.id}
+                      className="border-border text-muted-foreground h-10 border-b px-3 text-left align-middle font-medium whitespace-nowrap"
+                      style={isNumber(width) ? { width } : undefined}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td
+                  colSpan={columnCount}
+                  className="text-muted-foreground py-8 text-center"
+                >
+                  暂无数据
+                </td>
+              </tr>
+            )}
+            {paddingTop > 0 && (
+              <tr aria-hidden style={{ height: paddingTop }}>
+                <td colSpan={columnCount} style={{ height: paddingTop, padding: 0, border: 'none' }} />
+              </tr>
+            )}
+            {virtualRows.map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              const record = row.original as Record<string, unknown>;
+              const rowKeyValue = get(record, KeyAttr);
+              // 行键必须是字符串/数字才是合法 @Row 身份;其余情况仅使用下标兜底
+              const identityKey: string | number | undefined =
+                isString(rowKeyValue) || isNumber(rowKeyValue) ? rowKeyValue : undefined;
+              return (
+                <TableRow
+                  key={row.id}
+                  // v3 Virtual 通过 data-index 定位被测元素,统一由 virtualizer.measureElement 测量行高
+                  ref={virtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  data-row-key={identityKey ?? row.id}
+                >
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      className="border-border px-3 py-2 align-middle whitespace-nowrap"
+                      style={{ height: virtualRow.size }}
+                    >
+                      <BoundTableCell
+                        viewId={viewId}
+                        columnKey={col.key}
+                        rowKey={identityKey}
+                        // 原始数据下标,与虚拟窗口无关(行身份缺失时的兜底寻址)
+                        fallbackIndex={isUndefined(identityKey) ? row.index : undefined}
+                      />
+                    </td>
+                  ))}
+                </TableRow>
+              );
+            })}
+            {paddingBottom > 0 && (
+              <tr aria-hidden style={{ height: paddingBottom }}>
+                <td
+                  colSpan={columnCount}
+                  style={{ height: paddingBottom, padding: 0, border: 'none' }}
+                />
+              </tr>
+            )}
+          </tbody>
+          {/* 统计行:独立订阅数据,缺失数据路径或未配置统计列时不渲染 */}
+          {summaryItems && summaryItems.length > 0 && dataPath !== undefined && (
+            <TableSummaryRow
+              ref={footerRef}
+              columns={columns}
+              items={summaryItems}
+              summaryText={summaryText ?? '合计'}
+              dataPath={dataPath}
+            />
           )}
-          {paddingTop > 0 && (
-            <tr aria-hidden style={{ height: paddingTop }}>
-              <td colSpan={columnCount} style={{ height: paddingTop, padding: 0, border: 'none' }} />
-            </tr>
-          )}
-          {virtualRows.map((virtualRow) => {
-            const row = rows[virtualRow.index];
-            const record = row.original as Record<string, unknown>;
-            const rowKeyValue = get(record, KeyAttr);
-            // 行键必须是字符串/数字才是合法 @Row 身份;其余情况仅使用下标兜底
-            const identityKey: string | number | undefined =
-              isString(rowKeyValue) || isNumber(rowKeyValue) ? rowKeyValue : undefined;
-            return (
-              <TableRow
-                key={row.id}
-                // v3 Virtual 通过 data-index 定位被测元素,统一由 virtualizer.measureElement 测量行高
-                ref={virtualizer.measureElement}
-                data-index={virtualRow.index}
-                data-row-key={identityKey ?? row.id}
-              >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className="border-border px-3 py-2 align-middle whitespace-nowrap"
-                    style={{ height: virtualRow.size }}
-                  >
-                    <BoundTableCell
-                      viewId={viewId}
-                      columnKey={col.key}
-                      rowKey={identityKey}
-                      // 原始数据下标,与虚拟窗口无关(行身份缺失时的兜底寻址)
-                      fallbackIndex={isUndefined(identityKey) ? row.index : undefined}
-                    />
-                  </td>
-                ))}
-              </TableRow>
-            );
-          })}
-          {paddingBottom > 0 && (
-            <tr aria-hidden style={{ height: paddingBottom }}>
-              <td
-                colSpan={columnCount}
-                style={{ height: paddingBottom, padding: 0, border: 'none' }}
-              />
-            </tr>
-          )}
-        </tbody>
-      </table>
+        </table>
+      </div>
+      {/* 覆盖式滚动条:轨道上端按表头内缩、下端按统计行内缩,只覆盖真实可滚动的行区域 */}
+      <OverlayScrollBar
+        scrollRef={scrollRef}
+        insetTopElementRef={headerRef}
+        insetBottomElementRef={footerRef}
+      />
     </div>
   );
 };

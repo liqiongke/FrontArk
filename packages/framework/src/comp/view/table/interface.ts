@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react';
 import { type ViewItem, type ViewStructBase, type ViewType } from '../interface';
 import { type SearchPlaneItem } from '../comp/searchPanel/interface';
 
@@ -54,7 +55,72 @@ export interface ViewTableProps extends ViewStructBase {
    *       将行结构更新与字段值更新分离(详见 docs/design/table-cell-update-analysis.md 5.2)
    */
   renderMode?: RenderMode;
+
+  /**
+   * @name 底部统计行
+   * @desc 配置需要统计的列及其统计方式，为空时不渲染统计行。
+   *       统计基于表格的全部数据（含未进入虚拟窗口的行），字段编辑后会同步重算。
+   */
+  summaryItems?: TableSummaryItem[];
+
+  /**
+   * @name 统计行首列文案
+   * @desc 默认「合计」，用于说明该行的含义
+   */
+  summaryText?: string;
 }
+
+/**
+ * 内置统计方式
+ * 参与计算的数值取自该列的非空值，字符串形式的数字按数值处理
+ */
+export enum SummaryType {
+  /** 求和 */
+  Sum = 'sum',
+  /** 平均值 */
+  Avg = 'avg',
+  /** 计数(该列非空值个数) */
+  Count = 'count',
+  /** 最大值 */
+  Max = 'max',
+  /** 最小值 */
+  Min = 'min',
+}
+
+/**
+ * 自定义统计函数
+ * @param values 该列的非空数值集合（空值与非数值已滤除）
+ * @param rows 表格全部行数据，需要自定义过滤/换算/去重时直接使用
+ * @returns 展示内容，可以是字符串、数字或任意 React 节点
+ */
+export type TableSummaryFn = (
+  values: number[],
+  rows: Array<Record<string, unknown>>,
+) => ReactNode;
+
+export interface TableSummaryItem {
+  /** @name 要统计的列，与 items 中的 field 对应 */
+  field: string;
+
+  /**
+   * @name 内置统计方式
+   * @desc 默认 Sum；声明了 summary 时忽略该项
+   */
+  type?: SummaryType;
+
+  /**
+   * @name 自定义统计函数
+   * @desc 优先于 type，用于占比、去重计数、按条件计数等内置方式覆盖不到的场景
+   */
+  summary?: TableSummaryFn;
+
+  /**
+   * @name 数值展示格式化
+   * @desc 仅在内置统计方式下生效，默认整数直出、小数最多保留两位
+   */
+  formatter?: (value: number) => string;
+}
+
 export interface TableItemProps extends ViewItem {
   width?: number;
 }
