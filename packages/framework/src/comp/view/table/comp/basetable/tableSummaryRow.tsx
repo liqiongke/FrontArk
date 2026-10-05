@@ -2,6 +2,7 @@ import { type DPath } from '@/stores/store/interface';
 import { useData } from '@/stores/store/hooks/useValue';
 import { get, isArray, isNumber, isString } from 'lodash';
 import React, { Fragment, useMemo } from 'react';
+import { cn } from '@/ui/lib/utils';
 import {
   SummaryType,
   type TableColumn,
@@ -31,12 +32,46 @@ const EMPTY_ROWS: unknown[] = [];
 const normalizeNumber = (value: number): number =>
   Number.isFinite(value) ? Number(value.toPrecision(12)) : value;
 
-/** 数值展示：整数直出，小数最多保留两位并去掉末尾零，非有限数显示占位符 */
-export const formatSummaryValue = (value: number): string => {
+/** 数值展示：按指定精度输出固定小数位数；非有限数显示占位符 */
+export const formatSummaryValue = (value: number, precision = 2): string => {
   if (!Number.isFinite(value)) {
     return '-';
   }
-  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+  const digits = Math.min(20, Math.max(0, Math.trunc(precision)));
+  // 固定小数位数，而不是「最多 N 位并去尾零」：
+  // 右对齐时最后一个字符贴齐单元格右边界，位数一致小数点才落在同一列上。
+  // 去尾零会让 4.50 显示成 4.5，小数点反而右移一个字符宽度。
+  return value.toFixed(digits);
+};
+
+/**
+ * 取单个数值的小数位数：先抹掉浮点尾数再数位，
+ * 避免 0.1+0.2=0.30000000000000004 这类噪声把位数算成 17
+ */
+const decimalPlaces = (value: number | string): number => {
+  const n = isNumber(value) ? value : Number(value);
+  if (!Number.isFinite(n) || Number.isInteger(n)) {
+    return 0;
+  }
+  const text = n.toFixed(12).replace(/0+$/, '');
+  const dot = text.indexOf('.');
+  return dot < 0 ? 0 : text.length - dot - 1;
+};
+
+/**
+ * 该列数据中出现的最大小数位数。
+ * 统计值是这个列的聚合结果，用列自己的精度说话才能和列内内容的小数点对齐：
+ * 列内都是一位小数（4.1/5.2）时，统计值也只留一位，而不是四舍五入成两位。
+ */
+const columnPrecision = (rows: unknown[], field: string): number => {
+  let max = 0;
+  rows.forEach((row) => {
+    const value = get(row, field);
+    if (isNumber(value) || (isString(value) && value.trim() !== '')) {
+      max = Math.max(max, decimalPlaces(value));
+    }
+  });
+  return max;
 };
 
 /** 取该列参与统计的数值：空值、非数值一律跳过，字符串形式的数字按数值处理 */
@@ -73,11 +108,16 @@ const BUILT_IN: Record<SummaryType, (values: number[], rows: unknown[]) => numbe
     values.length === 0 ? 0 : values.reduce((min, value) => (value < min ? value : min), values[0]),
 };
 
-/** 内置方式的结果先抹掉浮点噪声，再交给 formatter 或默认格式化 */
-const resolveBuiltIn = (item: TableSummaryItem, values: number[], rows: unknown[]) => {
+/** 内置方式的结果先抹掉浮点噪声，再按列内精度交给 formatter 或默认格式化 */
+const resolveBuiltIn = (
+  item: TableSummaryItem,
+  values: number[],
+  rows: unknown[],
+  precision: number,
+) => {
   const compute = BUILT_IN[item.type ?? SummaryType.Sum];
   const result = normalizeNumber(compute(values, rows));
-  return item.formatter ? item.formatter(result) : formatSummaryValue(result);
+  return item.formatter ? item.formatter(result) : formatSummaryValue(result, precision);
 };
 
 /**
@@ -102,7 +142,8 @@ const TableSummaryRow: React.FC<TableSummaryRowProps> = (props) => {
       const custom: TableSummaryFn | undefined = item.summary;
       const rendered = custom
         ? custom(values, rows as Array<Record<string, unknown>>)
-        : resolveBuiltIn(item, values, rows);
+        // 未显式指定位数时按列内数据的最大小数位数输出，统计值与列内内容小数点同列
+        : resolveBuiltIn(item, values, rows, item.precision ?? columnPrecision(rows, item.field));
       const list = contents.get(item.field);
       if (list) {
         list.push(rendered);
@@ -115,16 +156,25 @@ const TableSummaryRow: React.FC<TableSummaryRowProps> = (props) => {
 
   return (
     <tfoot ref={ref} className="sticky bottom-0 z-10">
-      <tr className="bg-muted border-t font-medium">
+      {/* 数字不额外加粗：粗体的等宽数字比常规字重更宽，右对齐后小数点会整体偏移。
+          强调交给底色与「合计」文案，数字本身与数据行保持同一字重以对齐小数点 */}
+      <tr className="bg-muted border-t">
         {columns.map((col, index) => {
           const content = cellContents.get(col.dataIndex);
           return (
             <td
               key={col.key}
-              className="border-border px-3 py-2 align-middle whitespace-nowrap"
+              // 与表头、数据行同源：统一取 col.align，数字列额外用等宽数字对齐小数点
+              className={cn(
+                'border-border px-3 py-2 align-middle whitespace-nowrap',
+                col.valueType === 'number' && 'tabular-nums',
+                col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
+              )}
             >
               {/* 首列固定承载统计行说明，便于一眼看出该行含义 */}
-              {index === 0 && <span className="text-muted-foreground mr-2">{summaryText}</span>}
+              {index === 0 && (
+                <span className="text-muted-foreground mr-2 font-medium">{summaryText}</span>
+              )}
               {content?.map((node, nodeIndex) => (
                 <Fragment key={nodeIndex}>
                   {nodeIndex > 0 && <span className="text-muted-foreground mx-1">/</span>}

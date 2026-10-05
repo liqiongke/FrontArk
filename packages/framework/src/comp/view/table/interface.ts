@@ -6,11 +6,24 @@ import { type SearchPlaneItem } from '../comp/searchPanel/interface';
  * 框架自有表格列描述（不再依赖第三方表格列类型）
  * 仅承载当前 schema 已使用的能力：标题、宽度、字段、稳定键
  */
+/** 列的值类型：数字列右对齐并按小数点对齐，文本列左对齐 */
+export type TableValueType = 'text' | 'number';
+
+/** 列对齐方式：表头与该列所有内容（数据格、统计格）共用同一取值 */
+export type TableAlign = 'left' | 'center' | 'right';
+
 export interface TableColumn {
   title: string;
   width?: number;
   dataIndex: string;
   key: string;
+  /** 值类型，决定单元格对齐方式 */
+  valueType: TableValueType;
+  /**
+   * 本列的对齐方式，由 TableUtils.resolveAlign 统一解析。
+   * 表头直接复用它，保证标题与列内内容左右一致（标题不会与内容反向错位）。
+   */
+  align: TableAlign;
 }
 
 /**
@@ -77,6 +90,12 @@ export interface ViewTableProps extends ViewStructBase {
    *       （如 `{ field: 'pageSize', value: 20 }`），会随请求一并发出。
    */
   pagination?: boolean | TablePaginationConfig;
+
+  /**
+   * @name 通用工具
+   * @desc 默认开启全屏显示与下载数据；置为 false 关闭，或传入配置单独控制
+   */
+  tools?: boolean | TableToolsConfig;
 }
 
 /** 服务端分页的响应元信息（响应体 `@pagination`） */
@@ -157,11 +176,50 @@ export interface TableSummaryItem {
 
   /**
    * @name 数值展示格式化
-   * @desc 仅在内置统计方式下生效，默认整数直出、小数最多保留两位
+   * @desc 仅在内置统计方式下生效。默认按列内数据的最大小数位数输出固定精度
+   *       （右对齐时位数一致，小数点才能与列内内容对齐）
    */
   formatter?: (value: number) => string;
+
+  /**
+   * @name 统计值的小数位数
+   * @desc 默认取该列数据中的最大小数位数。列内精度不统一（如混有整数与小数）时，
+   *       可显式指定以固定统计值位数
+   */
+  precision?: number;
 }
 
 export interface TableItemProps extends ViewItem {
+  /**
+   * @name 建议列宽(px)
+   * @desc 表格为 fixed 布局，列宽只由这里与用户的拖拽决定，不随内容变化；
+   *       未声明时按容器宽度均分
+   */
   width?: number;
+
+  /**
+   * @name 列的值类型
+   * @desc 默认 text；置为 number 后该列内容右对齐，并用等宽数字让小数点对齐
+   */
+  valueType?: TableValueType;
+}
+
+export interface TableToolsConfig {
+  /**
+   * @name 全屏显示
+   * @desc 默认 true；对表格所在面板使用浏览器 Fullscreen API
+   */
+  fullscreen?: boolean;
+
+  /**
+   * @name 下载数据
+   * @desc 默认 true；导出当前已加载的数据为 CSV（服务端分页时为当前页）
+   */
+  download?: boolean;
+
+  /**
+   * @name 导出文件名(不含扩展名)
+   * @desc 默认 table
+   */
+  exportFileName?: string;
 }

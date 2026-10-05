@@ -66,16 +66,18 @@ class View extends ViewBase<Handler, Data> {
     items: [
       { title: '产品ID', field: 'id' },
       { title: '产品名称', field: 'name' },
-      { title: '价格', field: 'price' },
+      // valueType: 'number' 表示数字列：该列右对齐，并用等宽数字让小数点对齐
+      // width 为建议列宽，表格是 fixed 布局，列宽只由它与用户拖拽决定，不随内容变化
+      { title: '价格', field: 'price', width: 120, valueType: 'number' },
       { title: '产品类别', field: 'category' },
       { title: '品牌', field: 'brand' },
-      { title: '库存', field: 'stock' },
+      { title: '库存', field: 'stock', width: 100, valueType: 'number' },
       { title: '状态', field: 'status' },
-      { title: '销量', field: 'sales' },
-      { title: '评分', field: 'rating' },
+      { title: '销量', field: 'sales', width: 110, valueType: 'number' },
+      { title: '评分', field: 'rating', width: 90, valueType: 'number' },
       { title: '颜色', field: 'color' },
       { title: '保修期', field: 'warranty' },
-      { title: '创建时间', field: 'createTime' },
+      { title: '创建时间', field: 'createTime', width: 180 },
     ],
     // 服务端分页:分页参数写入数据节点 criteria 后重新请求,页码/总数取自响应体的 @pagination
     // 后端未返回 @pagination 时整条分页不渲染,因此这份配置对不支持的接口无害

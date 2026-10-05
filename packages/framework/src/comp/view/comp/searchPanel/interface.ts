@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react';
 import { type CtrlCheckboxProps } from '@/comp/control/checkbox/interface';
 import { type CtrlDateProps, type CtrlDateRangeProps } from '@/comp/control/date/interface';
 import { type CtrlInputProps } from '@/comp/control/input/interface';
@@ -10,10 +11,10 @@ export interface SearchPlaneProps {
   viewId: string;
   items?: SearchPlaneItem[];
   /**
-   * @name 初始搜索模式
-   * @desc 不传时按 viewId 读取本地记忆；simple 为单搜索框，advanced 为完整搜索面板
+   * @name 条件行右侧插槽
+   * @desc 由调用方挂载表格通用工具等；面板只负责布局，不关心具体内容
    */
-  mode?: SearchPlaneMode;
+  tools?: ReactNode;
 }
 
 export interface SearchPlaneFormProps {
@@ -77,9 +78,6 @@ export type SearchValueOperator = 'and' | 'or';
  * - none 未识别,交还用户手动选择
  */
 export type SearchInferConfidence = 'locked' | 'exact' | 'inferred' | 'none';
-
-/** 搜索面板模式:单搜索框(含条件 Tag) / 完整搜索面板 */
-export type SearchPlaneMode = 'simple' | 'advanced';
 
 export interface SearchPlaneItem {
   // 标题

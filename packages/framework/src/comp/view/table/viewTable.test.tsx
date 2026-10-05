@@ -14,6 +14,7 @@ import { Ctrl } from '@/comp/control/interface';
 import ViewTable from './viewTable';
 import { RenderMode, SummaryType } from './interface';
 import { resetTableRenderProbes, tableRenderProbes } from './utils/tableTestProbes';
+import TableUtils from './utils/tableUtils';
 import type * as ValueModule from '@/stores/store/hooks/useValue';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -166,6 +167,133 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     }));
     // 统计行存在时，滚动条的内缩依据（tfoot）已渲染
     expect(container.querySelector('tfoot')).not.toBeNull();
+  });
+
+  it('表格为固定列宽：fixed 布局、每列有明确宽度、表头带拖拽手柄', () => {
+    const table = container.querySelector('[data-slot="view-table"]') as HTMLTableElement;
+    // fixed 布局 + 明确列宽：内容再长也不会改变列宽
+    expect(table.style.tableLayout).toBe('fixed');
+    const cols = table.querySelectorAll<HTMLElement>('colgroup col');
+    expect(cols.length).toBe(2);
+    cols.forEach((col) => expect(col.style.width).not.toBe(''));
+    // 表头每列都有列宽拖拽手柄（含最后一列，用于把整表拉宽）
+    const resizers = table.querySelectorAll('[data-column-resizer]');
+    expect(resizers.length).toBe(2);
+    expect(resizers[0].getAttribute('aria-orientation')).toBe('vertical');
+    expect(resizers[0].getAttribute('aria-label')).toContain('价格');
+  });
+
+  it('列宽拖拽手柄带常驻短横线标识，悬停时切换为竖线', () => {
+    const table = container.querySelector('[data-slot="view-table"]')!;
+    const resizer = table.querySelector('[data-column-resizer]')!;
+    // 静止态短横线：常驻可见（不依赖 hover），否则用户无从知道列宽可拖
+    const rest = resizer.querySelector('[data-column-resizer-indicator="rest"]')!;
+    expect(rest).not.toBeNull();
+    expect(rest.className).toContain('h-px');
+    expect(rest.className).toContain('w-1.5');
+    expect(rest.className).toContain('bg-foreground/30');
+    // 悬停/拖动态竖线：默认透明，hover 手柄时显现
+    const active = resizer.querySelector('[data-column-resizer-indicator="active"]')!;
+    expect(active).not.toBeNull();
+    expect(active.className).toContain('opacity-0');
+    expect(active.className).toContain('group-hover/resizer:opacity-100');
+    // 两条标识线随每个手柄一起渲染
+    expect(table.querySelectorAll('[data-column-resizer-indicator="rest"]').length).toBe(2);
+  });
+
+  it('数字列右对齐并用等宽数字对齐小数点，文本列左对齐', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [
+        { field: 'price', title: '价格', valueType: 'number' },
+        { field: 'stock', title: '库存' },
+      ],
+    }));
+    const cells = container.querySelectorAll<HTMLElement>('.ctrl-text');
+    expect(cells.length).toBeGreaterThan(1);
+    // 数字列：右对齐 + 等宽数字（各位数字等宽后小数点自然对齐）
+    expect(cells[0].style.textAlign).toBe('right');
+    expect(cells[0].className).toContain('tabular-nums');
+    // 文本列：左对齐且不套用等宽数字
+    expect(cells[1].style.textAlign).toBe('left');
+    expect(cells[1].className).not.toContain('tabular-nums');
+  });
+
+  it('表头对齐跟随本列内容：数字列标题右对齐，文本列标题左对齐', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [
+        { field: 'price', title: '价格', valueType: 'number' },
+        { field: 'stock', title: '库存' },
+        { field: 'name', title: '名称', ctrl: { align: 'center' } },
+      ],
+      summaryItems: [{ field: 'price', type: SummaryType.Sum }],
+    }));
+    const heads = [...container.querySelectorAll<HTMLElement>('thead th')];
+    expect(heads.map((th) => th.textContent)).toEqual(['价格', '库存', '名称']);
+    // 标题与列内内容同侧
+    expect(heads[0].classList.contains('text-right')).toBe(true);
+    expect(heads[1].classList.contains('text-left')).toBe(true);
+    // 列上显式声明对齐时，表头同样跟随（含 center）
+    expect(heads[2].classList.contains('text-center')).toBe(true);
+    // 表头对齐取自列定义的同一份 align
+    const cells = container.querySelectorAll<HTMLElement>('tbody .ctrl-text');
+    expect(cells[0].style.textAlign).toBe('right');
+    expect(cells[1].style.textAlign).toBe('left');
+    expect(cells[2].style.textAlign).toBe('center');
+    // 统计行沿用同一对齐，数字列仍是右对齐
+    const foot = container.querySelectorAll<HTMLElement>('tfoot td');
+    expect(foot[0].classList.contains('text-right')).toBe(true);
+  });
+
+  it('列对齐规则收敛在一处：显式声明优先于值类型推断', () => {
+    // 显式声明覆盖数字列的右对齐推断
+    expect(TableUtils.resolveAlign({ field: 'a', title: 'A', valueType: 'number', ctrl: { align: 'left' } })).toBe('left');
+    // 未声明时按值类型推断
+    expect(TableUtils.resolveAlign({ field: 'b', title: 'B', valueType: 'number' })).toBe('right');
+    expect(TableUtils.resolveAlign({ field: 'c', title: 'C' })).toBe('left');
+    // 列定义上带出 align，供表头与内容共用
+    const columns = TableUtils.createColumns('v1', [
+      { field: 'a', title: 'A', valueType: 'number' },
+      { field: 'b', title: 'B' },
+    ]);
+    expect(columns.map((col) => col.align)).toEqual(['right', 'left']);
+  });
+
+  it('条件行右侧挂载表格通用工具（全屏、下载），可整体关闭', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称' }],
+    }));
+    const tools = container.querySelector('.view-table-tools')!;
+    expect(tools).not.toBeNull();
+    expect(tools.querySelector('[aria-label="全屏显示"]')).not.toBeNull();
+    expect(tools.querySelector('[aria-label="下载数据"]')).not.toBeNull();
+    // 工具与条件提示同处一行：其父节点同时包含提示区
+    expect(tools.parentElement?.querySelector('[aria-live="polite"]')).not.toBeNull();
+
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      tools: false,
+    }));
+    expect(container.querySelector('.view-table-tools')).toBeNull();
+  });
+
+  it('高级筛选以弹窗承载条件，面板结构不被替换', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称' }],
+    }));
+    const advanced = container.querySelector<HTMLButtonElement>('[aria-label="高级筛选"]')!;
+    expect(advanced).not.toBeNull();
+    await act(async () => {
+      advanced.click();
+    });
+    // 条件以弹窗呈现
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    // 搜索面板保持原样：搜索条仍在，表格没有被重排
+    expect(container.querySelector('.search-bar')).not.toBeNull();
+    expect(container.querySelector('[data-slot="view-table"]')).not.toBeNull();
   });
 
   it('搜索面板与表格合并到同一个面板,不再各自带边框与底色', () => {
@@ -432,6 +560,69 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     // 0.1 + 0.2 的浮点结果是 0.30000000000000004
     expect(cell.textContent).toContain('¥0.3');
     expect(cell.textContent).not.toContain('0.300');
+  });
+
+  it('统计值按列内数据的精度输出，小数点与列内内容同列', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [
+        { field: 'price', title: '价格', valueType: 'number' },
+        { field: 'rating', title: '评分', valueType: 'number' },
+        { field: 'stock', title: '库存', valueType: 'number' },
+      ],
+      summaryItems: [
+        { field: 'price', type: SummaryType.Sum },
+        { field: 'rating', type: SummaryType.Avg },
+        { field: 'stock', type: SummaryType.Sum },
+      ],
+    }));
+    act(() => {
+      // 评分列统一一位小数，统计值也必须是一位，不能四舍五入成两位
+      store.getState().setData(['table', 0, 'rating'], 4.6);
+      store.getState().setData(['table', 1, 'rating'], 4.4);
+    });
+    const foot = [...container.querySelectorAll<HTMLElement>('tfoot td')].map((td) => td.textContent);
+    // 两位小数列：保留两位
+    expect(foot[0]).toContain('200');
+    // 一位小数列：平均值 4.5 展示为一位小数，与列内 "4.6"/"4.4" 的小数点同列
+    expect(foot[1]).toContain('4.5');
+    expect(foot[1]).not.toContain('4.50');
+    // 整数列：不带小数点（「合计」标签只在首列，库存列只有数值）
+    expect(foot[2]).toBe('11');
+    // 数字列统计格使用等宽数字，小数点才会因位数一致而对齐
+    expect(container.querySelector('tfoot td')!.className).toContain('tabular-nums');
+    // 统计值与数据行同字重：粗体等宽数字更宽，会让小数点偏移
+    const footRow = container.querySelector('tfoot tr')!;
+    expect(footRow.className).not.toContain('font-medium');
+    const bodyWeight = getComputedStyle(container.querySelector('tbody .ctrl-text')!).fontWeight;
+    const footWeight = getComputedStyle(container.querySelector('tfoot td')!).fontWeight;
+    expect(footWeight).toBe(bodyWeight);
+  });
+
+  it('统计值精度可显式指定，覆盖列内数据推断', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [{ field: 'rating', title: '评分', valueType: 'number' }],
+      summaryItems: [{ field: 'rating', type: SummaryType.Avg, precision: 3 }],
+    }));
+    act(() => store.getState().setData(['table', 0, 'rating'], 4.6));
+    act(() => store.getState().setData(['table', 1, 'rating'], 4.4));
+    // 列内是一位小数，显式 precision=3 后统计值保留三位
+    expect(container.querySelector('tfoot td')!.textContent).toContain('4.500');
+  });
+
+  it('浮点尾数不会把小数位数算大，统计值位数仍按数据本身', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [{ field: 'price', title: '价格', valueType: 'number' }],
+      summaryItems: [{ field: 'price', type: SummaryType.Sum }],
+    }));
+    act(() => {
+      store.getState().setData(['table', 0, 'price'], 0.1);
+      store.getState().setData(['table', 1, 'price'], 0.2);
+    });
+    // 0.1+0.2=0.30000000000000004，位数按 1 位算，展示 0.3
+    expect(container.querySelector('tfoot td')!.textContent).toContain('0.3');
   });
 
   it.each([false, true])('输入后仅目标字段更新，表格结构与单元格外壳不执行（StrictMode=%s）', (strict) => {

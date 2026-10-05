@@ -1,13 +1,16 @@
 import StoreContext from '@/stores/store/storeContext';
 import { readView } from '@/stores/store/utils/storeDataPath';
 import CtrlFactory from '@/comp/ctrlFactory';
+import { Ctrl, type CtrlStructType } from '@/comp/control/interface';
+
 import PathUtils from '@utils/pathUtils';
 import ViewPathUtils from '@/utils/viewPathUtils';
 import { ViewType } from '@view/interface';
 import { isArray, isString, isUndefined } from 'lodash';
 import React, { useContext, useMemo } from 'react';
-import { type ViewTableProps } from '../../interface';
+import { type TableAlign, type ViewTableProps } from '../../interface';
 import { tableRenderProbes } from '../../utils/tableTestProbes';
+import TableUtils from '../../utils/tableUtils';
 
 interface BoundTableCellProps {
   /**
@@ -84,6 +87,23 @@ const BoundTableCellBase: React.FC<BoundTableCellProps> = ({
   );
 
   const field = item?.field;
+  // 对齐方式取自列定义的统一规则（TableUtils.resolveAlign）：显式声明优先，
+  // 其次数字列右对齐、其余左对齐。表头用的是同一份取值，所以标题与内容始终同侧。
+  const cellCtrl = useMemo<CtrlStructType | undefined>(() => {
+    if (isUndefined(item)) {
+      return undefined;
+    }
+    const align = TableUtils.resolveAlign(item);
+    // align 属于 CtrlText、textAlign 属于 CtrlInput，二者都可能在列配置里出现，
+    // 因此按"对齐声明"的宽松形态读取，再作为控件结构交给工厂
+    const declared = item.ctrl as { align?: TableAlign; textAlign?: TableAlign } | undefined;
+    return {
+      type: Ctrl.Text,
+      ...item.ctrl,
+      align: declared?.align ?? align,
+      textAlign: declared?.textAlign ?? align,
+    } as unknown as CtrlStructType;
+  }, [item]);
 
   const cellPath = useMemo(() => {
     if (isUndefined(item)) return undefined;
@@ -100,7 +120,7 @@ const BoundTableCellBase: React.FC<BoundTableCellProps> = ({
     return null;
   }
 
-  return <CtrlFactory ctrl={item.ctrl} path={cellPath} sourceView={ViewType.Table} />;
+  return <CtrlFactory ctrl={cellCtrl} path={cellPath} sourceView={ViewType.Table} />;
 };
 
 const BoundTableCell = React.memo(BoundTableCellBase);

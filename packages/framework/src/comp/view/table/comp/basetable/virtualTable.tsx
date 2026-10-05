@@ -10,6 +10,7 @@ import { get, isNumber, isString, isUndefined } from 'lodash';
 import React, { useMemo, useRef } from 'react';
 import { KeyAttr } from '@/interface';
 import { type DPath } from '@/stores/store/interface';
+import { cn } from '@/ui/lib/utils';
 import OverlayScrollBar, { OVERLAY_SCROLL_CONTAINER_CLASS } from '@/ui/components/overlay-scrollbar';
 import TableRow from './tableRow';
 import BoundTableCell from './boundTableCell';
@@ -21,6 +22,8 @@ import { tableRenderProbes } from '../../utils/tableTestProbes';
 const ROW_HEIGHT_ESTIMATE = 34;
 // 视口外保留的渲染行数:保证滚动时不出现空白闪烁
 const OVERSCAN = 8;
+// 列宽下限:拖拽时不至于把列压到无法阅读
+const MIN_COLUMN_WIDTH = 60;
 
 interface VirtualTableProps {
   /** 所属表格视图 id(向行组件/单元格透传) */
@@ -39,8 +42,8 @@ interface VirtualTableProps {
   dataPath?: DPath;
 }
 
-// table-layout 由浏览器 auto 布局处理;列宽通过 colgroup 提供建议值,
-// 单个 table 内表头/表体天然对齐,横向滚动由外层 overflow 容器承担
+// 列宽固定(table-layout: fixed):列宽只由配置与拖拽决定，不随内容变化,
+// 表头/表体天然对齐,横向滚动由外层 overflow 容器承担
 const VirtualTable: React.FC<VirtualTableProps> = (props) => {
   const { viewId, columns, dataSource, height, summaryItems, summaryText, dataPath } = props;
   // 框架自有测试探针:表格结构层执行计数(见迁移计划 5.3)
@@ -50,6 +53,10 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
   // 吸顶表头/吸底统计行的实高决定覆盖式滚动条的可见区间，由滚动条自行读取
   const headerRef = useRef<HTMLTableSectionElement>(null);
   const footerRef = useRef<HTMLTableSectionElement>(null);
+  // 用户拖拽后的列宽覆盖值(仅存被拖过的列)，其余列按配置或容器均分
+  const [columnWidths, setColumnWidths] = React.useState<Record<string, number>>({});
+  const [containerWidth, setContainerWidth] = React.useState(0);
+  const resizeRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
 
   // TanStack Table v9:仅启用核心行模型(本框架不使用排序/过滤/分页)
   const features = useMemo(
@@ -100,6 +107,71 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
 
   const headerGroups = table.getHeaderGroups();
 
+  // 容器宽度:未声明宽度且未被拖拽的列按它均分，保证首屏尽量不出现横向滚动
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) {
+      return;
+    }
+    const measure = () => setContainerWidth(el.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const columnWidthMap = useMemo(() => {
+    const count = columns.length || 1;
+    const defaultWidth = Math.max(
+      MIN_COLUMN_WIDTH,
+      Math.floor((containerWidth || MIN_COLUMN_WIDTH * count) / count),
+    );
+    const result: Record<string, number> = {};
+    columns.forEach((col) => {
+      result[col.key] = columnWidths[col.key] ?? col.width ?? defaultWidth;
+    });
+    return result;
+  }, [columns, columnWidths, containerWidth]);
+
+  // 列宽总和即表格最小宽度：超过容器时由外层滚动容器横向滚动
+  const totalWidth = useMemo(
+    () => columns.reduce((sum, col) => sum + (columnWidthMap[col.key] ?? 0), 0),
+    [columns, columnWidthMap],
+  );
+
+  const onResizeStart = (key: string) => (event: React.PointerEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    // 以渲染宽度为基准：容器比列宽总和更宽时，fixed 布局会把余量摊到各列，
+    // 直接用 state 里的宽度会与用户看到的宽度不一致
+    const rendered = event.currentTarget.parentElement?.offsetWidth;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeRef.current = {
+      key,
+      startX: event.clientX,
+      startWidth: rendered && rendered > 0 ? rendered : (columnWidthMap[key] ?? MIN_COLUMN_WIDTH),
+    };
+  };
+
+  const onResizeMove = (event: React.PointerEvent<HTMLSpanElement>) => {
+    const drag = resizeRef.current;
+    if (!drag) {
+      return;
+    }
+    const next = Math.max(MIN_COLUMN_WIDTH, Math.round(drag.startWidth + event.clientX - drag.startX));
+    setColumnWidths((prev) => (prev[drag.key] === next ? prev : { ...prev, [drag.key]: next }));
+  };
+
+  const onResizeEnd = (event: React.PointerEvent<HTMLSpanElement>) => {
+    if (!resizeRef.current) {
+      return;
+    }
+    resizeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   return (
     // 外层只作为覆盖式滚动条的定位上下文;边框/圆角/底色由统一面板承担,本层不套框
     <div className="relative min-w-0">
@@ -109,10 +181,15 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
         className={OVERLAY_SCROLL_CONTAINER_CLASS}
         style={{ height: height ?? 400 }}
       >
-        <table className="w-full min-w-max text-sm" data-slot="view-table">
+        <table
+          className="w-full text-sm"
+          data-slot="view-table"
+          // fixed 布局 + 明确的列宽：内容再长也不会改变列宽；minWidth 保证列宽总和大于容器时横向滚动
+          style={{ tableLayout: 'fixed', minWidth: totalWidth }}
+        >
           <colgroup>
             {columns.map((col) => (
-              <col key={col.key} style={isNumber(col.width) ? { width: col.width } : undefined} />
+              <col key={col.key} style={{ width: columnWidthMap[col.key] }} />
             ))}
           </colgroup>
           {/* 表头吸顶需要不透明底色,取统一面板的底色,滚动时不会漏出下方行内容 */}
@@ -120,14 +197,51 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
             {headerGroups.map((headerGroup) => (
               <tr key={headerGroup.id} className="bg-muted/50">
                 {headerGroup.headers.map((header, headerIndex) => {
-                  const width = columns[headerIndex]?.width;
+                  const column = columns[headerIndex];
                   return (
                     <th
                       key={header.id}
-                      className="border-border text-muted-foreground h-10 border-b px-3 text-left align-middle font-medium whitespace-nowrap"
-                      style={isNumber(width) ? { width } : undefined}
+                      className={cn(
+                        'border-border text-muted-foreground relative h-10 border-b px-3 align-middle font-medium whitespace-nowrap',
+                        // 标题对齐跟随本列内容：数字列标题右对齐，文本列左对齐
+                        column?.align === 'right'
+                          ? 'text-right'
+                          : column?.align === 'center'
+                            ? 'text-center'
+                            : 'text-left',
+                      )}
                     >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      <span className="block truncate">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </span>
+                      {/* 列宽拖拽手柄：贴在本列表头右边界，拖动改变本列宽度 */}
+                      {column && (
+                        <span
+                          role="separator"
+                          aria-orientation="vertical"
+                          aria-label={`调整「${column.title}」列宽`}
+                          data-column-resizer={column.key}
+                          className="group/resizer absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize touch-none select-none hover:bg-primary/10"
+                          onPointerDown={onResizeStart(column.key)}
+                          onPointerMove={onResizeMove}
+                          onPointerUp={onResizeEnd}
+                          onPointerCancel={onResizeEnd}
+                        >
+                          {/*
+                            静止态：边界上留一段短横线作为「此处可拖拽」的常驻标识。
+                            没有它时手柄只是 6px 透明热区，用户无法判断列宽能改。
+                            悬停/拖动时短横线让位给贯穿表头的竖线，直接指示当前拖拽位置。
+                          */}
+                          <span
+                            data-column-resizer-indicator="rest"
+                            className="absolute top-1/2 left-1/2 h-px w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/30 transition-opacity group-hover/resizer:opacity-0"
+                          />
+                          <span
+                            data-column-resizer-indicator="active"
+                            className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary opacity-0 group-hover/resizer:opacity-100"
+                          />
+                        </span>
+                      )}
                     </th>
                   );
                 })}

@@ -105,7 +105,8 @@ const Pagination: React.FC<PaginationProps> = (props) => {
     <nav
       data-slot="pagination"
       aria-label="分页"
-      className={cn('flex flex-wrap items-center justify-between gap-x-4 gap-y-3', className)}
+      // 统一靠右排布：总数/页码/每页条数/跳页同属一组信息，左对齐会让它们被拉开显得零散
+      className={cn('flex flex-wrap items-center justify-end gap-x-4 gap-y-3', className)}
       {...restProps}
     >
       <span className="text-muted-foreground text-sm">

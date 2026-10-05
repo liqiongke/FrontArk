@@ -1,7 +1,7 @@
 import { useData } from '@/stores/store/hooks/useValue';
 import { useView } from '@/stores/store/hooks/useView';
 import { isArray, isObject, isString } from 'lodash';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import { cn } from '@/ui/lib/utils';
 import { type DPath } from '@/stores/store/interface';
 import SearchPanel from '../comp/searchPanel/SearchPanel';
@@ -9,8 +9,9 @@ import { type SysViewProps } from '../interface';
 import { PANEL_PADDED } from '../panel';
 import VirtualTable from './comp/basetable/virtualTable';
 import TablePagination from './comp/tablePagination';
+import TableTools from './comp/tableTools';
 import TableIdContext from './tableContext';
-import { RenderMode, type ViewTableProps } from './interface';
+import { RenderMode, type TableToolsConfig, type ViewTableProps } from './interface';
 import TableUtils from './utils/tableUtils';
 import useRowIdentityList, { type IdentityRow } from './utils/useRowIdentityList';
 
@@ -35,12 +36,29 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
     () => TableUtils.createColumns(viewId, view.items),
     [viewId, view.items],
   );
+  const panelRef = useRef<HTMLDivElement>(null);
+  // tools 置为 false 关闭；对象则按字段单独关闭（未声明默认开启）
+  const toolsConfig: TableToolsConfig | undefined =
+    view.tools === false ? undefined : isObject(view.tools) ? view.tools : {};
 
   return (
-    <div className={cn('view-table min-w-0', PANEL_PADDED)}>
+    <div ref={panelRef} className={cn('view-table min-w-0', PANEL_PADDED)}>
       {/* 向行组件透传当前表格的 viewId,行组件据此订阅焦点高亮 */}
       <TableIdContext value={viewId}>
-        <SearchPanel viewId={viewId} items={view.searchItems} />
+        <SearchPanel
+          viewId={viewId}
+          items={view.searchItems}
+          tools={
+            toolsConfig ? (
+              <TableTools
+                columns={columns}
+                dataPath={dataPath}
+                fullscreenTargetRef={panelRef}
+                config={toolsConfig}
+              />
+            ) : null
+          }
+        />
         <VirtualTable
           viewId={viewId}
           columns={columns}

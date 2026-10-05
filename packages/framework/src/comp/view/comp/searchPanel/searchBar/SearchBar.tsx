@@ -19,8 +19,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/components/tooltip
 export interface SearchBarProps {
   viewId: string;
   items: SearchPlaneItem[];
-  // 逃生门:切换到完整搜索面板
+  // 逃生门:打开完整条件弹窗
   onToggleAdvanced?: () => void;
+  // 条件行右侧的插槽:由调用方挂载表格通用工具等
+  tools?: React.ReactNode;
 }
 
 // 文本形态:值由搜索条受控持有(推断需要零延迟),提交时以 override 传入
@@ -35,7 +37,7 @@ const TEXT_KINDS: SearchValueKind[] = ['text', 'number'];
  * - 条件落地:回车提交为 Tag,Tag 由 criteria 派生,可删除、可点击回填编辑
  */
 const SearchBar: React.FC<SearchBarProps> = (props) => {
-  const { viewId, items, onToggleAdvanced } = props;
+  const { viewId, items, onToggleAdvanced, tools } = props;
   const api = useSearchCriteria(viewId);
   const [lockedField, setLockedField] = useSafeState<string | undefined>(undefined);
   const [text, setText] = useSafeState('');
@@ -167,88 +169,98 @@ const SearchBar: React.FC<SearchBarProps> = (props) => {
 
   return (
     <div className="search-bar">
-      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-card px-2 py-1.5 focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]">
-        <SearchTypeSelect
-          items={items}
-          value={activeField}
-          unresolved={!activeField}
-          onSelect={selectType}
-        />
-        {activeItem && api.reqId && activeKind && (
-          <SearchValueInput
-            reqId={api.reqId}
-            item={activeItem}
-            kind={activeKind}
-            text={TEXT_KINDS.includes(activeKind) ? text : undefined}
-            error={error}
-            inputRef={inputRef}
-            onTextChange={(next) => {
-              setText(next);
-              setError(undefined);
-            }}
-            onSubmit={submit}
-            onEscape={onEscape}
-            onBackspaceEmpty={onBackspaceEmpty}
+      {/* 搜索条不占整行：限宽后靠左，只占搜索面板左上一块，避免整行只有输入框显得空旷 */}
+      <div className="flex justify-start">
+        <div className="flex w-full max-w-[560px] flex-wrap items-center gap-1 rounded-lg border bg-card px-2 py-1.5 focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-1">
+          <SearchTypeSelect
+            items={items}
+            value={activeField}
+            unresolved={!activeField}
+            onSelect={selectType}
           />
-        )}
-        {!activeItem && (
-          // 未识别到类型时仍保留输入框:文本不丢,用户可从左侧下拉补选类型
-          <Input
-            ref={inputRef}
-            aria-label="搜索内容"
-            className="min-w-0 flex-1 border-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
-            placeholder="输入单号、名称、日期等，系统会自动判断搜索类型"
-            value={text}
-            aria-invalid={!!error}
-            onChange={(event) => {
-              setText(event.target.value);
-              setError(undefined);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                submit();
-                return;
-              }
-              if (event.key === 'Escape') {
-                onEscape();
-                return;
-              }
-              if (event.key === 'Backspace' && !event.currentTarget.value) {
-                onBackspaceEmpty();
-              }
-            }}
+          {activeItem && api.reqId && activeKind && (
+            <SearchValueInput
+              reqId={api.reqId}
+              item={activeItem}
+              kind={activeKind}
+              text={TEXT_KINDS.includes(activeKind) ? text : undefined}
+              error={error}
+              inputRef={inputRef}
+              onTextChange={(next) => {
+                setText(next);
+                setError(undefined);
+              }}
+              onSubmit={submit}
+              onEscape={onEscape}
+              onBackspaceEmpty={onBackspaceEmpty}
+            />
+          )}
+          {!activeItem && (
+            // 未识别到类型时仍保留输入框:文本不丢,用户可从左侧下拉补选类型
+            <Input
+              ref={inputRef}
+              aria-label="搜索内容"
+              className="min-w-0 flex-1 border-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
+              placeholder="输入单号、名称、日期等，系统会自动判断搜索类型"
+              value={text}
+              aria-invalid={!!error}
+              onChange={(event) => {
+                setText(event.target.value);
+                setError(undefined);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  submit();
+                  return;
+                }
+                if (event.key === 'Escape') {
+                  onEscape();
+                  return;
+                }
+                if (event.key === 'Backspace' && !event.currentTarget.value) {
+                  onBackspaceEmpty();
+                }
+              }}
+            />
+          )}
+          <Button aria-label="搜索" onClick={submit}>
+            <Search />
+            搜索
+          </Button>
+          <Button variant="ghost" aria-label="重置" onClick={onReset}>
+            <RotateCcw />
+            重置
+          </Button>
+          {onToggleAdvanced && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" aria-label="高级筛选" onClick={onToggleAdvanced}>
+                  <SlidersHorizontal />
+                  高级筛选
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>打开全部搜索条件</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </div>
+
+      {/* 条件行：左侧是识别提示与已生效条件，右侧挂表格通用工具（全屏/下载） */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="min-h-5 px-1 pt-1 text-xs text-muted-foreground" aria-live="polite">
+            {hint}
+          </div>
+          <SearchTagBar
+            tags={tags}
+            onRemove={api.removeCondition}
+            onEdit={onEditTag}
+            onClearAll={onReset}
           />
-        )}
-        <Button aria-label="搜索" onClick={submit}>
-          <Search />
-          搜索
-        </Button>
-        <Button variant="ghost" aria-label="重置" onClick={onReset}>
-          <RotateCcw />
-          重置
-        </Button>
-        {onToggleAdvanced && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" aria-label="高级筛选" onClick={onToggleAdvanced}>
-                <SlidersHorizontal />
-                高级筛选
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>展开完整搜索面板</TooltipContent>
-          </Tooltip>
-        )}
+        </div>
+        {tools}
       </div>
-      <div className="min-h-5 px-1 pt-1 text-xs text-muted-foreground" aria-live="polite">
-        {hint}
-      </div>
-      <SearchTagBar
-        tags={tags}
-        onRemove={api.removeCondition}
-        onEdit={onEditTag}
-        onClearAll={onReset}
-      />
     </div>
   );
 };
