@@ -19,8 +19,6 @@ export interface SearchPlaneProps {
 
 export interface SearchPlaneFormProps {
   viewId: string;
-  // 每行有多少列搜索项
-  colNum?: 3 | 4 | 6 | 8;
   // 搜索项
   items?: SearchPlaneItem[];
   // 搜索时触发

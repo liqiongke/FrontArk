@@ -4,9 +4,10 @@ import { PathKey } from '@/stores/store/interface';
 import StoreContext from '@/stores/store/storeContext';
 import { type FC, useContext } from 'react';
 import { isString } from 'lodash';
+import FormItemLayout from '@view/form/formItemLayout';
 import { type SearchPlaneItemProps } from './interface';
 
-// 搜索下拉面板面板
+// 搜索条件的单项：与表单项共用同一套布局（标签在左、宽屏一行四项）
 const SearchPanelItem: FC<SearchPlaneItemProps> = (props) => {
   const { viewId, item } = props;
   const useStore = useContext(StoreContext);
@@ -18,16 +19,13 @@ const SearchPanelItem: FC<SearchPlaneItemProps> = (props) => {
   }
 
   return (
-    <div className="search-panel-item flex min-w-0 flex-col gap-2">
-      <div className="title text-sm leading-5 font-medium">{item.title}</div>
-      <div className="ctrl min-w-0">
-        <CtrlFactory
-          ctrl={item.ctrl}
-          path={[PathKey.Req, reqId, 'criteria', item.field]}
-          defaultCtrlType={Ctrl.Input}
-        />
-      </div>
-    </div>
+    <FormItemLayout title={item.title}>
+      <CtrlFactory
+        ctrl={item.ctrl}
+        path={[PathKey.Req, reqId, 'criteria', item.field]}
+        defaultCtrlType={Ctrl.Input}
+      />
+    </FormItemLayout>
   );
 };
 

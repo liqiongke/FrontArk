@@ -6,7 +6,8 @@ import { type DPath } from '@/stores/store/interface';
 import { Button } from '@/ui/components/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/components/tooltip';
 import { useSafeState } from 'ahooks';
-import { type TableColumn, type TableToolsConfig } from '../interface';
+import ColumnSettings from './columnSettings';
+import { type ColumnSettingsProps, type TableColumn, type TableToolsConfig } from '../interface';
 
 /** 转义单个 CSV 字段：含分隔符/引号/换行时加引号，内部引号翻倍 */
 const escapeCsvField = (value: unknown): string => {
@@ -43,7 +44,7 @@ export const downloadCsv = (csv: string, fileName: string) => {
 };
 
 export interface TableToolsProps {
-  /** 表格列：决定导出表头、字段顺序与格式 */
+  /** 表格列：决定导出表头、字段顺序与格式（只含展示中的列） */
   columns: TableColumn[];
   /** 表格数据路径：导出当前已加载的数据 */
   dataPath?: DPath;
@@ -51,19 +52,23 @@ export interface TableToolsProps {
   fullscreenTargetRef?: React.RefObject<HTMLElement | null>;
   /** 功能开关与导出文件名 */
   config?: TableToolsConfig;
+  /** 列设置：不传则不渲染列设置入口 */
+  columnSettings?: ColumnSettingsProps;
 }
 
 /**
- * 表格通用工具：全屏显示、下载数据
+ * 表格通用工具：列设置、全屏显示、下载数据
  *
  * 全屏走浏览器 Fullscreen API（对表格所在的面板生效，保留面板内边距与滚动结构）；
  * 下载导出当前已加载的数据为 CSV——服务端分页时即当前页，
  * 需要导出全量数据应由业务侧接后端导出接口。
  */
 const TableTools: React.FC<TableToolsProps> = (props) => {
-  const { columns, dataPath, fullscreenTargetRef, config } = props;
+  const { columns, dataPath, fullscreenTargetRef, config, columnSettings } = props;
   const showFullscreen = config?.fullscreen ?? true;
   const showDownload = config?.download ?? true;
+  // 列数少于 2 时既没有顺序也没用可见性可调，不渲染入口
+  const showColumnSettings = (config?.columns ?? true) && !!columnSettings && columnSettings.allColumns.length >= 2;
   const [fullscreen, setFullscreen] = useSafeState(false);
   const data = useData(dataPath);
 
@@ -96,12 +101,13 @@ const TableTools: React.FC<TableToolsProps> = (props) => {
     downloadCsv(buildCsv(columns, rows), `${baseName}`);
   }, [columns, data, config?.exportFileName]);
 
-  if (!showFullscreen && !showDownload) {
+  if (!showFullscreen && !showDownload && !showColumnSettings) {
     return null;
   }
 
   return (
     <div className="view-table-tools flex items-center gap-1">
+      {showColumnSettings && columnSettings && <ColumnSettings {...columnSettings} />}
       {showFullscreen && (
         <Tooltip>
           <TooltipTrigger asChild>

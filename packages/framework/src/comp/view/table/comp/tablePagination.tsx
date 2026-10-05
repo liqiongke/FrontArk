@@ -76,7 +76,8 @@ const TablePagination: React.FC<TablePaginationProps> = (props) => {
 
   return (
     <Pagination
-      className="mt-4"
+      // 与表格工具的间距由所属底部行统一负责，自身不再叠加外边距
+      className="min-w-0"
       current={pagination.current}
       pageSize={pagination.pageSize}
       total={pagination.total}

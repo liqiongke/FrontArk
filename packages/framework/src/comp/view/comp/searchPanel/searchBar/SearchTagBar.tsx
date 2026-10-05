@@ -29,7 +29,8 @@ const SearchTagBar: React.FC<SearchTagBarProps> = (props) => {
   }
 
   return (
-    <div className="search-tag-bar flex flex-wrap items-center gap-1.5 pt-2">
+    // 与搜索框同处一行，不再为「独占一行的提示文本」留上边距
+    <div className="search-tag-bar flex flex-wrap items-center gap-1.5">
       {visible.map((tag) => (
         <SearchTagItem key={tag.field} tag={tag} onRemove={onRemove} onEdit={onEdit} />
       ))}

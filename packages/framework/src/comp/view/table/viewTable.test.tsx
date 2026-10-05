@@ -72,6 +72,15 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
   });
   const editInput = () => container.querySelector('.view-form-container input') as HTMLInputElement;
   const tableText = () => container.querySelector('[data-slot="view-table"]')?.textContent;
+  // 列设置是浮层：触发器在容器内，内容经 Portal 挂到 body，需分别查询
+  const openColumnSettings = async () => {
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="列设置"]');
+    expect(trigger).not.toBeNull();
+    await act(async () => {
+      trigger!.click();
+    });
+    expect(document.querySelector('[data-slot="column-settings-list"]')).not.toBeNull();
+  };
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -260,17 +269,27 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(columns.map((col) => col.align)).toEqual(['right', 'left']);
   });
 
-  it('条件行右侧挂载表格通用工具（全屏、下载），可整体关闭', () => {
+  it('表格工具挂在表格左下角，与分页条同一行且分居两端', () => {
     act(() => store.getState().setView('table1', {
       ...store.getState().getView('table1'),
       searchItems: [{ field: 'name', title: '名称' }],
+      pagination: true,
     }));
     const tools = container.querySelector('.view-table-tools')!;
     expect(tools).not.toBeNull();
+    expect(tools.querySelector('[aria-label="列设置"]')).not.toBeNull();
     expect(tools.querySelector('[aria-label="全屏显示"]')).not.toBeNull();
     expect(tools.querySelector('[aria-label="下载数据"]')).not.toBeNull();
-    // 工具与条件提示同处一行：其父节点同时包含提示区
-    expect(tools.parentElement?.querySelector('[aria-live="polite"]')).not.toBeNull();
+
+    // 工具所在行：工具是行内第一个元素（靠左），行用 justify-between 把后续内容（分页条）推到右端
+    const row = tools.parentElement!.parentElement!;
+    expect(row.className).toContain('justify-between');
+    expect(row.firstElementChild).toBe(tools.parentElement);
+    // 行的位置在表格之后（表格左下角）
+    const table = container.querySelector('[data-slot="view-table"]')!;
+    expect(table.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // 已从搜索条上移走：搜索条内不再挂表格工具
+    expect(container.querySelector('.search-bar')!.querySelector('.view-table-tools')).toBeNull();
 
     act(() => store.getState().setView('table1', {
       ...store.getState().getView('table1'),
@@ -279,7 +298,227 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(container.querySelector('.view-table-tools')).toBeNull();
   });
 
-  it('高级筛选以弹窗承载条件，面板结构不被替换', async () => {
+  it('搜索框、条件 Tag、高级筛选三段同处一行，且不再有独立的重置按钮', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称' }],
+    }));
+    // 造一条已生效条件，中间段的 Tag 区才会渲染
+    act(() => store.getState().setData([PathKey.Req, 'table', 'criteria', 'name'], 'x'));
+
+    const bar = container.querySelector<HTMLElement>('.search-bar')!;
+    // 三段是同一行的直接子元素：左搜索框 / 中提示+Tag / 右高级筛选
+    const parts = [...bar.children];
+    expect(parts.length).toBe(3);
+    expect(parts[0].classList.contains('search-box')).toBe(true);
+    expect(parts[1].querySelector('[aria-live="polite"]')).not.toBeNull();
+    expect(parts[1].querySelector('.search-tag-bar')).not.toBeNull();
+    expect(parts[2].querySelector('[aria-label="高级筛选"]')).not.toBeNull();
+    // 表格工具已移到底部，不再占搜索条右侧
+    expect(parts[2].querySelector('.view-table-tools')).toBeNull();
+    // 同一行靠 flex 排布，窄屏才换行
+    expect(bar.className).toContain('flex-wrap');
+    expect(bar.className).toContain('items-center');
+
+    // 重置已下线：清空条件由 Tag 区的按钮承担
+    expect(bar.querySelector('[aria-label="重置"]')).toBeNull();
+    expect(parts[1].textContent).toContain('清空条件');
+    // 搜索框内只剩「类型图标 + 输入 + 搜索图标」
+    const box = parts[0];
+    expect(box.querySelector('[aria-label="高级筛选"]')).toBeNull();
+    // 结构精简：不再套「定位容器 + 限宽」两层，搜索框是搜索条的直接子元素，内部控件同高
+    expect(box.parentElement).toBe(bar);
+    expect(box.querySelector('[aria-label="选择搜索类型"]')!.className).toContain('h-8');
+    expect(box.querySelector('input')!.className).toContain('h-8');
+  });
+
+  it('搜索框内不出现实心主色按钮，搜索只留图标且无内边距', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称' }],
+    }));
+    const box = container.querySelector<HTMLElement>('.search-box')!;
+    // 类型入口是定宽槽：未识别时显示弱化的「选择类型」占位，不显示宽文案「选择搜索类型」
+    const typeTrigger = box.querySelector<HTMLElement>('[aria-label="选择搜索类型"]')!;
+    expect(typeTrigger.textContent).toBe('选择类型');
+    expect(typeTrigger.querySelector('svg')).not.toBeNull();
+    expect(typeTrigger.className).toContain('w-[6.5rem]');
+
+    const submitBtn = box.querySelector<HTMLButtonElement>('[aria-label="搜索"]')!;
+    // 只留图标：不显示文字
+    expect(submitBtn.textContent).toBe('');
+    expect(submitBtn.querySelector('svg')).not.toBeNull();
+    // 不用实心主色（那是页面行动召唤按钮的语义），也没有会把按钮挤出边框的内边距
+    const variantClass = submitBtn.className;
+    expect(variantClass).not.toContain('bg-primary');
+    expect(variantClass).toContain('h-full');
+    expect(variantClass).toContain('px-0');
+    expect(variantClass).toContain('rounded-l-none');
+    // 搜索框靠右端不再留内边距，按钮与边框贴合
+    expect(box.className).not.toContain('pr-0.5');
+  });
+
+  it('类型入口定宽：类型名出现/消失不会让输入内容跳位，且用弱化色与内容区分', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '产品名称', keywords: ['名称'] }],
+    }));
+    const trigger = () =>
+      container.querySelector<HTMLElement>('.search-box [aria-label="选择搜索类型"]')!;
+    const input = container.querySelector<HTMLInputElement>('.search-box input')!;
+
+    // 定宽槽：宽度由固定尺寸决定，不随文字长短变化，输入区起点因此不动
+    expect(trigger().className).toContain('w-[6.5rem]');
+    expect(trigger().className).not.toContain('w-auto');
+    // 未识别时是弱化色的占位，而不是空白或宽文案
+    expect(trigger().textContent).toBe('选择类型');
+    expect(trigger().querySelector('span')!.className).toContain('text-primary');
+
+    // 输入命中关键词后类型被推断出来：字段名出现在同一个定宽槽里
+    typeInto(input, '名称');
+    const label = trigger().querySelector('span')!;
+    expect(label.textContent).toBe('产品名称');
+    // 字段名用弱化色，与输入内容的前景色区分开，不会被读成已输入的文字
+    // （按 class 逐项比对：输入框基础类里有 placeholder:text-muted-foreground，不能按子串判断）
+    expect(label.className.split(/\s+/)).toContain('text-muted-foreground');
+    expect(input.className.split(/\s+/)).not.toContain('text-muted-foreground');
+    // 过长时截断，不挤压输入区
+    expect(label.className).toContain('truncate');
+    // 仍是同一个下拉入口，可点开改类型
+    expect(trigger().querySelector('svg')).not.toBeNull();
+
+    // 清空输入后回到占位文案，槽宽不变
+    typeInto(input, '');
+    expect(trigger().textContent).toBe('选择类型');
+    expect(trigger().className).toContain('w-[6.5rem]');
+  });
+
+  it('无搜索项时工具条仍在，不随搜索面板一起消失', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [],
+    }));
+    // 搜索面板整体不渲染
+    expect(container.querySelector('.search-panel')).toBeNull();
+    // 但全屏/下载/列设置属于表格自身，必须保留
+    const tools = container.querySelector('.view-table-tools')!;
+    expect(tools).not.toBeNull();
+    expect(tools.querySelector('[aria-label="列设置"]')).not.toBeNull();
+    expect(container.querySelector('[data-slot="view-table"]')).not.toBeNull();
+  });
+
+  it('列设置可取消勾选隐藏列，表头/数据/统计行/导出同步', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [
+        { field: 'price', title: '价格', valueType: 'number' },
+        { field: 'stock', title: '库存' },
+      ],
+      summaryItems: [{ field: 'price', type: SummaryType.Sum }],
+    }));
+    const heads = () => [...container.querySelectorAll('thead th')].map((th) => th.textContent);
+    expect(heads()).toEqual(['价格', '库存']);
+
+    await openColumnSettings();
+    const checkbox = document.querySelector<HTMLButtonElement>('[aria-label="展示「价格」列"]')!;
+    expect(checkbox).not.toBeNull();
+    await act(async () => {
+      checkbox.click();
+    });
+
+    // 表头、colgroup、数据行、统计行四处同步收起该列
+    expect(heads()).toEqual(['库存']);
+    expect(container.querySelectorAll('colgroup col').length).toBe(1);
+    expect(container.querySelectorAll('tbody tr:first-child td').length).toBe(1);
+    expect(container.querySelectorAll('tfoot td').length).toBe(1);
+  });
+
+  it('列设置拖拽调整列顺序，表头与数据行同步换位', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [
+        { field: 'price', title: '价格' },
+        { field: 'stock', title: '库存' },
+        { field: 'name', title: '名称' },
+      ],
+    }));
+    const heads = () => [...container.querySelectorAll('thead th')].map((th) => th.textContent);
+    expect(heads()).toEqual(['价格', '库存', '名称']);
+
+    await openColumnSettings();
+    const items = document.querySelectorAll('[data-column-settings-item]');
+    // 把「价格」拖到「名称」的位置
+    act(() => {
+      items[0].dispatchEvent(new Event('dragstart', { bubbles: true }));
+      items[2].dispatchEvent(new Event('dragover', { bubbles: true }));
+    });
+
+    expect(heads()).toEqual(['库存', '名称', '价格']);
+    // 数据行按同一顺序换位（首列现在是「库存」字段）
+    const firstRowCells = container.querySelectorAll('tbody tr:first-child td');
+    expect(firstRowCells.length).toBe(3);
+  });
+
+  it('仅剩最后一列可见时不允许取消勾选，重置可恢复配置顺序与全部展示', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [
+        { field: 'price', title: '价格' },
+        { field: 'stock', title: '库存' },
+      ],
+    }));
+    await openColumnSettings();
+    const stock = () => document.querySelector<HTMLButtonElement>('[aria-label="展示「库存」列"]')!;
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[aria-label="展示「价格」列"]')!.click();
+    });
+    // 只剩库存可见，其勾选框被禁用
+    expect(stock().disabled).toBe(true);
+    await act(async () => {
+      stock().click();
+    });
+    expect([...container.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual(['库存']);
+
+    // 重置：重新勾选并回到配置顺序
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[aria-label="恢复默认列设置"]')!.click();
+    });
+    expect([...container.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual([
+      '价格',
+      '库存',
+    ]);
+  });
+
+  it('搜索框输入首字符不会丢焦点：类型推断前后是同一个输入节点', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '产品名称', keywords: ['名称'] }],
+    }));
+    const input = () => container.querySelector<HTMLInputElement>('.search-bar input')!;
+    const before = input();
+    expect(before).not.toBeNull();
+    // 未识别到类型时的初始形态
+    expect(before.getAttribute('aria-label')).toBe('搜索内容');
+    before.focus();
+    expect(document.activeElement).toBe(before);
+
+    // 输入一个字符/一次输入：命中「名称」关键词，类型被推断出来
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      setter.call(before, '名称');
+      before.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // 推断已生效（占位与标签切成该字段）
+    expect(input().getAttribute('aria-label')).toBe('按产品名称搜索');
+    // 且输入框没有被重建：旧节点仍在文档中并保持焦点
+    expect(before.isConnected).toBe(true);
+    expect(input()).toBe(before);
+    expect(document.activeElement).toBe(before);
+    expect(before.value).toBe('名称');
+  });
+
+  it('高级筛选面板就地展开，搜索面板与表格结构不被替换', async () => {
     act(() => store.getState().setView('table1', {
       ...store.getState().getView('table1'),
       searchItems: [{ field: 'name', title: '名称' }],
@@ -289,11 +528,98 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     await act(async () => {
       advanced.click();
     });
-    // 条件以弹窗呈现
+    // 条件以面板呈现
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     // 搜索面板保持原样：搜索条仍在，表格没有被重排
     expect(container.querySelector('.search-bar')).not.toBeNull();
     expect(container.querySelector('[data-slot="view-table"]')).not.toBeNull();
+  });
+
+  it('高级筛选是不带遮罩的就地面板，宽度贴合表格', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称' }, { field: 'price', title: '价格' }],
+    }));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[aria-label="高级筛选"]')!.click();
+    });
+    const panel = container.querySelector<HTMLElement>('[data-slot="search-advanced-panel"]')!;
+    expect(panel).not.toBeNull();
+    // 就地渲染在搜索面板内，而不是 Portal 到 body 的模态层
+    expect(panel.closest('.search-panel')).not.toBeNull();
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
+    // 用 inset-x-0 贴合搜索面板宽度（= 表格面板内容宽度），且不脱离文档流偏移
+    expect(panel.className).toContain('inset-x-0');
+    expect(panel.className).not.toContain('fixed');
+  });
+
+  it('高级筛选的条件与表单项共用同一套布局：一行四项', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称' }, { field: 'price', title: '价格' }],
+    }));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[aria-label="高级筛选"]')!.click();
+    });
+    const grid = container.querySelector<HTMLElement>('.search-panel-form')!;
+    // 与表单相同：24 列栅格
+    expect(grid.style.gridTemplateColumns).toContain('repeat(24');
+    const cells = [...grid.children].filter((el) => !el.className.includes('col-span-full'));
+    expect(cells.length).toBe(2);
+    // 与表单相同：宽屏 4 项一行（span 6）、标签在左且定宽
+    cells.forEach((cell) => {
+      expect(cell.className).toContain('@min-[56rem]/form:col-span-6');
+      expect(cell.className).toContain('@container/form-item');
+      expect(cell.querySelector('.form-item-label')).not.toBeNull();
+    });
+    // 栅格自身声明 @container/form 作为列数查询的基准：
+    // 旧实现查的是 @container/search，而弹窗被 Portal 到 body、已不在该容器内，
+    // 列数查询全部失效，才退化成一个条件独占一行
+    expect(grid.className).toContain('@container/form');
+    // 表单侧用的是同一份类名，样式不会各写一份而走偏
+    const formCell = container.querySelector<HTMLElement>('.view-form-row > div')!;
+    expect(formCell.className).toContain('@min-[56rem]/form:col-span-6');
+    expect(formCell.className).toContain('@container/form-item');
+  });
+
+  it('高级筛选面板在点击外部或按 Esc 时关闭，再次点击触发按钮也可收起', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称' }],
+    }));
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="高级筛选"]')!;
+    const opened = () => container.querySelector('[data-slot="search-advanced-panel"]') !== null;
+
+    // 点触发按钮展开；按钮本身不算"外部点击"，面板不会被立刻关掉
+    await act(async () => {
+      trigger.click();
+    });
+    expect(opened()).toBe(true);
+
+    // 点击面板外部（表格区域）关闭
+    await act(async () => {
+      container.querySelector<HTMLElement>('[data-slot="view-table"]')!.click();
+    });
+    expect(opened()).toBe(false);
+
+    // 再次展开后按 Esc 关闭
+    await act(async () => {
+      trigger.click();
+    });
+    expect(opened()).toBe(true);
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(opened()).toBe(false);
+
+    // 触发按钮可再次收起（开关语义）
+    await act(async () => {
+      trigger.click();
+    });
+    await act(async () => {
+      trigger.click();
+    });
+    expect(opened()).toBe(false);
   });
 
   it('搜索面板与表格合并到同一个面板,不再各自带边框与底色', () => {
@@ -732,18 +1058,33 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(tableText()).not.toContain('100');
   });
 
-  it('搜索重置取消待写条件，300ms 后不会复活', async () => {
+  it('「清空条件」承担重置职责：清掉条件、草稿与输入内容', async () => {
     vi.spyOn(NetUtils, 'get').mockResolvedValue({ code: 200, data: rows() } as any);
     act(() => store.getState().setView('table1', {
-      ...store.getState().getView('table1'), searchItems: [{ field: 'name', title: '名称' }],
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称', keywords: ['名称'] }],
     }));
     const search = container.querySelector('.search-panel input') as HTMLInputElement;
-    typeInto(search, 'pending');
-    const reset = container.querySelector('.search-panel button[aria-label="重置"]');
-    expect(reset).not.toBeNull();
-    await act(async () => { reset!.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
-    expect(search.value).toBe('');
+    // 输入并回车：推断出「名称」后提交为条件
+    typeInto(search, '名称');
+    await act(async () => {
+      search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'name'])).toBe('名称');
+
+    const clear = () => [...container.querySelectorAll('.search-tag-bar button')]
+      .find((btn) => btn.textContent === '清空条件')!;
+    expect(clear()).not.toBeUndefined();
+    // 制造草稿残留，验证清空会一并清掉（重置能力已从工具区移到 Tag 区）
+    act(() => store.getState().setData([PathKey.Req, 'table', 'searchDraft', 'name'], 'drafting'));
+
+    await act(async () => {
+      clear().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
     await act(async () => vi.advanceTimersByTimeAsync(300));
+
     expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'name'])).toBeUndefined();
+    expect(store.getState().getData([PathKey.Req, 'table', 'searchDraft'])).toEqual({});
+    expect(search.value).toBe('');
   });
 });

@@ -1,7 +1,7 @@
 import { useData } from '@/stores/store/hooks/useValue';
 import { useView } from '@/stores/store/hooks/useView';
 import { isArray, isObject, isString } from 'lodash';
-import { memo, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { cn } from '@/ui/lib/utils';
 import { type DPath } from '@/stores/store/interface';
 import SearchPanel from '../comp/searchPanel/SearchPanel';
@@ -12,6 +12,12 @@ import TablePagination from './comp/tablePagination';
 import TableTools from './comp/tableTools';
 import TableIdContext from './tableContext';
 import { RenderMode, type TableToolsConfig, type ViewTableProps } from './interface';
+import {
+  buildColumnOrder,
+  filterVisibleColumns,
+  moveColumn,
+  orderColumns,
+} from './utils/columnPrefs';
 import TableUtils from './utils/tableUtils';
 import useRowIdentityList, { type IdentityRow } from './utils/useRowIdentityList';
 
@@ -37,43 +43,103 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
     [viewId, view.items],
   );
   const panelRef = useRef<HTMLDivElement>(null);
+  // 列偏好：order 为 undefined、hiddenKeys 为空即"完全沿用配置"，
+  // 只记用户改过的部分，业务侧新增列不会被偏好挡住
+  const [columnOrder, setColumnOrder] = useState<string[] | undefined>(undefined);
+  const [hiddenKeys, setHiddenKeys] = useState<string[]>([]);
   // tools 置为 false 关闭；对象则按字段单独关闭（未声明默认开启）
   const toolsConfig: TableToolsConfig | undefined =
     view.tools === false ? undefined : isObject(view.tools) ? view.tools : {};
+
+  // 含被隐藏列在内的完整顺序：列设置面板按它列出全部列
+  const orderedColumns = useMemo(
+    () => orderColumns(columns, columnOrder),
+    [columns, columnOrder],
+  );
+  // 实际渲染的列：表头、数据行、统计行、CSV 导出都只看它，四处天然一致
+  const visibleColumns = useMemo(
+    () => filterVisibleColumns(orderedColumns, hiddenKeys),
+    [orderedColumns, hiddenKeys],
+  );
+
+  const onToggleColumn = useCallback(
+    (key: string, visible: boolean) => {
+      setHiddenKeys((prev) => {
+        if (visible) {
+          return prev.includes(key) ? prev.filter((each) => each !== key) : prev;
+        }
+        if (prev.includes(key)) {
+          return prev;
+        }
+        // 兜底保证至少一列可见（列设置里最后一列的勾选框已禁用）
+        return columns.length - prev.length - 1 < 1 ? prev : [...prev, key];
+      });
+    },
+    [columns.length],
+  );
+
+  const onMoveColumn = useCallback(
+    (fromKey: string, toKey: string) => {
+      setColumnOrder((prev) => {
+        const current = buildColumnOrder(columns, prev);
+        const next = moveColumn(current, fromKey, toKey);
+        return next === current ? prev : next;
+      });
+    },
+    [columns],
+  );
+
+  const onResetColumns = useCallback(() => {
+    setColumnOrder(undefined);
+    setHiddenKeys([]);
+  }, []);
+
+  const hasSearchItems = isArray(view.searchItems) && view.searchItems.length > 0;
+  const toolsNode = toolsConfig ? (
+    <TableTools
+      columns={visibleColumns}
+      dataPath={dataPath}
+      fullscreenTargetRef={panelRef}
+      config={toolsConfig}
+      columnSettings={{
+        allColumns: orderedColumns,
+        hiddenKeys,
+        onToggle: onToggleColumn,
+        onMove: onMoveColumn,
+        onReset: onResetColumns,
+      }}
+    />
+  ) : null;
 
   return (
     <div ref={panelRef} className={cn('view-table min-w-0', PANEL_PADDED)}>
       {/* 向行组件透传当前表格的 viewId,行组件据此订阅焦点高亮 */}
       <TableIdContext value={viewId}>
-        <SearchPanel
-          viewId={viewId}
-          items={view.searchItems}
-          tools={
-            toolsConfig ? (
-              <TableTools
-                columns={columns}
-                dataPath={dataPath}
-                fullscreenTargetRef={panelRef}
-                config={toolsConfig}
-              />
-            ) : null
-          }
-        />
+        {/* 搜索面板只承载搜索相关操作（搜索条 / 条件 Tag / 高级筛选） */}
+        {hasSearchItems && <SearchPanel viewId={viewId} items={view.searchItems} />}
         <VirtualTable
           viewId={viewId}
-          columns={columns}
+          columns={visibleColumns}
           dataSource={dataSource}
           height={view.height}
           summaryItems={view.summaryItems}
           summaryText={view.summaryText}
           dataPath={dataPath}
         />
-        {/* 分页条放在滚动区之外：不随表格滚动，也不会被统计行压住 */}
-        {view.pagination && (
-          <TablePagination
-            viewId={viewId}
-            config={isObject(view.pagination) ? view.pagination : {}}
-          />
+        {/* 底部行：左侧是表格工具（列设置/全屏/下载），右侧是分页条。
+            工具落在表格左下角而不是搜索条右上角——那里是搜索的地盘，
+            表格自身的操作跟表格数据收尾在一起更顺，也把左下角的空位用起来。
+            二者同在滚动区之外：不随表格滚动，也不会被统计行压住 */}
+        {(toolsNode || view.pagination) && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1">{toolsNode}</div>
+            {view.pagination && (
+              <TablePagination
+                viewId={viewId}
+                config={isObject(view.pagination) ? view.pagination : {}}
+              />
+            )}
+          </div>
         )}
       </TableIdContext>
     </div>

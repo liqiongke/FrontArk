@@ -1,7 +1,7 @@
 import { useSafeState, useMemoizedFn } from 'ahooks';
 import { isString } from 'lodash';
 import { useEffect, useMemo, useRef } from 'react';
-import { RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
+import { Search, SlidersHorizontal } from 'lucide-react';
 
 import { type SearchPlaneItem, type SearchValueKind } from '../interface';
 import { inferSearchType } from './infer/inferSearchType';
@@ -13,16 +13,17 @@ import { useSearchCriteria } from './useSearchCriteria';
 import { buildConditionTags } from './utils/buildConditionTags';
 import { resolveFieldOptions, resolveValueKind } from './utils/searchItemUtils';
 import { Button } from '@/ui/components/button';
-import { Input } from '@/ui/components/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/components/tooltip';
 
 export interface SearchBarProps {
   viewId: string;
   items: SearchPlaneItem[];
-  // 逃生门:打开完整条件弹窗
+  // 逃生门:展开/收起完整条件面板
   onToggleAdvanced?: () => void;
   // 条件行右侧的插槽:由调用方挂载表格通用工具等
   tools?: React.ReactNode;
+  // 高级筛选触发按钮的引用:供面板判定"点击触发按钮"不属于外部点击
+  advancedTriggerRef?: React.Ref<HTMLButtonElement>;
 }
 
 // 文本形态:值由搜索条受控持有(推断需要零延迟),提交时以 override 传入
@@ -37,7 +38,7 @@ const TEXT_KINDS: SearchValueKind[] = ['text', 'number'];
  * - 条件落地:回车提交为 Tag,Tag 由 criteria 派生,可删除、可点击回填编辑
  */
 const SearchBar: React.FC<SearchBarProps> = (props) => {
-  const { viewId, items, onToggleAdvanced, tools } = props;
+  const { viewId, items, onToggleAdvanced, tools, advancedTriggerRef } = props;
   const api = useSearchCriteria(viewId);
   const [lockedField, setLockedField] = useSafeState<string | undefined>(undefined);
   const [text, setText] = useSafeState('');
@@ -119,7 +120,8 @@ const SearchBar: React.FC<SearchBarProps> = (props) => {
   const selectType = useMemoizedFn((field: string) => {
     setLockedField(field);
     setError(undefined);
-    // 类型切换会重挂值区控件,主动把焦点交回输入框,保持连续输入
+    // 切到文本类型时输入框本身不重挂,主动聚焦保持连续输入；
+    // 切到日期/区间/枚举等专用控件时由 SearchValueInput 负责把焦点交给新控件
     requestAnimationFrame(() => inputRef.current?.focus());
   });
 
@@ -168,90 +170,56 @@ const SearchBar: React.FC<SearchBarProps> = (props) => {
       : undefined);
 
   return (
-    <div className="search-bar">
-      {/* 搜索条不占整行：限宽后靠左，只占搜索面板左上一块，避免整行只有输入框显得空旷 */}
-      <div className="flex justify-start">
-        <div className="flex w-full max-w-[560px] flex-wrap items-center gap-1 rounded-lg border bg-card px-2 py-1.5 focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-1">
-          <SearchTypeSelect
-            items={items}
-            value={activeField}
-            unresolved={!activeField}
-            onSelect={selectType}
-          />
-          {activeItem && api.reqId && activeKind && (
-            <SearchValueInput
-              reqId={api.reqId}
-              item={activeItem}
-              kind={activeKind}
-              text={TEXT_KINDS.includes(activeKind) ? text : undefined}
-              error={error}
-              inputRef={inputRef}
-              onTextChange={(next) => {
-                setText(next);
-                setError(undefined);
-              }}
-              onSubmit={submit}
-              onEscape={onEscape}
-              onBackspaceEmpty={onBackspaceEmpty}
-            />
-          )}
-          {!activeItem && (
-            // 未识别到类型时仍保留输入框:文本不丢,用户可从左侧下拉补选类型
-            <Input
-              ref={inputRef}
-              aria-label="搜索内容"
-              className="min-w-0 flex-1 border-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
-              placeholder="输入单号、名称、日期等，系统会自动判断搜索类型"
-              value={text}
-              aria-invalid={!!error}
-              onChange={(event) => {
-                setText(event.target.value);
-                setError(undefined);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  submit();
-                  return;
-                }
-                if (event.key === 'Escape') {
-                  onEscape();
-                  return;
-                }
-                if (event.key === 'Backspace' && !event.currentTarget.value) {
-                  onBackspaceEmpty();
-                }
-              }}
-            />
-          )}
-          <Button aria-label="搜索" onClick={submit}>
-            <Search />
-            搜索
-          </Button>
-          <Button variant="ghost" aria-label="重置" onClick={onReset}>
-            <RotateCcw />
-            重置
-          </Button>
-          {onToggleAdvanced && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" aria-label="高级筛选" onClick={onToggleAdvanced}>
-                  <SlidersHorizontal />
-                  高级筛选
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>打开全部搜索条件</TooltipContent>
-            </Tooltip>
-          )}
-        </div>
+    // 单行布局：左侧搜索框、中间条件 Tag、右侧表格工具三段对齐在同一行；
+    // 窄屏放不下时整段换行，不做横向滚动
+    <div className="search-bar flex flex-wrap items-center gap-x-3 gap-y-2">
+      {/* 搜索框：紧凑一体条——外层不再套定位容器，高度取常规输入框高度，
+          内部控件各自去边框，整体只留一圈边框。窄屏占满一行，宽屏定宽以免把 Tag 挤没。
+          宽度按「类型图标/字段名 + 占位文案完整显示 + 搜索图标」收敛，不按最长输入预留。
+          聚焦只加深边框、不加外发光，与表单输入框保持一致的焦点表现 */}
+      <div className="search-box flex h-9 w-full shrink-0 items-center gap-1 rounded-md border bg-card pl-1 focus-within:border-ring/60 @min-[56rem]/search:w-[440px]">
+        <SearchTypeSelect
+          items={items}
+          value={activeField}
+          unresolved={!activeField}
+          onSelect={selectType}
+        />
+        {/* 输入区只保留一个挂载点：未识别类型与已识别文本类型渲染的是同一棵子树，
+            否则输入第一个字符触发类型推断时节点会被重建，焦点掉到 body */}
+        <SearchValueInput
+          reqId={api.reqId}
+          item={activeItem}
+          kind={activeKind}
+          text={text}
+          error={error}
+          inputRef={inputRef}
+          onTextChange={(next) => {
+            setText(next);
+            setError(undefined);
+          }}
+          onSubmit={submit}
+          onEscape={onEscape}
+          onBackspaceEmpty={onBackspaceEmpty}
+        />
+        {/* 搜索：只留图标、无底色。用 ghost 而非默认实心主色——
+            页面上的黑色实心按钮是「行动召唤」的语义，搜索框里的提交不该抢同一个视觉层级。
+            高度铺满搜索框、左侧不留圆角，与输入框外边框严丝合缝。
+            焦点态交给搜索框的 focus-within 边框，避免 3px 焦点环溢出框外 */}
+        <Button
+          variant="ghost"
+          aria-label="搜索"
+          className="h-full w-9 shrink-0 rounded-l-none px-0 focus-visible:ring-0"
+          onClick={submit}
+        >
+          <Search />
+        </Button>
       </div>
 
-      {/* 条件行：左侧是识别提示与已生效条件，右侧挂表格通用工具（全屏/下载） */}
-      <div className="flex items-start justify-between gap-3">
+      {/* 中间：识别提示（输入反馈）与已生效条件。提示为空时整段不占位，
+          条件由 criteria 派生，「清空条件」就在其中 */}
+      <div className="flex min-w-0 flex-1 items-center">
+        <span className="text-muted-foreground mr-2 shrink-0 text-xs whitespace-nowrap empty:hidden" aria-live="polite">{hint}</span>
         <div className="min-w-0 flex-1">
-          <div className="min-h-5 px-1 pt-1 text-xs text-muted-foreground" aria-live="polite">
-            {hint}
-          </div>
           <SearchTagBar
             tags={tags}
             onRemove={api.removeCondition}
@@ -259,6 +227,27 @@ const SearchBar: React.FC<SearchBarProps> = (props) => {
             onClearAll={onReset}
           />
         </div>
+      </div>
+
+      {/* 右侧工具：高级筛选 + 调用方挂载的表格通用工具（列设置/全屏/下载）。
+          不再提供「重置」：条件区的「清空条件」已经承担同一职责 */}
+      <div className="flex shrink-0 items-center gap-1">
+        {onToggleAdvanced && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                ref={advancedTriggerRef}
+                variant="outline"
+                size="icon-sm"
+                aria-label="高级筛选"
+                onClick={onToggleAdvanced}
+              >
+                <SlidersHorizontal />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>展开全部搜索条件</TooltipContent>
+          </Tooltip>
+        )}
         {tools}
       </div>
     </div>

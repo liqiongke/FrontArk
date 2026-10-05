@@ -222,4 +222,26 @@ export interface TableToolsConfig {
    * @desc 默认 table
    */
   exportFileName?: string;
+
+  /**
+   * @name 列设置
+   * @desc 默认 true；在工具区提供列设置入口，勾选控制是否展示、拖拽调整列顺序。
+   *       列数少于 2 时无顺序/可见性可调，不渲染该入口。
+   *       导出的 CSV 与展示中的列保持一致（同顺序、同可见性）。
+   */
+  columns?: boolean;
+}
+
+/** 列设置入口的回调集合，由表格主体提供、工具区透传 */
+export interface ColumnSettingsProps {
+  /** 全部列（含被隐藏的列），按当前展示顺序排列 */
+  allColumns: TableColumn[];
+  /** 被隐藏的列 key */
+  hiddenKeys: string[];
+  /** 勾选/取消勾选某一列，visible 为 false 表示隐藏 */
+  onToggle: (key: string, visible: boolean) => void;
+  /** 拖拽换位：把 fromKey 移到 toKey 的位置 */
+  onMove: (fromKey: string, toKey: string) => void;
+  /** 恢复配置顺序与全部展示 */
+  onReset: () => void;
 }

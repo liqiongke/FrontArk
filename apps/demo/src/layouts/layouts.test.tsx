@@ -176,4 +176,39 @@ describe('界面迁移回归', () => {
     expect(container.querySelector('main')?.textContent).toContain('首页内容');
     expect(button('首页').getAttribute('aria-current')).toBe('page');
   });
+
+  it('顶部页签跟随路由增减，点击可切换，关闭页签后回到相邻页面', async () => {
+    const tabs = () =>
+      Array.from(container.querySelectorAll<HTMLButtonElement>('header [role="tab"]'));
+
+    await mountApp('/base/table');
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['首页', '表格']);
+    expect(tabs()[1].getAttribute('aria-selected')).toBe('true');
+
+    // 点击页签切换路由，已打开页签保持不变
+    await flush(() => tabs()[0].click());
+    expect(router?.state.location.pathname).toBe('/');
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['首页', '表格']);
+    expect(tabs()[0].getAttribute('aria-selected')).toBe('true');
+
+    // 导航到新路由时追加页签
+    await flush(() => router!.navigate('/base/form'));
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['首页', '表格', '表单']);
+
+    // 关闭激活页签：回到相邻页签
+    const closeForm = container.querySelector<HTMLElement>('[aria-label="关闭 表单"]')!;
+    await flush(() => closeForm.click());
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['首页', '表格']);
+    expect(router?.state.location.pathname).toBe('/base/table');
+
+    // 重新打开后关闭非激活页签：当前页面不受影响
+    await flush(() => router!.navigate('/base/form'));
+    const closeTable = container.querySelector<HTMLElement>('[aria-label="关闭 表格"]')!;
+    await flush(() => closeTable.click());
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['首页', '表单']);
+    expect(router?.state.location.pathname).toBe('/base/form');
+
+    // 固定页签不提供关闭入口
+    expect(container.querySelector('[aria-label="关闭 首页"]')).toBeNull();
+  });
 });
