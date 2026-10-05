@@ -7,7 +7,9 @@ import { cn } from '@/ui/lib/utils';
 
 const CtrlText: React.FC<SysCtrlProps<CtrlTextProps>> = (props) => {
   const { ctrl, path, sourceView } = props;
-  const align = ctrl?.align || 'left';
+  // 对齐不设默认值：表单里未声明时由 Input 基线（居右）决定；
+  // 表格单元格的对齐始终由 BoundTableCell 按列配置注入，写死默认值反而会盖掉列对齐
+  const align = ctrl?.align;
   const isRightAlign = align === 'right';
 
   const value = useData(path);

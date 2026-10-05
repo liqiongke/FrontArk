@@ -15,8 +15,11 @@ class View extends ViewBase<Handler, Data> {
     type: VType.Table,
     dataId: this.data.mainTable.id,
     // 启用结构订阅模式:字段编辑仅更新对应控件,不再带动表格外壳更新
-    // (本页无本地排序/过滤/行选择依赖;行键缺失/重复/非字符串时框架自动回退经典模式)
+    // (本页无本地排序/过滤依赖;行键缺失/重复/非字符串时框架自动回退经典模式。
+    //  行勾选只按行键记账,两种渲染模式都可用)
     renderMode: RenderMode.Subscription,
+    // 行勾选:多选,勾选列默认固定在最左侧;handler 里用 getSelectedKeys/getSelectedRows 读取
+    selection: { mode: 'multiple' },
     // 搜索项同时服务两种模式:
     // simple 模式按 valueKind/keywords/regExp 推断类型并切换输入控件
     // advanced 模式按 ctrl 渲染完整表单
@@ -64,7 +67,8 @@ class View extends ViewBase<Handler, Data> {
       },
     ],
     items: [
-      { title: '产品ID', field: 'id' },
+      // 固定列:横向滚动时钉在表格首/尾(列数多时可随时对照首列与状态列)
+      { title: '产品ID', field: 'id', width: 120, fixed: 'left' },
       { title: '产品名称', field: 'name' },
       // valueType: 'number' 表示数字列：该列右对齐，并用等宽数字让小数点对齐
       // width 为建议列宽，表格是 fixed 布局，列宽只由它与用户拖拽决定，不随内容变化
@@ -77,7 +81,7 @@ class View extends ViewBase<Handler, Data> {
       { title: '评分', field: 'rating', width: 90, valueType: 'number' },
       { title: '颜色', field: 'color' },
       { title: '保修期', field: 'warranty' },
-      { title: '创建时间', field: 'createTime', width: 180 },
+      { title: '创建时间', field: 'createTime', width: 180, fixed: 'right' },
     ],
     // 服务端分页:分页参数写入数据节点 criteria 后重新请求,页码/总数取自响应体的 @pagination
     // 后端未返回 @pagination 时整条分页不渲染,因此这份配置对不支持的接口无害
@@ -135,6 +139,18 @@ class View extends ViewBase<Handler, Data> {
       {
         type: Ctrl.Button,
         variant: 'outline',
+        text: '查看勾选',
+        onClick: this.handler.onPrintSelected,
+      },
+      {
+        type: Ctrl.Button,
+        variant: 'outline',
+        text: '清空勾选',
+        onClick: this.handler.onClearSelected,
+      },
+      {
+        type: Ctrl.Button,
+        variant: 'outline',
         text: '查看读取统计',
         onClick: this.handler.printDataStats,
       },
@@ -162,7 +178,7 @@ class View extends ViewBase<Handler, Data> {
   layout: VProps.Flex = {
     id: 'layout',
     type: VType.LayoutFlex,
-    gutter: 24,
+    gutter: 12,
     items: [this.form1.id, this.table1.id],
   };
 

@@ -18,6 +18,8 @@ import {
   moveColumn,
   orderColumns,
 } from './utils/columnPrefs';
+import { partitionColumnsByFixed } from './utils/fixedColumns';
+import { filterDataColumns, resolveSelectionConfig } from './utils/selection';
 import TableUtils from './utils/tableUtils';
 import useRowIdentityList, { type IdentityRow } from './utils/useRowIdentityList';
 
@@ -36,12 +38,16 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
   dataSource: IdentityRow[];
   dataPath?: DPath;
 }) {
+  // 行勾选配置：未开启时 undefined，勾选列也不会被合成出来
+  const selection = useMemo(() => resolveSelectionConfig(view.selection), [view.selection]);
   // 生成表格列
   // 单元格取数路径由 BoundTableCell 内部按 view.path ?? view.dataId 约定解析
   const columns = useMemo(
-    () => TableUtils.createColumns(viewId, view.items),
-    [viewId, view.items],
+    () => TableUtils.createColumns(viewId, view.items, selection),
+    [viewId, view.items, selection],
   );
+  // 数据列（不含勾选列）：列设置与 CSV 导出只认业务列，勾选列不该被隐藏/调序/导出
+  const dataColumns = useMemo(() => filterDataColumns(columns), [columns]);
   const panelRef = useRef<HTMLDivElement>(null);
   // 列偏好：order 为 undefined、hiddenKeys 为空即"完全沿用配置"，
   // 只记用户改过的部分，业务侧新增列不会被偏好挡住
@@ -51,9 +57,11 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
   const toolsConfig: TableToolsConfig | undefined =
     view.tools === false ? undefined : isObject(view.tools) ? view.tools : {};
 
-  // 含被隐藏列在内的完整顺序：列设置面板按它列出全部列
+  // 含被隐藏列在内的完整顺序：列设置面板按它列出全部列。
+  // 固定列按「左固定在前、右固定在后」分区：这样列设置里的顺序与渲染顺序一致，
+  // 且把固定列拖到中间也会被拉回本侧，偏移量始终等于本侧宽度累加
   const orderedColumns = useMemo(
-    () => orderColumns(columns, columnOrder),
+    () => partitionColumnsByFixed(orderColumns(columns, columnOrder)),
     [columns, columnOrder],
   );
   // 实际渲染的列：表头、数据行、统计行、CSV 导出都只看它，四处天然一致
@@ -61,6 +69,8 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
     () => filterVisibleColumns(orderedColumns, hiddenKeys),
     [orderedColumns, hiddenKeys],
   );
+  // 可见的数据列：工具区（CSV 导出）用，避免导出勾选列
+  const visibleDataColumns = useMemo(() => filterDataColumns(visibleColumns), [visibleColumns]);
 
   const onToggleColumn = useCallback(
     (key: string, visible: boolean) => {
@@ -71,11 +81,12 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
         if (prev.includes(key)) {
           return prev;
         }
-        // 兜底保证至少一列可见（列设置里最后一列的勾选框已禁用）
-        return columns.length - prev.length - 1 < 1 ? prev : [...prev, key];
+        // 兜底保证至少一列可见（列设置里最后一列的勾选框已禁用）。
+        // 按数据列计数：勾选列不能被当作「最后那一列」
+        return dataColumns.length - prev.length - 1 < 1 ? prev : [...prev, key];
       });
     },
-    [columns.length],
+    [dataColumns.length],
   );
 
   const onMoveColumn = useCallback(
@@ -97,12 +108,14 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
   const hasSearchItems = isArray(view.searchItems) && view.searchItems.length > 0;
   const toolsNode = toolsConfig ? (
     <TableTools
-      columns={visibleColumns}
+      // CSV 导出只含业务列：勾选列没有字段可导出
+      columns={visibleDataColumns}
       dataPath={dataPath}
       fullscreenTargetRef={panelRef}
       config={toolsConfig}
       columnSettings={{
-        allColumns: orderedColumns,
+        // 列设置同样只列业务列：勾选列的显隐/顺序不由用户决定
+        allColumns: filterDataColumns(orderedColumns),
         hiddenKeys,
         onToggle: onToggleColumn,
         onMove: onMoveColumn,
@@ -125,6 +138,7 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
           summaryItems={view.summaryItems}
           summaryText={view.summaryText}
           dataPath={dataPath}
+          selection={selection}
         />
         {/* 底部行：左侧是表格工具（列设置/全屏/下载），右侧是分页条。
             工具落在表格左下角而不是搜索条右上角——那里是搜索的地盘，

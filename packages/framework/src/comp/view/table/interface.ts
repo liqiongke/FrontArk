@@ -12,6 +12,13 @@ export type TableValueType = 'text' | 'number';
 /** 列对齐方式：表头与该列所有内容（数据格、统计格）共用同一取值 */
 export type TableAlign = 'left' | 'center' | 'right';
 
+/**
+ * 列固定位置
+ * - left  横向滚动时钉在表格头部（左端），始终可见
+ * - right 钉在表格尾部（右端）
+ */
+export type TableColumnFixed = 'left' | 'right';
+
 export interface TableColumn {
   title: string;
   width?: number;
@@ -24,6 +31,13 @@ export interface TableColumn {
    * 表头直接复用它，保证标题与列内内容左右一致（标题不会与内容反向错位）。
    */
   align: TableAlign;
+  /** 固定列位置；未声明即随表格横向滚动 */
+  fixed?: TableColumnFixed;
+  /**
+   * 是否为行勾选列（由 selection 配置合成，不对应业务字段）
+   * 勾选列不出现在列设置与 CSV 导出里，渲染成复选框而非字段单元格
+   */
+  selection?: boolean;
 }
 
 /**
@@ -33,13 +47,14 @@ export interface TableColumn {
 export enum RenderMode {
   /**
    * 经典模式(默认):dataSource 为完整记录数组,列渲染依赖 record;
-   * 兼容依赖完整 record 的本地排序/过滤/展开/行选择等能力
+   * 兼容依赖完整 record 的本地排序/过滤/展开等能力
    */
   Record = 'record',
   /**
    * 结构订阅模式:dataSource 仅含行身份描述({@key}),字段值由单元格控件按 @Row 自行订阅;
    * 普通字段编辑只更新对应控件,不再带动表格外壳更新;
-   * 行键缺失/重复/非字符串时自动回退 Record 模式(此类数据下 @Row 无法安全寻址)
+   * 行键缺失/重复/非字符串时自动回退 Record 模式(此类数据下 @Row 无法安全寻址)。
+   * 行勾选(selection)只按行键记账,不读 record,两种模式都可用
    */
   Subscription = 'subscription',
 }
@@ -64,7 +79,7 @@ export interface ViewTableProps extends ViewStructBase {
 
   /**
    * @name 渲染模式
-   * @desc 默认 Record;无本地排序/过滤/行选择依赖的表格可启用 Subscription,
+   * @desc 默认 Record;无本地排序/过滤依赖的表格可启用 Subscription,
    *       将行结构更新与字段值更新分离(详见 docs/design/table-cell-update-analysis.md 5.2)
    */
   renderMode?: RenderMode;
@@ -96,7 +111,41 @@ export interface ViewTableProps extends ViewStructBase {
    * @desc 默认开启全屏显示与下载数据；置为 false 关闭，或传入配置单独控制
    */
   tools?: boolean | TableToolsConfig;
+
+  /**
+   * @name 行勾选
+   * @desc 置为 true 或传入配置即启用，表格最左侧出现勾选列。
+   *       选中态以行键保存在视图参数 @Select 上（与焦点行 @Active 同一机制），
+   *       因此翻页/刷新后仍在，handler 侧用 getSelectedKeys / getSelectedRows 读取。
+   */
+  selection?: boolean | TableSelectionConfig;
 }
+
+/** 勾选模式：单选（同时最多一行）/ 多选 */
+export type TableSelectionMode = 'single' | 'multiple';
+
+export interface TableSelectionConfig {
+  /**
+   * @name 勾选模式
+   * @desc 默认 multiple；single 时选中新行会自动取消上一行
+   */
+  mode?: TableSelectionMode;
+
+  /**
+   * @name 勾选列宽度(px)
+   * @desc 默认 48
+   */
+  width?: number;
+
+  /**
+   * @name 勾选列是否固定左侧
+   * @desc 默认 true；勾选列随表格横向滚动而滚走时无法操作，一般不需要关
+   */
+  fixed?: boolean;
+}
+
+/** 行键：数据节点为每行注入的 @key */
+export type TableRowKey = string | number;
 
 /** 服务端分页的响应元信息（响应体 `@pagination`） */
 export interface TablePaginationInfo {
@@ -202,6 +251,13 @@ export interface TableItemProps extends ViewItem {
    * @desc 默认 text；置为 number 后该列内容右对齐，并用等宽数字让小数点对齐
    */
   valueType?: TableValueType;
+
+  /**
+   * @name 固定列
+   * @desc left / right 让该列在横向滚动时钉在表格首尾（表头、数据行、统计行同步固定）。
+   *       固定列在渲染顺序上恒排在本侧最前/最后，与列设置里的拖拽顺序无关
+   */
+  fixed?: TableColumnFixed;
 }
 
 export interface TableToolsConfig {

@@ -17,6 +17,26 @@ const RECENT_DAYS_PATTERN = /^(?:近|最近|过去)(\d{1,3})天$/;
 // 区间分隔符:2026-10-01 ~ 2026-10-03 / 至 / 到 / ...
 const RANGE_SPLIT_PATTERN = /\s*(?:~|～|至|到)\s*|\.{3}/;
 
+// 多值分隔符:半角/全角逗号。与 Tag 的展示分隔符一致,保证「回填 -> 再提交」能原样还原
+const MULTI_SPLIT_PATTERN = /[,，]/;
+
+/**
+ * 按多值分隔符切分输入
+ * - 未出现分隔符、或任一段为空(如 'a,'、',a')时整体不切分,避免半个逗号就改变语义
+ * - 空文本返回空数组,交由调用方给出「请先填写内容」
+ */
+export const splitMultiValues = (text: string): string[] => {
+  const value = text.trim();
+  if (!value) {
+    return [];
+  }
+  if (!MULTI_SPLIT_PATTERN.test(value)) {
+    return [value];
+  }
+  const parts = value.split(MULTI_SPLIT_PATTERN).map((part) => part.trim());
+  return parts.some((part) => part === '') ? [value] : parts;
+};
+
 export interface DateRangeValue {
   start: string;
   end: string;
@@ -101,10 +121,10 @@ export const isDateText = (text: string) => !!parseDateInput(text);
 /** 形状判定:文本是否为日期区间(含相对日期) */
 export const isDateRangeText = (text: string) => !!parseDateRangeInput(text);
 
-/** 形状判定:文本是否为合法数字(允许负数与小数) */
+/** 形状判定:文本是否为合法数字;支持逗号分隔的多值(如 '123,234,345') */
 export const isNumberText = (text: string) => {
-  const value = text.trim();
-  return value !== '' && Number.isFinite(Number(value));
+  const values = splitMultiValues(text);
+  return values.length > 0 && values.every((value) => Number.isFinite(Number(value)));
 };
 
 /** 形状判定:文本是否为布尔意图(仅中英文常见写法,避免误吞普通文本) */

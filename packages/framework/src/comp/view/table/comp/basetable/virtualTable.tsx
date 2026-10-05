@@ -14,8 +14,12 @@ import { cn } from '@/ui/lib/utils';
 import OverlayScrollBar, { OVERLAY_SCROLL_CONTAINER_CLASS } from '@/ui/components/overlay-scrollbar';
 import TableRow from './tableRow';
 import BoundTableCell from './boundTableCell';
+import SelectionCell from './selectionCell';
+import SelectionHeadCell from './selectionHeadCell';
 import TableSummaryRow from './tableSummaryRow';
-import { type TableColumn, type TableSummaryItem } from '../../interface';
+import { type TableColumn, type TableSelectionConfig, type TableSummaryItem } from '../../interface';
+import { fixedCellStyle, hasFixedColumns, resolveFixedOffsets } from '../../utils/fixedColumns';
+import { collectRowKeys } from '../../utils/selection';
 import { tableRenderProbes } from '../../utils/tableTestProbes';
 
 // 行高估算值:动态测量(measureElement)前虚拟器使用的初始行高
@@ -40,15 +44,18 @@ interface VirtualTableProps {
   summaryText?: string;
   /** 表格数据路径,供统计行独立订阅全量数据 */
   dataPath?: DPath;
+  /** 行勾选配置;未开启时列里不会有勾选列 */
+  selection?: TableSelectionConfig;
 }
 
 // 列宽固定(table-layout: fixed):列宽只由配置与拖拽决定，不随内容变化,
 // 表头/表体天然对齐,横向滚动由外层 overflow 容器承担
 const VirtualTable: React.FC<VirtualTableProps> = (props) => {
-  const { viewId, columns, dataSource, height, summaryItems, summaryText, dataPath } = props;
+  const { viewId, columns, dataSource, height, summaryItems, summaryText, dataPath, selection } = props;
   // 框架自有测试探针:表格结构层执行计数(见迁移计划 5.3)
   tableRenderProbes.structure++;
 
+  const tableRef = useRef<HTMLTableElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // 吸顶表头/吸底统计行的实高决定覆盖式滚动条的可见区间，由滚动条自行读取
   const headerRef = useRef<HTMLTableSectionElement>(null);
@@ -139,6 +146,52 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
     [columns, columnWidthMap],
   );
 
+  // 固定列偏移量必须按「实际渲染宽度」累加：容器比列宽总和更宽时，
+  // fixed 布局会把余量摊给各列，声明宽度会比渲染宽度小，偏移量随之偏左。
+  // 无固定列时完全不测量（不引入额外的布局读取）
+  const hasFixed = useMemo(() => hasFixedColumns(columns), [columns]);
+  const [measuredWidths, setMeasuredWidths] = React.useState<number[]>([]);
+  React.useLayoutEffect(() => {
+    const scrollEl = scrollRef.current;
+    const tableEl = tableRef.current;
+    if (!hasFixed || !scrollEl || !tableEl) {
+      return;
+    }
+    const measure = () => {
+      const headers = Array.from(tableEl.querySelectorAll('thead th'));
+      // jsdom 无布局引擎时全部为 0：视为「测量不可用」，由调用方退回声明宽度
+      const widths = headers.map((header) => header.getBoundingClientRect().width);
+      setMeasuredWidths((prev) =>
+        prev.length === widths.length && prev.every((width, index) => Math.abs(width - widths[index]) < 0.5)
+          ? prev
+          : widths,
+      );
+    };
+    measure();
+    // 列宽拖拽、容器缩放、列增减都会改变渲染宽度；表格自身宽度不变时（未溢出）观察不到，
+    // 故除 ResizeObserver 外还把拖拽结果与容器宽度列为依赖
+    const observer = new ResizeObserver(measure);
+    observer.observe(tableEl);
+    return () => observer.disconnect();
+  }, [hasFixed, columns, columnWidths, containerWidth]);
+
+  const fixedOffsets = useMemo(() => {
+    if (!hasFixed) {
+      return {};
+    }
+    const measured = measuredWidths.some((width) => width > 0);
+    const widths = columns.map((col, index) =>
+      measured ? measuredWidths[index] ?? 0 : columnWidthMap[col.key] ?? 0,
+    );
+    return resolveFixedOffsets(columns, widths);
+  }, [hasFixed, columns, columnWidthMap, measuredWidths]);
+
+  // 当前数据（当前页/已加载行）的行键：表头全选只覆盖这些行
+  const pageKeys = useMemo(
+    () => (selection ? collectRowKeys(dataSource) : []),
+    [selection, dataSource],
+  );
+
   const onResizeStart = (key: string) => (event: React.PointerEvent<HTMLSpanElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -182,6 +235,7 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
         style={{ height: height ?? 400 }}
       >
         <table
+          ref={tableRef}
           className="w-full text-sm"
           data-slot="view-table"
           // fixed 布局 + 明确的列宽：内容再长也不会改变列宽；minWidth 保证列宽总和大于容器时横向滚动
@@ -195,14 +249,19 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
           {/* 表头吸顶需要不透明底色,取统一面板的底色,滚动时不会漏出下方行内容 */}
           <thead ref={headerRef} className="sticky top-0 z-10 bg-surface">
             {headerGroups.map((headerGroup) => (
-              <tr key={headerGroup.id} className="bg-muted/50">
+              // 表头底色取不透明 token：固定列表头用 bg-inherit 跟随，半透明底色会透出下方行
+              <tr key={headerGroup.id} className="bg-table-head">
                 {headerGroup.headers.map((header, headerIndex) => {
                   const column = columns[headerIndex];
+                  const fixedStyle = column ? fixedCellStyle(column, fixedOffsets) : undefined;
                   return (
                     <th
                       key={header.id}
+                      // 固定列 sticky 在本列左/右边界；z-20 压过列宽手柄(handle 为 z-10)，
+                      // 否则已滚到固定列下方的列的手柄会盖在固定列表头上
                       className={cn(
                         'border-border text-muted-foreground relative h-10 border-b px-3 align-middle font-medium whitespace-nowrap',
+                        fixedStyle && 'sticky z-20 bg-inherit',
                         // 标题对齐跟随本列内容：数字列标题右对齐，文本列左对齐
                         column?.align === 'right'
                           ? 'text-right'
@@ -210,12 +269,17 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
                             ? 'text-center'
                             : 'text-left',
                       )}
+                      style={fixedStyle}
                     >
-                      <span className="block truncate">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </span>
-                      {/* 列宽拖拽手柄：贴在本列表头右边界，拖动改变本列宽度 */}
-                      {column && (
+                      {column?.selection ? (
+                        <SelectionHeadCell pageKeys={pageKeys} mode={selection?.mode} />
+                      ) : (
+                        <span className="block truncate">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </span>
+                      )}
+                      {/* 列宽拖拽手柄：贴在本列表头右边界，拖动改变本列宽度；勾选列宽度由配置决定 */}
+                      {column && !column.selection && (
                         <span
                           role="separator"
                           aria-orientation="vertical"
@@ -228,13 +292,17 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
                           onPointerCancel={onResizeEnd}
                         >
                           {/*
-                            静止态：边界上留一段短横线作为「此处可拖拽」的常驻标识。
+                            静止态：边界上留一段短竖线作为「此处可拖拽」的常驻标识。
+                            线随边界走 —— 列与列的分隔本身是竖向的，横线读起来像表头下方的下划线，
+                            会被误认成装饰而不是分隔标记。
+                            颜色取主题的 --divider：1px 细线需要比 --border 更实才看得见，
+                            强弱由主题统一控制，组件里不写死透明度。
                             没有它时手柄只是 6px 透明热区，用户无法判断列宽能改。
-                            悬停/拖动时短横线让位给贯穿表头的竖线，直接指示当前拖拽位置。
+                            悬停/拖动时短竖线让位给贯穿表头的整条竖线，直接指示当前拖拽位置。
                           */}
                           <span
                             data-column-resizer-indicator="rest"
-                            className="absolute top-1/2 left-1/2 h-px w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/30 transition-opacity group-hover/resizer:opacity-0"
+                            className="absolute top-1/2 left-1/2 h-4 w-px -translate-x-1/2 -translate-y-1/2 rounded-full bg-divider transition-opacity group-hover/resizer:opacity-0"
                           />
                           <span
                             data-column-resizer-indicator="active"
@@ -279,21 +347,32 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
                   data-index={virtualRow.index}
                   data-row-key={identityKey ?? row.id}
                 >
-                  {columns.map((col) => (
-                    <td
-                      key={col.key}
-                      className="border-border px-3 py-2 align-middle whitespace-nowrap"
-                      style={{ height: virtualRow.size }}
-                    >
-                      <BoundTableCell
-                        viewId={viewId}
-                        columnKey={col.key}
-                        rowKey={identityKey}
-                        // 原始数据下标,与虚拟窗口无关(行身份缺失时的兜底寻址)
-                        fallbackIndex={isUndefined(identityKey) ? row.index : undefined}
-                      />
-                    </td>
-                  ))}
+                  {columns.map((col) => {
+                    // 固定列：sticky 定位 + 跟随行底色的不透明背景（行底色本身是不透明 token）
+                    const fixedStyle = fixedCellStyle(col, fixedOffsets);
+                    return (
+                      <td
+                        key={col.key}
+                        className={cn(
+                          'border-border px-3 py-2 align-middle whitespace-nowrap',
+                          fixedStyle && 'sticky z-[1] bg-inherit',
+                        )}
+                        style={{ height: virtualRow.size, ...fixedStyle }}
+                      >
+                        {col.selection ? (
+                          <SelectionCell rowKey={identityKey} mode={selection?.mode} />
+                        ) : (
+                          <BoundTableCell
+                            viewId={viewId}
+                            columnKey={col.key}
+                            rowKey={identityKey}
+                            // 原始数据下标,与虚拟窗口无关(行身份缺失时的兜底寻址)
+                            fallbackIndex={isUndefined(identityKey) ? row.index : undefined}
+                          />
+                        )}
+                      </td>
+                    );
+                  })}
                 </TableRow>
               );
             })}
@@ -314,6 +393,7 @@ const VirtualTable: React.FC<VirtualTableProps> = (props) => {
               items={summaryItems}
               summaryText={summaryText ?? '合计'}
               dataPath={dataPath}
+              fixedOffsets={fixedOffsets}
             />
           )}
         </table>

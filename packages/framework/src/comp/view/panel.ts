@@ -10,5 +10,11 @@
  */
 export const PANEL = 'rounded-lg bg-surface text-surface-foreground';
 
-/** 带统一内边距的面板：内边距数值与历史卡片保持一致，只保留一套 */
-export const PANEL_PADDED = `${PANEL} p-4 sm:p-6`;
+/**
+ * 带统一内边距的面板。
+ *
+ * 内边距取 p-3（12px）：页面外壳(MainLayout)与面板自身都留12px，
+ * 两层叠加正好是 12+12=24px，与表格单元格 px-3 的节奏一致，
+ * 避免外壳 lg:p-8 与面板 sm:p-6 叠加出的 32+24 过大留白。
+ */
+export const PANEL_PADDED = `${PANEL} p-3`;

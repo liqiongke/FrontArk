@@ -7,6 +7,7 @@ import StoreContext from '@/stores/store/storeContext';
 import createBaseStore from '@/stores/store/storeBase';
 import { ParamKey, PathKey } from '@/stores/store/interface';
 import NetUtils from '@/utils/netUtils';
+import HandlerBase from '@/handler/handlerBase';
 import { ViewType } from '../interface';
 import ViewForm from '../form/viewForm';
 import ViewTab from '../tab/viewTab';
@@ -192,15 +193,19 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(resizers[0].getAttribute('aria-label')).toContain('价格');
   });
 
-  it('列宽拖拽手柄带常驻短横线标识，悬停时切换为竖线', () => {
+  it('列宽拖拽手柄带常驻短竖线标识，悬停时伸展为整条竖线', () => {
     const table = container.querySelector('[data-slot="view-table"]')!;
     const resizer = table.querySelector('[data-column-resizer]')!;
-    // 静止态短横线：常驻可见（不依赖 hover），否则用户无从知道列宽可拖
+    // 静止态短竖线：常驻可见（不依赖 hover），否则用户无从知道列宽可拖
     const rest = resizer.querySelector('[data-column-resizer-indicator="rest"]')!;
     expect(rest).not.toBeNull();
-    expect(rest.className).toContain('h-px');
-    expect(rest.className).toContain('w-1.5');
-    expect(rest.className).toContain('bg-foreground/30');
+    // 分隔线竖向：与列边界同向，h-* 控制长度、w-px 保证是线而不是块
+    expect(rest.className).toContain('h-4');
+    expect(rest.className).toContain('w-px');
+    expect(rest.className).not.toContain('h-px');
+    // 颜色取自主题的统一细线参数（--divider），组件内不写死透明度
+    expect(rest.className).toContain('bg-divider');
+    expect(rest.className).not.toContain('bg-foreground/');
     // 悬停/拖动态竖线：默认透明，hover 手柄时显现
     const active = resizer.querySelector('[data-column-resizer-indicator="active"]')!;
     expect(active).not.toBeNull();
@@ -320,9 +325,17 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(bar.className).toContain('flex-wrap');
     expect(bar.className).toContain('items-center');
 
-    // 重置已下线：清空条件由 Tag 区的按钮承担
+    // 清空条件收敛为右侧工具区的重置图标，并停在高级筛选左侧
     expect(bar.querySelector('[aria-label="重置"]')).toBeNull();
-    expect(parts[1].textContent).toContain('清空条件');
+    const resetBtn = parts[2].querySelector<HTMLElement>('[aria-label="清空条件"]')!;
+    expect(resetBtn).not.toBeNull();
+    expect(resetBtn.textContent).toBe('');
+    expect(resetBtn.querySelector('svg')).not.toBeNull();
+    expect(parts[1].textContent).not.toContain('清空条件');
+    expect(
+      resetBtn.compareDocumentPosition(parts[2].querySelector('[aria-label="高级筛选"]')!)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     // 搜索框内只剩「类型图标 + 输入 + 搜索图标」
     const box = parts[0];
     expect(box.querySelector('[aria-label="高级筛选"]')).toBeNull();
@@ -1072,9 +1085,11 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     });
     expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'name'])).toBe('名称');
 
-    const clear = () => [...container.querySelectorAll('.search-tag-bar button')]
-      .find((btn) => btn.textContent === '清空条件')!;
-    expect(clear()).not.toBeUndefined();
+    // 重置图标只在有条件时出现，位置在搜索条右侧工具区
+    const clear = () =>
+      container.querySelector<HTMLButtonElement>('.search-bar [aria-label="清空条件"]')!;
+    expect(clear()).not.toBeNull();
+    expect(container.querySelector('.search-tag-bar [aria-label="清空条件"]')).toBeNull();
     // 制造草稿残留，验证清空会一并清掉（重置能力已从工具区移到 Tag 区）
     act(() => store.getState().setData([PathKey.Req, 'table', 'searchDraft', 'name'], 'drafting'));
 
@@ -1086,5 +1101,212 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'name'])).toBeUndefined();
     expect(store.getState().getData([PathKey.Req, 'table', 'searchDraft'])).toEqual({});
     expect(search.value).toBe('');
+    // 条件清空后图标随之消失
+    expect(container.querySelector('.search-bar [aria-label="清空条件"]')).toBeNull();
+  });
+
+  it('同字段多值以逗号展示，点 Tag 回填后回车是替换而不是追加', async () => {
+    vi.spyOn(NetUtils, 'get').mockResolvedValue({ code: 200, data: rows() } as any);
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'price', title: '价格', keywords: ['价格'], valueKind: 'number' }],
+    }));
+    const search = container.querySelector('.search-panel input') as HTMLInputElement;
+    const enter = async () => {
+      await act(async () => {
+        search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      });
+      await act(async () => vi.advanceTimersByTimeAsync(300));
+    };
+
+    // 连续输入三个数字：同字段合并为多值
+    for (const value of ['123', '234', '345']) {
+      typeInto(search, value);
+      await enter();
+    }
+    expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'price'])).toEqual([123, 234, 345]);
+    const tag = () => container.querySelector<HTMLElement>('.search-tag-bar [data-slot="tag"]')!;
+    expect(tag().textContent).toContain('123,234,345');
+
+    // 点 Tag：整条条件（逗号并列）回填进输入框
+    await act(async () => { tag().click(); });
+    expect(search.value).toBe('123,234,345');
+    expect(container.querySelector('.search-box [aria-label="清空搜索内容"]')).not.toBeNull();
+
+    // 删掉一段再回车：替换这条条件，不追加、也不新增条件
+    typeInto(search, '234,345');
+    await enter();
+    expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'price'])).toEqual([234, 345]);
+    expect(container.querySelectorAll('.search-tag-bar [data-slot="tag"]').length).toBe(1);
+    expect(tag().textContent).toContain('234,345');
+  });
+
+  it('回填单值文本时，值里的逗号是内容而不是多值分隔符', async () => {
+    vi.spyOn(NetUtils, 'get').mockResolvedValue({ code: 200, data: rows() } as any);
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称', keywords: ['名称'] }],
+    }));
+    act(() => store.getState().setData([PathKey.Req, 'table', 'criteria', 'name'], 'A,B公司'));
+
+    const tag = container.querySelector<HTMLElement>('.search-tag-bar [data-slot="tag"]')!;
+    await act(async () => { tag.click(); });
+    const search = container.querySelector('.search-panel input') as HTMLInputElement;
+    expect(search.value).toBe('A,B公司');
+
+    await act(async () => {
+      search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(300));
+    // 原条件本来就是单值，回车后仍是同一个单值
+    expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'name'])).toBe('A,B公司');
+  });
+
+  it('输入框内的叉号：有内容才出现，点击只清输入区、不动已生效条件', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      searchItems: [{ field: 'name', title: '名称', keywords: ['名称'] }],
+    }));
+    act(() => store.getState().setData([PathKey.Req, 'table', 'criteria', 'name'], 'x'));
+    const search = container.querySelector('.search-panel input') as HTMLInputElement;
+    const clearBtn = () => container.querySelector<HTMLButtonElement>('.search-box [aria-label="清空搜索内容"]');
+    expect(clearBtn()).toBeNull();
+
+    typeInto(search, 'abc');
+    const button = clearBtn();
+    expect(button).not.toBeNull();
+    // 紧贴搜索图标左侧
+    expect(
+      button!.compareDocumentPosition(container.querySelector('.search-box [aria-label="搜索"]')!)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await act(async () => { button!.click(); });
+    expect(search.value).toBe('');
+    expect(clearBtn()).toBeNull();
+    // 条件不在输入区里，不随清空消失
+    expect(store.getState().getData([PathKey.Req, 'table', 'criteria', 'name'])).toBe('x');
+    expect(container.querySelectorAll('.search-tag-bar [data-slot="tag"]').length).toBe(1);
+  });
+
+  it('开启勾选后出现勾选列，勾选态落在 @Select 且可被 handler 读取', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      selection: true,
+    }));
+    const rowBoxes = () =>
+      [...container.querySelectorAll<HTMLElement>('tbody [data-slot="checkbox"]')];
+    const headBox = () => container.querySelector<HTMLElement>('thead [data-slot="checkbox"]');
+    const selectedKeys = () => store.getState().viewParams.table1[ParamKey.Select];
+
+    // 勾选列：表头一个全选框 + 每行一个勾选框
+    expect(headBox()).not.toBeNull();
+    expect(rowBoxes().length).toBe(2);
+
+    // 逐行勾选：多选模式按勾选顺序累积
+    await act(async () => rowBoxes()[0].click());
+    expect(selectedKeys()).toEqual(['a']);
+    await act(async () => rowBoxes()[1].click());
+    expect(selectedKeys()).toEqual(['a', 'b']);
+    // 全选态：两行都选中后表头为 checked
+    expect(headBox()!.getAttribute('data-state')).toBe('checked');
+    // 再点一次取消本行
+    await act(async () => rowBoxes()[1].click());
+    expect(selectedKeys()).toEqual(['a']);
+    // 部分选中 → 半选
+    expect(headBox()!.getAttribute('data-state')).toBe('indeterminate');
+
+    // 半选时点表头是「补齐」而不是清空
+    await act(async () => headBox()!.click());
+    expect(selectedKeys()).toEqual(['a', 'b']);
+    // 全选时点表头清空
+    await act(async () => headBox()!.click());
+    expect(selectedKeys()).toEqual([]);
+
+    // handler 侧按行键与整行记录读取同一份勾选态
+    class TestHandler extends HandlerBase {}
+    const handler = new TestHandler();
+    handler.init(() => store.getState());
+    await act(async () => rowBoxes()[0].click());
+    expect(handler.getSelectedKeys('table1')).toEqual(['a']);
+    expect(handler.getSelectedRows('table1')).toEqual([{ [KeyAttr]: 'a', price: '100', stock: '5' }]);
+    handler.setSelectedKeys('table1', ['b']);
+    expect(selectedKeys()).toEqual(['b']);
+    expect(handler.getSelectedRows('table1')).toEqual([{ [KeyAttr]: 'b', price: '100', stock: '6' }]);
+  });
+
+  it('单选模式：选中新行顶掉上一行，且不渲染全选框', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      selection: { mode: 'single' },
+    }));
+    const rowBoxes = () =>
+      [...container.querySelectorAll<HTMLElement>('tbody [data-slot="checkbox"]')];
+    const selectedKeys = () => store.getState().viewParams.table1[ParamKey.Select];
+
+    expect(container.querySelector('thead [data-slot="checkbox"]')).toBeNull();
+    await act(async () => rowBoxes()[0].click());
+    expect(selectedKeys()).toEqual(['a']);
+    await act(async () => rowBoxes()[1].click());
+    expect(selectedKeys()).toEqual(['b']);
+    await act(async () => rowBoxes()[1].click());
+    expect(selectedKeys()).toEqual([]);
+  });
+
+  it('勾选列不出现在列设置里（业务列过滤）', async () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      selection: true,
+    }));
+    await openColumnSettings();
+    const items = [...document.querySelectorAll('[data-column-settings-item]')];
+    expect(items.map((item) => item.getAttribute('data-column-settings-item'))).toEqual([
+      'price_0',
+      'stock_1',
+    ]);
+  });
+
+  it('固定列：按左右分区排序，表头/数据格/统计格写同一份 sticky 偏移', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      // 配置顺序故意打乱：右固定写在最前，左固定写在最后
+      items: [
+        { field: 'status', title: '状态', width: 90, fixed: 'right' },
+        { field: 'stock', title: '库存', width: 120 },
+        { field: 'price', title: '价格', width: 100, fixed: 'left' },
+      ],
+      summaryItems: [{ field: 'price', type: SummaryType.Sum }],
+    }));
+    const headers = [...container.querySelectorAll<HTMLElement>('thead th')];
+    // 左固定在前、右固定在后，与配置顺序无关
+    expect(headers.map((th) => th.textContent)).toEqual(['价格', '库存', '状态']);
+    // jsdom 无布局引擎：偏移量退回声明宽度（左固定累加本侧宽度，右固定从尾部反着累加）
+    expect(headers[0].className).toContain('sticky');
+    expect(headers[0].style.left).toBe('0px');
+    expect(headers[1].className).not.toContain('sticky');
+    expect(headers[1].style.left).toBe('');
+    expect(headers[2].style.right).toBe('0px');
+    // 数据格与表头同源：同一列同一偏移
+    const firstRowCells = [...container.querySelectorAll<HTMLElement>('tbody tr:first-child td')];
+    expect(firstRowCells[0].style.left).toBe('0px');
+    expect(firstRowCells[0].className).toContain('bg-inherit');
+    expect(firstRowCells[2].style.right).toBe('0px');
+    // 统计格同样固定
+    const footCells = [...container.querySelectorAll<HTMLElement>('tfoot td')];
+    expect(footCells[0].style.left).toBe('0px');
+    expect(footCells[2].style.right).toBe('0px');
+  });
+
+  it('固定列偏移按同侧列宽累加（两列左固定）', () => {
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      items: [
+        { field: 'price', title: '价格', width: 100, fixed: 'left' },
+        { field: 'stock', title: '库存', width: 60, fixed: 'left' },
+      ],
+    }));
+    const headers = [...container.querySelectorAll<HTMLElement>('thead th')];
+    expect(headers[0].style.left).toBe('0px');
+    expect(headers[1].style.left).toBe('100px');
   });
 });

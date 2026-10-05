@@ -282,6 +282,7 @@ columns.render(record)
 - 当前页没有声明本地排序、过滤、树形展开或合并单元格，适合作为首个使用者；搜索通过请求更新列表。
 - 不向 Ant Design 的本地 sorter/filter、rowSpan、expandedRowRender、rowSelection record 回调直接提供只有 key 的假 record。凡依赖完整 record 的行为，先保持 `record` 模式。
 - 未来要支持这些能力，应把它们依赖的数据纳入结构派生，或提供读取最新真实 record 的明确适配层；不能假定它们自动兼容。
+- 补充（行勾选已落地）：表格的 `selection` 按**行键**记账，选中态写在视图参数 `@Select` 上、不读 record，因此 `Subscription` 模式同样可用；handler 侧用 `getSelectedKeys / getSelectedRows` 读取（后者按需从数据快照里按键捞行，不新增订阅）。因此「行选择」不再是必须退回 `record` 模式的能力。
 
 增加的修改点：`viewTable.tsx`、表格 `interface.ts`、一个表格局部的结构订阅 hook，以及 demo 的 `table1` 模式声明。继续复用第一阶段的身份绑定单元格，不改变业务数据存储形状。
 

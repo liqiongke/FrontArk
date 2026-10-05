@@ -39,9 +39,11 @@ const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>((props, re
     setViewParamByKey(tableId, ParamKey.Active, rowKey);
   });
 
+  // 行底色一律取不透明色：固定列单元格用 bg-inherit 跟随行状态，
+  // 半透明底色会让横向滚动时从固定列下方滑过的单元格文字透出来
   const classText = useMemo(() => {
-    return `view-table-row ${className ?? ''} cursor-pointer border-b transition-colors ${
-      isActive ? 'view-table-row-active bg-muted hover:bg-muted' : 'hover:bg-muted/50'
+    return `view-table-row ${className ?? ''} cursor-pointer border-b bg-surface transition-colors ${
+      isActive ? 'view-table-row-active bg-muted hover:bg-muted' : 'hover:bg-row-hover'
     }`;
   }, [className, isActive]);
 

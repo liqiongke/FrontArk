@@ -5,9 +5,9 @@ import { useContext } from 'react';
 import { PathKey, type IStoreBase } from '@/stores/store/interface';
 import StoreContext from '@/stores/store/storeContext';
 import { useReq } from '@/stores/store/hooks/useReq';
-import { type SearchPlaneItem } from '../interface';
+import { type SearchCommitMode, type SearchPlaneItem, type SearchValueKind } from '../interface';
 import { normalizeSearchValue } from './infer/normalizeValue';
-import { isEmptySearchValue, resolveValueKind } from './utils/searchItemUtils';
+import { isEmptySearchValue, isRangeKind, resolveValueKind } from './utils/searchItemUtils';
 
 // 草稿区在请求节点下的字段名:未提交的值落在这里,避免打一字就污染 criteria
 const DRAFT_KEY = 'searchDraft';
@@ -17,6 +17,16 @@ const ORDER_KEY = 'searchOrder';
 export interface CommitResult {
   ok: boolean;
   message?: string;
+}
+
+export interface CommitOptions {
+  // 默认 merge(追加多值);replace 用于「从 Tag 回填后修改」的场景
+  mode?: SearchCommitMode;
+  /**
+   * 是否把逗号分隔的输入拆成多值;缺省只有数字字段拆
+   * 文本字段的逗号可能是内容本身,由调用方在「原条件本来就是多值」时才置 true
+   */
+  split?: boolean;
 }
 
 export interface SearchCriteriaApi {
@@ -32,11 +42,11 @@ export interface SearchCriteriaApi {
   setDraft: (field: string, value: any) => void;
   clearDraft: (field?: string) => void;
   // 提交草稿值到 criteria 并刷新;override 用于文本形态传入受控的最新值;失败时返回原因,不落条件
-  commit: (field: string, item: SearchPlaneItem, override?: any) => CommitResult;
+  commit: (field: string, item: SearchPlaneItem, override?: any, options?: CommitOptions) => CommitResult;
   // 删除整条条件并刷新
   removeCondition: (field: string) => void;
-  // 把已生效条件载入草稿区编辑
-  loadToDraft: (field: string) => any;
+  // 把已生效条件载入草稿区编辑;(kind 用于区间整体回填,否则多值只取首个)
+  loadToDraft: (field: string, kind?: SearchValueKind) => any;
   // 清空全部条件并刷新
   resetAll: () => void;
   // 重新请求
@@ -106,41 +116,53 @@ export const useSearchCriteria = (viewId: string): SearchCriteriaApi => {
     });
   });
 
-  const commit = useMemoizedFn((field: string, item: SearchPlaneItem, override?: any): CommitResult => {
-    if (!isString(reqId)) {
-      return { ok: false, message: '数据节点未就绪' };
-    }
-    const kind = resolveValueKind(item);
-    // 文本形态的值由搜索条受控持有(即时反馈优先),此时以 override 为准;
-    // 其余形态来自 Ctrl 控件的防抖草稿,提交前先 flush 再从最新快照读取,避免取到旧值
-    flushDataScope([PathKey.Req, reqId, DRAFT_KEY]);
-    const latest = useStore.getState().req[reqId] as Record<string, any> | undefined;
-    const raw = isUndefined(override) ? latest?.[DRAFT_KEY]?.[field] : override;
-    if (isEmptySearchValue(kind, raw)) {
-      return { ok: false, message: '请先填写搜索内容' };
-    }
-    const normalized = normalizeSearchValue(kind, raw, item);
-    if (!normalized.ok) {
-      return { ok: false, message: normalized.message };
-    }
-    setDataByFn([PathKey.Req, reqId, 'criteria'], (data: any) => {
-      if (!data) {
-        return;
+  const commit = useMemoizedFn(
+    (field: string, item: SearchPlaneItem, override?: any, options: CommitOptions = {}): CommitResult => {
+      if (!isString(reqId)) {
+        return { ok: false, message: '数据节点未就绪' };
       }
-      const prev = data[field];
-      // 同字段重复提交:合并为多值(默认 OR 语义),与旧值相同则不重复追加
-      if (isUndefined(prev) || prev === '' || (isArray(prev) && prev.length === 0)) {
-        data[field] = normalized.value;
-        return;
+      const kind = resolveValueKind(item);
+      // 文本形态的值由搜索条受控持有(即时反馈优先),此时以 override 为准;
+      // 其余形态来自 Ctrl 控件的防抖草稿,提交前先 flush 再从最新快照读取,避免取到旧值
+      flushDataScope([PathKey.Req, reqId, DRAFT_KEY]);
+      const latest = useStore.getState().req[reqId] as Record<string, any> | undefined;
+      const raw = isUndefined(override) ? latest?.[DRAFT_KEY]?.[field] : override;
+      if (isEmptySearchValue(kind, raw)) {
+        return { ok: false, message: '请先填写搜索内容' };
       }
-      const merged = (isArray(prev) ? prev : [prev]).filter((each) => !isEqual(each, normalized.value));
-      data[field] = [...merged, normalized.value];
-    });
-    appendOrder(field);
-    clearDraft(field);
-    sendReq();
-    return { ok: true };
-  });
+      // 数字字段的输入里不可能出现逗号,多值拆分默认开;文本由调用方决定
+      const split = options.split ?? kind === 'number';
+      const normalized = normalizeSearchValue(kind, raw, item, { split });
+      if (!normalized.ok) {
+        return { ok: false, message: normalized.message };
+      }
+      setDataByFn([PathKey.Req, reqId, 'criteria'], (data: any) => {
+        if (!data) {
+          return;
+        }
+        // 替换语义:条件就是本次输入的值,不再与旧值合并
+        if (options.mode === 'replace') {
+          data[field] = normalized.value;
+          return;
+        }
+        const prev = data[field];
+        // 同字段重复提交:合并为多值(默认 OR 语义),与旧值相同则不重复追加
+        if (isUndefined(prev) || prev === '' || (isArray(prev) && prev.length === 0)) {
+          data[field] = normalized.value;
+          return;
+        }
+        const incoming = isArray(normalized.value) ? normalized.value : [normalized.value];
+        const merged = (isArray(prev) ? prev : [prev]).filter(
+          (each) => !incoming.some((value) => isEqual(value, each)),
+        );
+        data[field] = [...merged, ...incoming];
+      });
+      appendOrder(field);
+      clearDraft(field);
+      sendReq();
+      return { ok: true };
+    },
+  );
 
   const removeCondition = useMemoizedFn((field: string) => {
     if (!isString(reqId)) {
@@ -166,13 +188,19 @@ export const useSearchCriteria = (viewId: string): SearchCriteriaApi => {
     sendReq();
   });
 
-  /** 载入已生效条件到草稿区(点击 Tag 编辑);区间保留 [start,end],多值取第一个 */
-  const loadToDraft = useMemoizedFn((field: string) => {
+  /**
+   * 载入已生效条件到草稿区(点击 Tag 编辑)
+   * - 区间形态整体回填 [start,end]:控件需要完整区间,只给首段会让两端都空
+   * - 其余形态取首个值:控件(下拉/单选)只能承载一个值
+   * 多值文本的回填不在这里 —— 文本由搜索条按 Tag 原文拼成 'A,B' 填入输入框
+   */
+  const loadToDraft = useMemoizedFn((field: string, kind?: SearchValueKind) => {
     const value = criteria?.[field];
     if (isUndefined(value)) {
       return undefined;
     }
-    const loaded = isArray(value) ? value[0] : value;
+    const keepWhole = !!kind && isRangeKind(kind);
+    const loaded = isArray(value) && !keepWhole ? value[0] : value;
     setDraft(field, loaded);
     return loaded;
   });

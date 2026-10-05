@@ -81,8 +81,8 @@ const MainLayout = () => {
         {/* 路由页面区域 */}
         <main className="main-content min-h-0 flex-1 overflow-hidden bg-background">
           <SimpleBar style={{ height: '100%', maxHeight: 'calc(100vh - 48px)' }}>
-            {/* 内容区不限最大宽度，铺满可用空间；表格/表单自行按栅格与 span 分配列宽 */}
-            <div className="w-full space-y-6 p-4 md:p-6 lg:p-8">
+            {/* 外壳内边距固定 p-3(12px)，与面板自身 p-3 叠加为 12+12，避免响应式放大成 32+24 的双层过大留白 */}
+            <div className="w-full space-y-6 p-3">
               {page && !page.hideHeader && (
                 <div className="space-y-2">
                   <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>

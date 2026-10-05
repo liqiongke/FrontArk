@@ -20,8 +20,11 @@ const CTRL_KIND_MAP = new Map<Ctrl, SearchValueKind>([
   [Ctrl.TimeRange, 'timeRange'],
 ]);
 
-// 区间形态的值用「~」连接,多值形态用「/」连接
+// 区间形态的值用「~」连接,多值形态用「,」连接
 const RANGE_KINDS: SearchValueKind[] = ['dateRange', 'timeRange'];
+
+/** 是否区间形态:决定多段值用「~」连接(整体是一个值)还是作为多值并列 */
+export const isRangeKind = (kind: SearchValueKind) => RANGE_KINDS.includes(kind);
 
 /** 取字段的值形态:valueKind 优先,其次按 ctrl.type 推导,最后缺省 text */
 export const resolveValueKind = (item: SearchPlaneItem): SearchValueKind => {
@@ -112,7 +115,10 @@ const formatSingleValue = (value: any): string => {
 /**
  * 条件展示文本:
  * - 区间 ['2026-10-01','2026-10-03'] -> '2026-10-01 ~ 2026-10-03'
- * - 多值 ['A','B'] -> 'A / B'
+ * - 多值 ['A','B'] -> 'A,B'
+ *
+ * 多值用逗号而不是斜杠:同一个文本既显示在 Tag 上,也回填进搜索框,
+ * 逗号是搜索框里可以直接编辑的分隔符,斜杠不是 —— 用户删掉一段再回车即可改条件
  */
 export const formatSearchValue = (kind: SearchValueKind, value: any): string => {
   if (isArray(value)) {
@@ -120,7 +126,7 @@ export const formatSearchValue = (kind: SearchValueKind, value: any): string => 
     if (parts.length === 0) {
       return '';
     }
-    return parts.join(RANGE_KINDS.includes(kind) ? ' ~ ' : ' / ');
+    return parts.join(isRangeKind(kind) ? ' ~ ' : ',');
   }
   return formatSingleValue(value);
 };

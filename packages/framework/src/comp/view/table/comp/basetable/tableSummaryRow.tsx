@@ -9,6 +9,7 @@ import {
   type TableSummaryFn,
   type TableSummaryItem,
 } from '../../interface';
+import { fixedCellStyle } from '../../utils/fixedColumns';
 
 interface TableSummaryRowProps {
   /** 框架列描述，用于把统计结果落到对应列 */
@@ -19,6 +20,8 @@ interface TableSummaryRowProps {
   summaryText: string;
   /** 表格数据路径（view.path ?? dataId），统计行按此路径独立订阅数据 */
   dataPath: DPath;
+  /** 固定列偏移量（列 key -> px），与表头/数据行同一份，保证三处钉在同一位置 */
+  fixedOffsets?: Record<string, number>;
   /** 指向 tfoot 本身：覆盖式滚动条据此把轨道下端内缩到统计行上沿 */
   ref?: React.Ref<HTMLTableSectionElement>;
 }
@@ -129,7 +132,7 @@ const resolveBuiltIn = (
  * （见 viewTable.test.tsx 中 structure / cellShell 探针断言）。
  */
 const TableSummaryRow: React.FC<TableSummaryRowProps> = (props) => {
-  const { columns, items, summaryText, dataPath, ref } = props;
+  const { columns, items, summaryText, dataPath, fixedOffsets, ref } = props;
   const data = useData(dataPath);
   const rows = isArray(data) ? data : EMPTY_ROWS;
 
@@ -154,6 +157,9 @@ const TableSummaryRow: React.FC<TableSummaryRowProps> = (props) => {
     return contents;
   }, [items, rows]);
 
+  // 统计行说明落在第一个数据列：勾选列不承载业务数据，说明写在它上面会被误读
+  const firstDataIndex = columns.findIndex((col) => !col.selection);
+
   return (
     <tfoot ref={ref} className="sticky bottom-0 z-10">
       {/* 数字不额外加粗：粗体的等宽数字比常规字重更宽，右对齐后小数点会整体偏移。
@@ -161,6 +167,8 @@ const TableSummaryRow: React.FC<TableSummaryRowProps> = (props) => {
       <tr className="bg-muted border-t">
         {columns.map((col, index) => {
           const content = cellContents.get(col.dataIndex);
+          // 固定列在统计行同样要钉住：底色用 inherit 跟随行色，避免滚动时透出下层内容
+          const fixedStyle = fixedCellStyle(col, fixedOffsets ?? {});
           return (
             <td
               key={col.key}
@@ -169,10 +177,12 @@ const TableSummaryRow: React.FC<TableSummaryRowProps> = (props) => {
                 'border-border px-3 py-2 align-middle whitespace-nowrap',
                 col.valueType === 'number' && 'tabular-nums',
                 col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
+                fixedStyle && 'sticky z-[1] bg-inherit',
               )}
+              style={fixedStyle}
             >
-              {/* 首列固定承载统计行说明，便于一眼看出该行含义 */}
-              {index === 0 && (
+              {/* 首列承载统计行说明，便于一眼看出该行含义；勾选列不是数据列，说明落在第一个数据列上 */}
+              {index === firstDataIndex && (
                 <span className="text-muted-foreground mr-2 font-medium">{summaryText}</span>
               )}
               {content?.map((node, nodeIndex) => (

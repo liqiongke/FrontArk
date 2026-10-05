@@ -12,11 +12,6 @@ const DRAFT_KEY = 'searchDraft';
 // 文本形态由父组件受控持有(推断需要零延迟),其余形态复用 Ctrl 控件与 store 草稿
 const TEXT_KINDS: SearchValueKind[] = ['text', 'number'];
 
-// 未识别到搜索类型时的占位提示（保持精简，避免在紧凑搜索条里被截断）
-const UNRESOLVED_PLACEHOLDER = '输入单号、名称、日期，自动判断类型';
-// 已识别类型但字段未声明示例时的提示
-const RESOLVED_PLACEHOLDER = '支持关键字，或从左侧选择类型';
-
 export interface SearchValueInputProps {
   reqId?: string;
   // 当前激活字段(推断或手动选择的结果);未识别到类型时为 undefined
@@ -124,7 +119,7 @@ const SearchValueInput: React.FC<SearchValueInputProps> = (props) => {
           ref={inputRef}
           aria-label={item ? '按' + item.title + '搜索' : '搜索内容'}
           className="h-8 border-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
-          placeholder={item?.example ?? (item ? RESOLVED_PLACEHOLDER : UNRESOLVED_PLACEHOLDER)}
+          placeholder={item?.example}
           value={text ?? ''}
           aria-invalid={!!error}
           onChange={onInputChange}

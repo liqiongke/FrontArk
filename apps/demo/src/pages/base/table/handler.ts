@@ -13,6 +13,19 @@ class Handler extends HandlerBase {
     this.setData(path, new Date().toLocaleString());
   };
 
+  // 读取表格勾选：行键（供接口传参）+ 整行记录（供本地处理）
+  onPrintSelected = () => {
+    const keys = this.getSelectedKeys('table1');
+    const rows = this.getSelectedRows('table1');
+    console.log('勾选行键', keys);
+    console.log('勾选行数据', rows);
+  };
+
+  // 清空表格勾选
+  onClearSelected = () => {
+    this.setSelectedKeys('table1', []);
+  };
+
   printDataStats = () => {
     printStats('getData');
   };

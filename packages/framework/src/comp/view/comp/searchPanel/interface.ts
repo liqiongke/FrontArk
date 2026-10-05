@@ -136,13 +136,20 @@ export interface SearchConditionTag {
   field: string;
   // 字段标题
   title: string;
-  // 展示文本(多值为 'A / B',区间为 'start ~ end')
+  // 展示文本(多值为 'A,B',区间为 'start ~ end')
   text: string;
   // 原始值
   value: any;
   // 推断置信度,low 用于「已识别为...」的弱提示样式
   confidence: SearchInferConfidence;
 }
+
+/**
+ * 提交语义:
+ * - merge 追加(默认):同字段已有条件时并入多值,输入即「再加一个」
+ * - replace 整体替换:从 Tag 回填编辑时使用,提交后条件就是输入框里的值
+ */
+export type SearchCommitMode = 'merge' | 'replace';
 
 // 类型推断结果
 export interface SearchInferResult {

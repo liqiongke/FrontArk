@@ -15,7 +15,8 @@ const CtrlInput: React.FC<SysInteractiveCtrlProps<CtrlInputProps>> = (props) => 
   });
 
   // 对齐方式由列配置决定：数字列由 BoundTableCell 注入 textAlign: 'right'。
-  // 表格单元格不再无条件右对齐，否则文本列与数字列混在一起，看不出列的值类型。
+  // 未注入时保持 undefined，让 Input 基线的居右生效；这里不写死成left，
+  // 否则表单里的输入值会退回居左，与其他控件不一致
   const textAlign = ctrl?.textAlign;
   return (
     <Input

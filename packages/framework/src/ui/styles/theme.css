@@ -44,6 +44,20 @@
    */
   --surface: oklch(1 0 0);
   --surface-foreground: oklch(0.145 0 0);
+  /*
+   * 细线/刻度线：需要「被看见」的 1px 线（列边界拖拽刻度、后续的分组标记等）。
+   * 与 --border 分工不同：--border 是大面积描边，克制优先；
+   * 细线只有 1px 宽，同一个颜色会被底色吃掉，所以单独取一支、透明度更高。
+   * 全站想调这类细线的强弱，只改这一个 alpha，不要在各组件里写死。
+   */
+  --divider: oklch(0.145 0 0 / 45%);
+  /*
+   * 行状态底色（不透明）：固定列要靠自身底色盖住横向滚动时从下方滑过的单元格，
+   * 半透明色（如 muted/50）会让下层的文字透出来。
+   * 取值即「muted/50 叠加在 surface 之上」的等价实色，视觉与原来的半透明行悬停一致。
+   */
+  --table-head: oklch(0.985 0 0);
+  --row-hover: oklch(0.985 0 0);
 }
 
 .dark {
@@ -77,6 +91,11 @@
   /* 暗色下沿用 card 的层级色：background < surface，面板仍然比页面亮一档 */
   --surface: oklch(0.205 0 0);
   --surface-foreground: oklch(0.985 0 0);
+  /* 细线/刻度线：暗色下换成亮色，透明度与明色保持一致 */
+  --divider: oklch(0.985 0 0 / 45%);
+  /* 暗色下的等价实色：muted(0.269)/50 叠在 surface(0.205) 之上 */
+  --table-head: oklch(0.237 0 0);
+  --row-hover: oklch(0.237 0 0);
 }
 
 @theme inline {
@@ -113,6 +132,9 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-surface: var(--surface);
   --color-surface-foreground: var(--surface-foreground);
+  --color-divider: var(--divider);
+  --color-table-head: var(--table-head);
+  --color-row-hover: var(--row-hover);
 }
 
 /*

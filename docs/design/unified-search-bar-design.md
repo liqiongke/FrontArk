@@ -67,7 +67,7 @@ export interface SearchPlaneItem {
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│ [运输单号 ▾][ TR2024▌            ] [🔍 搜索] [⚙ 高级筛选] │ 重置    │  ← 搜索条(simple)
+│ [运输单号 ▾][ TR2024▌            ] [🔍 搜索] [↺ 清空条件][⚙ 高级筛选] │  ← 搜索条(simple)
 │ ⟨运输单号：TR2024001 ×⟩ ⟨状态：待收货 ×⟩ ⟨创建时间：10-01 ~ 10-03 ×⟩     │  ← 已生效条件 Tag 区
 └──────────────────────────────────────────────────────────────────────┘
         ↓ 点击「高级筛选」就地展开（原 SearchPanelForm，不跳页、不弹窗）
@@ -88,9 +88,10 @@ export interface SearchPlaneItem {
 | --- | --- | --- |
 | 左 | **类型选择器** | 下拉列出全部可搜字段（`SearchTypeSelect` + Radix `DropdownMenu`，带 `example` 副标题）。选中后即「锁定」该类型，右侧输入控件立即换成对应形态 |
 | 中 | **动态值输入区** | 按字段 `valueKind` 渲染：`text` → `Input`；`number` → 数字 `Input`；`date` → `CtrlDate`；`dateRange` → `CtrlDateRange`；`enum` → `CtrlSelect`（选项来自 `ctrl.items`）；`bool` → `CtrlSwitch` |
+| 中右 | **清空输入** | `X` 图标，紧贴搜索按钮左侧，**仅在输入区有内容（文本或控件草稿值）时出现**；清空输入内容与草稿，保留当前类型，不触碰已生效条件（条件由 Tag 的 `×` 或工具区的「清空条件」删除） |
 | 右 | **搜索按钮** | 提交并把当前值转成 Tag |
+| 右 | **清空条件** | `RotateCcw` 图标，**仅在存在已生效条件时出现**，位置固定在高级筛选按钮左侧；清空全部 Tag 与 `criteria`（沿用 `reset(items.map(i => i.field))`） |
 | 右 | **高级筛选按钮** | `SlidersHorizontal` 图标，切换 simple/advanced 模式 |
-| 极右 | **重置** | 清空全部 Tag 与 `criteria`（沿用 `reset(items.map(i => i.field))`） |
 
 ### 4.3 类型推断引擎（核心）
 
@@ -124,7 +125,7 @@ export const inferSearchType = (
 `confidence` 三档与反馈：
 
 - `exact`（P0–P3）：静默锁定，输入框左侧标签实心显示，不打扰。
-- `inferred`（P4–P6）：锁定并**高亮标签 + 显示「已识别为『创建时间』」** 2s，同时提供一次「撤销」。
+- `inferred`（P4–P6）：锁定并**高亮标签**即算反馈，条件区不再重复「已识别为『创建时间』」文案（类型名已在标签上），回车确认。
 - `none`（P7）：不锁定，输入框左侧显示虚线下划线的「选择搜索类型 ▾」，输入内容原样保留。
 
 **误推断防护（必须实现）**：
@@ -142,12 +143,14 @@ export const inferSearchType = (
                                                 输入区标红 + 提示，Tag 不落地
 ```
 
-- **值规范化**（`normalizeValue.ts`）：文本 `trim`；数字转数值并校验；日期归一为 `YYYY-MM-DD`；区间文本（`2026-10-01 ~ 2026-10-03`，起止颠倒自动交换）展开为 `[start, end]`；布尔识别 `true/false/是/否/1/0`；枚举按 label 反查为业务值。
+- **值规范化**（`normalizeValue.ts`）：文本 `trim`；数字转数值并校验（支持逗号分隔的多值）；日期归一为 `YYYY-MM-DD`；区间文本（`2026-10-01 ~ 2026-10-03`，起止颠倒自动交换）展开为 `[start, end]`；布尔识别 `true/false/是/否/1/0`；枚举按 label 反查为业务值。
   - 区间分隔符**不含 `-`**（否则 `2026-10-01` 会被误切），支持 `~`、`～`、`至`、`到`、`...`。
   - 日期一律序列化为 `YYYY-MM-DD`（与 `CtrlDateRange` 的 `format` 契约一致）；补时分（`00:00:00` / `23:59:59`）交由服务端或含时间的 `format` 处理，避免前后端格式不一致。
-- **联合搜索**：Tag 集合即 `criteria` 全集，天然 AND。同字段重复添加：合并为多值（`criteria[field] = [v1, v2]`，语义 OR），Tag 显示为 `运输单号：TR1 / TR2`。
+- **联合搜索**：Tag 集合即 `criteria` 全集，天然 AND。同字段重复添加：合并为多值（`criteria[field] = [v1, v2]`，语义 OR），Tag 显示为 `运输单号：TR1,TR2`。
 - **删除**：Tag 上的 `×` **删除整条条件**（`AND` 语义下一个字段即一条条件），并立即刷新表格。
-- **编辑**：点击 Tag（非删除区）→ 值回填输入区并锁定原类型，`Enter` 覆盖原 Tag（`Esc` 取消）。
+- **编辑**：点击 Tag（非删除区）→ **整条条件**回填输入区并锁定原类型（多值以逗号并列，如回填 `123,234,345`），`Enter` **替换**原条件（`mode='replace'`，不与旧值合并），`Esc` 取消编辑意图。
+  - 删除多值中的某一项：回填后把输入框里的那一段删掉再回车即可（如 `123,234,345` → `234,345`）。
+  - 逗号拆分只在「数字字段」或「原条件本身就是多值」时生效，单值文本里的逗号是内容的一部分，不会被拆成多值。
 - **溢出**：Tag 数 > 6 时显示 `+N 更多…`，点击展开 `Popover` 批量查看/删除。
 - **顺序持久化**：`criteria` 是平铺对象、无序，故在请求节点下新增 `searchOrder: string[]` 存放字段顺序，保证刷新/翻页后 Tag 顺序稳定。
 - **草稿隔离**：输入过程中的值存于请求节点的 `searchDraft`，**不写入 `criteria`**；提交前 `flushDataScope` 立即落盘再读取最新值，避免防抖导致取到旧值。文本形态的值由搜索条受控持有（推断需要零延迟），提交时以 `override` 参数传入。
@@ -174,7 +177,7 @@ export const inferSearchType = (
 | `⌘/Ctrl + K` | 聚焦搜索条（补充入口，非唯一） |
 | `↑ / ↓`（输入区有值） | 唤起类型候选列表（候选项按推断优先级排序，当前推断项置顶） |
 
-> 未识别到类型时**仍然保留输入框**（已输入文本不丢），提示「选择搜索类型」，回车则提示先选类型；这样「推断失败」不会退化成「无法输入」。识别成功但置信度为 `inferred` 时，搜索条下方以 `aria-live` 提示「已识别为『X』，回车确认」。
+> 未识别到类型时**仍然保留输入框**（已输入文本不丢），提示「选择搜索类型」，回车则提示先选类型；这样「推断失败」不会退化成「无法输入」。识别结果只由输入框左侧的类型标签表达，条件区不再追加「已识别为『X』，回车确认」，仅在提交失败时以 `aria-live` 提示错误。
 
 ## 5. 数据模型扩展
 
@@ -235,7 +238,7 @@ packages/framework/src/comp/view/comp/searchPanel/
     SearchBar.tsx                  # 单行搜索条：类型选择器 + 值区 + 按钮组 + Tag 区 + 推断/锁定状态
     SearchTypeSelect.tsx           # 类型下拉（Radix DropdownMenu，含 example 副标题与未识别态样式）
     SearchValueInput.tsx           # 文本走受控 Input，其余 valueKind 分发到 CtrlFactory
-    SearchTagBar.tsx               # Tag 区容器（溢出折叠 + 更多 Popover + 清空条件）
+    SearchTagBar.tsx               # Tag 区容器（溢出折叠 + 更多 Popover；不含清空条件）
     SearchTagItem.tsx              # 单个 Tag：字段名 + 值 + 删除 + 点击编辑
     useSearchCriteria.ts           # criteria/searchDraft/searchOrder 的读写、提交、删除、重置
     utils/
@@ -273,7 +276,7 @@ packages/framework/src/comp/view/comp/searchPanel/
 | 误推断导致查不到 | 提交时把该条件标记为低置信度，Tag 用虚线边框弱化显示，便于一眼识别可疑条件 |
 | Tag 过多导致 URL 超长 | 超过 8 个条件时提示「条件过多，建议使用高级筛选/后端分页」；参数超过阈值时改用 POST 查询体（需后端配合，二期） |
 | 值校验失败（日期非法、枚举不存在） | 输入区标红 + 就地提示，Tag 不落地，不发请求 |
-| 同一字段多次添加 | 合并为多值数组（默认 OR 语义），Tag 明确展示 `A / B` |
+| 同一字段多次添加 | 合并为多值数组（默认 OR 语义），Tag 明确展示 `A,B`；回填编辑时同样以逗号并列，删掉其中一段再回车即可从条件里去掉该值 |
 | 高级面板残留草稿 | 高级面板只写 `criteria`；`searchDraft` 仅服务 simple 模式，切换模式不影响已生效条件 |
 | 与 `Subscription` 模式冲突 | 无冲突。本设计只写 `criteria`，不改表格数据结构 |
 | 移动端 | 单列布局；Tag 换行；高级筛选改为 Sheet 承载（复用 `ui/components/sheet.tsx`） |

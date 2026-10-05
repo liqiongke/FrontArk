@@ -10,7 +10,6 @@ export interface SearchTagBarProps {
   tags: SearchConditionTag[];
   onRemove: (field: string) => void;
   onEdit: (field: string) => void;
-  onClearAll?: () => void;
   // 超出该数量后折叠为「+N 更多」
   maxVisible?: number;
 }
@@ -18,9 +17,11 @@ export interface SearchTagBarProps {
 /**
  * 已生效条件区:Tag 列表即 criteria 的可视化,删除/编辑直接作用于条件本身
  * Tag 由 criteria 派生,自身不持有状态,因此与高级筛选面板天然双向同步
+ *
+ * 「清空条件」不在本区渲染:它随 Tag 数量左右漂移,已移到搜索条右侧工具区(重置图标)
  */
 const SearchTagBar: React.FC<SearchTagBarProps> = (props) => {
-  const { tags, onRemove, onEdit, onClearAll, maxVisible = 6 } = props;
+  const { tags, onRemove, onEdit, maxVisible = 6 } = props;
   const visible = useMemo(() => (isArray(tags) ? tags.slice(0, maxVisible) : []), [tags, maxVisible]);
   const rest = useMemo(() => (isArray(tags) ? tags.slice(maxVisible) : []), [tags, maxVisible]);
 
@@ -49,11 +50,6 @@ const SearchTagBar: React.FC<SearchTagBarProps> = (props) => {
             </div>
           </PopoverContent>
         </Popover>
-      )}
-      {onClearAll && (
-        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground" onClick={onClearAll}>
-          清空条件
-        </Button>
       )}
     </div>
   );
