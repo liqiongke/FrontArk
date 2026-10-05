@@ -20,7 +20,9 @@ const CtrlText: React.FC<SysCtrlProps<CtrlTextProps>> = (props) => {
       <Input
         className={cn('w-full', isRightAlign && 'tabular-nums')}
         style={{ textAlign: align }}
-        value={value}
+        // 空值统一给空串：始终受控，避免数据后到时时触发
+        // 「uncontrolled -> controlled」的 React 警告（只读展示型字段很常见）
+        value={value ?? ''}
         disabled
       />
     );

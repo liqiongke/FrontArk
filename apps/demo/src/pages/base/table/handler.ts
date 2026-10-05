@@ -13,17 +13,23 @@ class Handler extends HandlerBase {
     this.setData(path, new Date().toLocaleString());
   };
 
-  // 读取表格勾选：行键（供接口传参）+ 整行记录（供本地处理）
+  // 获取当前勾选项的值数组并打印到控制台（行键数组 + 整行数据数组）
   onPrintSelected = () => {
     const keys = this.getSelectedKeys('table1');
     const rows = this.getSelectedRows('table1');
-    console.log('勾选行键', keys);
-    console.log('勾选行数据', rows);
+    console.log('勾选项的值数组（行键）:', keys);
+    console.log('勾选项的值数组（整行数据）:', rows);
   };
 
   // 清空表格勾选
   onClearSelected = () => {
     this.setSelectedKeys('table1', []);
+  };
+
+  // 勾选变化：把当前勾选项写进表单数据节点，表单里的「已勾选项」直接读它
+  // （selection.onChange 只在勾选集合真的变化时触发）
+  onSelectionChange = (keys: Array<string | number>) => {
+    this.setData(['form', 'selectionText'], keys.length ? `${keys.length} 项：${keys.join('、')}` : '');
   };
 
   printDataStats = () => {

@@ -45,12 +45,12 @@
   --surface: oklch(1 0 0);
   --surface-foreground: oklch(0.145 0 0);
   /*
-   * 细线/刻度线：需要「被看见」的 1px 线（列边界拖拽刻度、后续的分组标记等）。
+   * 细线/刻度线：作为标记出现的 1px 线（列边界拖拽刻度、后续的分组标记等）。
    * 与 --border 分工不同：--border 是大面积描边，克制优先；
-   * 细线只有 1px 宽，同一个颜色会被底色吃掉，所以单独取一支、透明度更高。
+   * 细线单独取一支，颜色比正文浅、但比 --border 实，保证 1px 也看得见。
    * 全站想调这类细线的强弱，只改这一个 alpha，不要在各组件里写死。
    */
-  --divider: oklch(0.145 0 0 / 45%);
+  --divider: oklch(0.145 0 0 / 28%);
   /*
    * 行状态底色（不透明）：固定列要靠自身底色盖住横向滚动时从下方滑过的单元格，
    * 半透明色（如 muted/50）会让下层的文字透出来。
@@ -58,6 +58,12 @@
    */
   --table-head: oklch(0.985 0 0);
   --row-hover: oklch(0.985 0 0);
+  /*
+   * 中性「当前/选中项」：分页当前页这类「需要标出来、但不该和主色按钮争层级」的元素用。
+   * 中灰底 + 白字，比 --primary 明显弱一档；明暗两个主题观感一致，故只在 :root 声明。
+   */
+  --selected: oklch(0.45 0 0);
+  --selected-foreground: oklch(0.985 0 0);
 }
 
 .dark {
@@ -92,7 +98,7 @@
   --surface: oklch(0.205 0 0);
   --surface-foreground: oklch(0.985 0 0);
   /* 细线/刻度线：暗色下换成亮色，透明度与明色保持一致 */
-  --divider: oklch(0.985 0 0 / 45%);
+  --divider: oklch(0.985 0 0 / 28%);
   /* 暗色下的等价实色：muted(0.269)/50 叠在 surface(0.205) 之上 */
   --table-head: oklch(0.237 0 0);
   --row-hover: oklch(0.237 0 0);
@@ -135,6 +141,8 @@
   --color-divider: var(--divider);
   --color-table-head: var(--table-head);
   --color-row-hover: var(--row-hover);
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
 }
 
 /*

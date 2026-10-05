@@ -142,6 +142,15 @@ export interface TableSelectionConfig {
    * @desc 默认 true；勾选列随表格横向滚动而滚走时无法操作，一般不需要关
    */
   fixed?: boolean;
+
+  /**
+   * @name 勾选变化回调
+   * @desc 只在选中集合真的变化时触发（挂载时的既有勾选不触发）；
+   *       rows 为勾选行的整行记录，按需从数据快照里取，不新增订阅。
+   *       需要把勾选结果同步到别处（如写入表单显示）时用它，
+   *       只是「用的时候读一次」的场景直接用 handler.getSelectedKeys / getSelectedRows
+   */
+  onChange?: (keys: TableRowKey[], rows: Array<Record<string, unknown>>) => void;
 }
 
 /** 行键：数据节点为每行注入的 @key */

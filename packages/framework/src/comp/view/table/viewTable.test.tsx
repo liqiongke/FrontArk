@@ -842,7 +842,16 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     expect(nav.textContent).toContain('4 页');
     // 第 1 页时上一页不可用
     expect((nav.querySelector('button[aria-label="上一页"]') as HTMLButtonElement).disabled).toBe(true);
-    expect((nav.querySelector('button[aria-current="page"]') as HTMLElement).textContent).toBe('1');
+    // 当前页只是「定位标记」：中性灰底白字（selected），不用主色实心，
+    // 避免与页面上的行动召唤按钮抢层级
+    const currentPage = nav.querySelector<HTMLElement>('button[aria-current="page"]')!;
+    expect(currentPage.textContent).toBe('1');
+    expect(currentPage.className).toContain('bg-selected');
+    expect(currentPage.className).not.toContain('bg-primary');
+    // 其余页码保持描边样式
+    const otherPage = nav.querySelector<HTMLElement>('button[aria-label="第 2 页"]')!;
+    expect(otherPage.className).not.toContain('bg-selected');
+    expect(otherPage.className).toContain('border');
 
     await act(async () => {
       (nav.querySelector('button[aria-label="第 2 页"]') as HTMLButtonElement)
@@ -1233,6 +1242,29 @@ describe('真实 Form + ViewTable 的防抖与结构隔离', () => {
     handler.setSelectedKeys('table1', ['b']);
     expect(selectedKeys()).toEqual(['b']);
     expect(handler.getSelectedRows('table1')).toEqual([{ [KeyAttr]: 'b', price: '100', stock: '6' }]);
+  });
+
+  it('勾选变化回调：只在集合真的变化时触发，并带上整行记录', async () => {
+    const onChange = vi.fn();
+    act(() => store.getState().setView('table1', {
+      ...store.getState().getView('table1'),
+      selection: { onChange },
+    }));
+    const rowBoxes = () =>
+      [...container.querySelectorAll<HTMLElement>('tbody [data-slot="checkbox"]')];
+    // 挂载时的既有勾选（这里为空）不触发回调
+    expect(onChange).not.toHaveBeenCalled();
+
+    await act(async () => rowBoxes()[0].click());
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toEqual(['a']);
+    expect(onChange.mock.calls[0][1]).toEqual([{ [KeyAttr]: 'a', price: '100', stock: '5' }]);
+
+    // 取消勾选同样回调，且整行数组随之为空
+    await act(async () => rowBoxes()[0].click());
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange.mock.calls[1][0]).toEqual([]);
+    expect(onChange.mock.calls[1][1]).toEqual([]);
   });
 
   it('单选模式：选中新行顶掉上一行，且不渲染全选框', async () => {

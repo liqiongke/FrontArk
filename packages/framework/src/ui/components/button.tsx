@@ -15,6 +15,9 @@ const buttonVariants = cva(
         outline:
           'border bg-card shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
         secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
+        // 中性「当前/选中项」：灰底白字，明显弱于 default（主色实心）。
+        // 用于分页当前页这类「标出当前位置」而非「召唤点击」的按钮，避免与行动召唤按钮抢层级
+        selected: 'bg-selected text-selected-foreground shadow-none hover:bg-selected/90',
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
       },

@@ -129,7 +129,9 @@ const Pagination: React.FC<PaginationProps> = (props) => {
             <Button
               key={item}
               type="button"
-              variant={item === current ? 'default' : 'outline'}
+              // 当前页只做「定位标记」：用中性的灰底白字，不用主色实心——
+              // 主色实心是行动召唤（如「新增」）的语义，页码不该与之争同一个视觉层级
+              variant={item === current ? 'selected' : 'outline'}
               size="icon-sm"
               aria-label={`第 ${item} 页`}
               aria-current={item === current ? 'page' : undefined}

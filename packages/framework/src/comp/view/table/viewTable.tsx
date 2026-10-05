@@ -22,6 +22,7 @@ import { partitionColumnsByFixed } from './utils/fixedColumns';
 import { filterDataColumns, resolveSelectionConfig } from './utils/selection';
 import TableUtils from './utils/tableUtils';
 import useRowIdentityList, { type IdentityRow } from './utils/useRowIdentityList';
+import useSelectionChange from './utils/useSelectionChange';
 
 // 稳定空列表:非数组数据按空表处理时保持 dataSource 引用稳定
 const EMPTY_LIST: IdentityRow[] = [];
@@ -40,6 +41,8 @@ const TableShell = memo(function TableShell({ viewId, view, dataSource, dataPath
 }) {
   // 行勾选配置：未开启时 undefined，勾选列也不会被合成出来
   const selection = useMemo(() => resolveSelectionConfig(view.selection), [view.selection]);
+  // 勾选变化回调：只做通知，不引入渲染订阅
+  useSelectionChange(viewId, selection, dataPath);
   // 生成表格列
   // 单元格取数路径由 BoundTableCell 内部按 view.path ?? view.dataId 约定解析
   const columns = useMemo(

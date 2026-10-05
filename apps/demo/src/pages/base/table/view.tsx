@@ -18,8 +18,10 @@ class View extends ViewBase<Handler, Data> {
     // (本页无本地排序/过滤依赖;行键缺失/重复/非字符串时框架自动回退经典模式。
     //  行勾选只按行键记账,两种渲染模式都可用)
     renderMode: RenderMode.Subscription,
-    // 行勾选:多选,勾选列默认固定在最左侧;handler 里用 getSelectedKeys/getSelectedRows 读取
-    selection: { mode: 'multiple' },
+    // 行勾选:多选,勾选列默认固定在最左侧
+    // - 勾选变化由 onChange 同步到表单的「已勾选项」展示
+    // - handler 里用 getSelectedKeys/getSelectedRows 按需读取
+    selection: { mode: 'multiple', onChange: this.handler.onSelectionChange },
     // 搜索项同时服务两种模式:
     // simple 模式按 valueKind/keywords/regExp 推断类型并切换输入控件
     // advanced 模式按 ctrl 渲染完整表单
@@ -122,6 +124,16 @@ class View extends ViewBase<Handler, Data> {
       { title: '产品类别', field: 'category' },
       { title: '品牌', field: 'brand' },
       { title: '库存', field: 'stock' },
+      // 多选展示:表格勾选项由表格的 selection.onChange 写进 'form' 节点,
+      // 这里用 path 覆盖表单默认的焦点行路径,只读展示当前勾选项。
+      // 占半行 + 左对齐:展示的是一串值(列表),左对齐才读得顺,与输入值的统一右对齐不同
+      {
+        title: '已勾选项',
+        field: 'selectionText',
+        span: 12,
+        path: ['form', 'selectionText'],
+        ctrl: { type: Ctrl.Text, align: 'left' },
+      },
     ],
     toolList: [
       {
@@ -139,7 +151,7 @@ class View extends ViewBase<Handler, Data> {
       {
         type: Ctrl.Button,
         variant: 'outline',
-        text: '查看勾选',
+        text: '获取勾选值',
         onClick: this.handler.onPrintSelected,
       },
       {
