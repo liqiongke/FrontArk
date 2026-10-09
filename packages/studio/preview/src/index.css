@@ -1,0 +1,42 @@
+/*
+ * 预览宿主的样式：直接复用框架的主题变量与 Tailwind 管线，
+ * 保证预览里的页面与真实应用里长得一模一样。
+ */
+@import 'tailwindcss';
+@import '../../../framework/src/ui/styles/theme.css';
+@source '../../../framework/src';
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  * {
+    @apply border-border;
+  }
+}
+
+/* Studio 探针的高亮样式（仅在 Studio 打开预览时可见） */
+@layer components {
+  [data-fa-node] {
+    position: relative;
+  }
+
+  .fa-hover {
+    outline: 2px dashed oklch(0.6 0.18 250 / 65%) !important;
+    outline-offset: -2px;
+  }
+
+  .fa-selected {
+    outline: 2px solid oklch(0.55 0.2 258) !important;
+    outline-offset: -2px;
+    box-shadow: 0 0 0 3px oklch(0.55 0.2 258 / 18%) !important;
+  }
+}

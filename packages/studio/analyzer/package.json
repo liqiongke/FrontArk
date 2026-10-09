@@ -1,0 +1,15 @@
+{
+  "name": "@jl/studio-analyzer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "FrontArk Studio 静态分析 sidecar：TS AST 解析 / 无损编辑计划 / 元数据",
+  "main": "src/index.mjs",
+  "scripts": {
+    "start": "node src/index.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "typescript": "~5.9.3"
+  }
+}

@@ -39,3 +39,13 @@ stats.html
 /apps/demo/dist-desktop/
 /apps/demo/src-tauri/target/
 /apps/demo/src-tauri/gen/schemas/
+
+# FrontArk Studio：写入前自动生成的原文件备份
+*.bak
+# TypeScript 增量构建信息
+*.tsbuildinfo
+# FrontArk Studio：本地调试日志与截图
+/packages/studio/.shots/
+/packages/studio/.*.log
+/packages/studio/studio-server.exe
+/packages/studio/studio-server-test.exe

@@ -10,7 +10,10 @@
     "lint": "turbo run lint",
     "dev:desktop": "pnpm --filter web exec tauri dev",
     "build:desktop": "pnpm --filter web exec tauri build --bundles nsis",
-    "desktop:info": "pnpm --filter web exec tauri info"
+    "desktop:info": "pnpm --filter web exec tauri info",
+    "dev:studio": "pnpm --filter @jl/studio-web dev",
+    "build:studio": "pnpm --filter @jl/studio-web build",
+    "server:studio": "go -C packages/studio/server run . -root ../.."
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,52 @@
+/*
+ * Studio 前端样式：复用框架的主题 token，保证中台与业务应用是同一套视觉语言。
+ * （Studio 自身不依赖 @jl/framework 的运行时，只复用它的 CSS 变量。）
+ */
+@import 'tailwindcss';
+@import '../../../framework/src/ui/styles/theme.css';
+@source '../../../framework/src';
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply bg-background text-foreground text-[13px];
+    font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.8 0 0);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.68 0 0);
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .scroll-thin {
+    scrollbar-width: thin;
+  }
+
+  .mono {
+    font-family: 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  }
+}
