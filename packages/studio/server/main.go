@@ -10,6 +10,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -41,6 +42,13 @@ func main() {
 		cfgDir = filepath.Join(base, "frontark-studio")
 	}
 
+	// 安全前置校验放在最前面：Fatalf 走的是 os.Exit，defer 不会执行，
+	// 放在这里就不会留下一个没人回收的 Node sidecar 进程。
+	if *token == "" && !isLocalAddr(*addr) {
+		log.Fatalf("-addr %s 会让局域网内任意人可写你的源码，必须同时提供 -token\n"+
+			"提示：若只想本机使用，写 -addr 127.0.0.1:8788（空 host 如 \":8788\" 等价于 0.0.0.0，会监听所有网卡）", *addr)
+	}
+
 	registry, err := NewRegistry(cfgDir)
 	if err != nil {
 		log.Fatalf("初始化项目注册表失败：%v", err)
@@ -51,16 +59,12 @@ func main() {
 	}
 	defer sidecar.Close()
 
-	if *token == "" && !isLocalAddr(*addr) {
-		log.Fatalf("-addr %s 会让局域网内任意人可写你的源码，必须同时提供 -token", *addr)
-	}
-
 	s := &Server{
 		repoRoot:   root,
 		configDir:  cfgDir,
 		registry:   registry,
 		sidecar:    sidecar,
-		editors:    NewEditorService(),
+		editors:    NewEditorService(cfgDir),
 		hub:        NewHub(),
 		edits:      NewEditManager(cfgDir),
 		previewURL: selfBaseURL(*addr),
@@ -72,6 +76,8 @@ func main() {
 
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/events", s.hub.ServeSSE)
+	mux.HandleFunc("GET /api/settings", s.handleGetSettings)
+	mux.HandleFunc("PUT /api/settings", s.handleSetSettings)
 
 	mux.HandleFunc("GET /api/projects", s.handleProjects)
 	mux.HandleFunc("POST /api/projects", s.handleProjectCreate)
@@ -118,8 +124,24 @@ func main() {
 	if *token != "" {
 		log.Printf("已启用 Token 校验（局域网访问需要 Authorization: Bearer <token>）")
 	}
+	if !isLocalAddr(*addr) {
+		log.Printf("警告：监听地址 %s 对外可达，局域网内持有 Token 的人可以读写目标工程源码", *addr)
+	}
 
-	if err := http.ListenAndServe(*addr, handler); err != nil {
+	// 显式构造 http.Server：默认的 http.ListenAndServe 没有任何超时，
+	// 一个半开连接就能长期占住一个 goroutine。
+	// 注意不能设 WriteTimeout —— SSE 是一条长期挂着的响应流。
+	srv := &http.Server{
+		Addr:              *addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		// Fatalf 走 os.Exit，defer sidecar.Close() 不会执行，这里显式回收，
+		// 否则会留下一个孤儿 Node 进程。
+		sidecar.Close()
 		log.Fatalf("服务启动失败：%v", err)
 	}
 }
@@ -159,13 +181,22 @@ func (s *Server) handleTemplates(w http.ResponseWriter, r *http.Request) {
 
 // ── 中间件 ────────────────────────────────────────────────────────
 
+// isLocalAddr 判断监听地址是否只绑定本机。
+//
+// 注意空 host（":8788"）在 Go 里等价于 0.0.0.0 —— **会监听所有网卡** —— 绝不能
+// 当成"本机"：否则 `-addr :8788` 会绕过上面那条"对外必须给 -token"的检查，
+// 变成局域网内任何人无需凭证就能读写源码。selfBaseURL 把空 host 与 0.0.0.0
+// 一视同仁，这里必须保持同一口径。
 func isLocalAddr(addr string) bool {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		host = addr
 	}
-	if host == "" || host == "localhost" {
+	if host == "localhost" {
 		return true
+	}
+	if host == "" {
+		return false
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()

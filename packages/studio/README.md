@@ -128,15 +128,33 @@ pnpm --filter mock-server dev                   # 3001：预览用的假数据�
 
 ## 5. 安全保障
 
+### 5.1 写盘链路
+
 | 机制 | 说明 |
 |---|---|
 | 唯一写盘者 | sidecar 只返回字符区间；实际替换、备份、写盘都在 Go 侧 |
 | 两阶段提交 | `edit/plan`（生成计划，不落盘）→ `edit/apply`（校验后写入）；前端拿不到任意写入范围 |
-| 内容 sha 乐观锁 | 计划里记基线 sha，apply 时文件被外部改过就拒绝（HTTP 409），并提示刷新 |
-| 无损写回 | 只替换目标区间，保留 BOM / CRLF / 缩进 / 引号 / 注释 / `as const` / `satisfies`；修改后先在内存重新 parse，语法不过则拒绝 |
+| 内容 sha 乐观锁 | 计划里记基线 sha（**不接受空基线**），apply 时文件被外部改过就拒绝（HTTP 409 + `stale-plan`），并广播 `files-changed` 让前端刷新 |
+| 锚点 hash | 每个语义节点的区间也带 sha1，漂移提示能精确到「是哪一处」 |
+| 无损写回 | 只替换目标区间，保留 BOM / CRLF / 缩进 / **原字面量的引号** / 注释 / `as const` / `satisfies`；只对**本次新引入**的语法错误报错（原本就坏的文件不再误判） |
+| 多文件顺序写 | 先全量校验（路径 / 扩展名 / 基线）再逐个写；中途失败会报告已改 / 未改清单 |
 | 自动备份 | 写入前复制 `<name>.bak`（已在 `.gitignore` 忽略） |
-| 路径边界 | 只能操作已注册项目的允许根（工程根 + 框架包根 + 主题文件目录）；`EvalSymlinks` 后比对，拒绝 `..` / junction 逃逸 |
-| 文件白名单 | 只允许 `ts/tsx/js/jsx/json/css`；`node_modules` / `dist` / `.git` 一律拒绝；>1MB 降级只读 |
+
+### 5.2 边界
+
+| 项 | 策略 |
+|---|---|
+| 写权限 | **精确到文件**：工程根内 + 逐个列出的 `themeFiles`。框架包里其它文件一律不可写 |
+| 读权限 | 工程根 + 框架源码根（只读面板要能看接口定义） |
+| 扩展名 / 目录 | 只允许 `ts/tsx/js/jsx/json/css`；`node_modules` / `dist` / `.git` / `build` / `coverage` / `target` 按**路径段**拒绝 |
+| 大小 | 单文件 > 1 MiB 拒绝结构化编辑（仍可只读查看） |
+| 请求体 | 上限 8 MiB；`http.Server` 设了 `ReadHeaderTimeout` / `ReadTimeout` / `IdleTimeout` |
+| 环境变量 | 只存内存：**不写 projects.json**、不进 `/api/projects` 响应；下发给预览前对含 `token/secret/password/key/credential/auth` 的键做掩码，并把掩码清单返回给界面 |
+| 环境变量传递 | 不进 iframe URL（避免留在浏览器历史与访问日志），改由预览挂起、用 `fa-want-env`/`fa-env` 一对消息取走 |
+| 外部进程 | `/api/open` **只接受白名单编辑器 ID**，命令恒来自服务端；请求体里带 `command` 一律无效。仅回环地址可调用 |
+| 自定义编辑器命令 | 存在服务端配置目录，通过 `PUT /api/settings` 写（仅回环），模板校验拒绝命令串联字符 |
+| postMessage | 两端都校验来源：Studio 只收预览 origin，预览只收父窗口 |
+| SSE | `EventSource` 不能带请求头，因此 `/api/events` 额外接受 `?token=`；**静态资源不鉴权**（只保护 `/api/*`） |
 | 不执行目标代码 | 分析全程静态；预览在独立进程加载，且**生产包里零痕迹**（不改造框架运行时） |
 | 局域网 | 默认只绑 `127.0.0.1`；`-addr` 对外时**必须**同时给 `-token`，否则拒绝启动 |
 
@@ -161,26 +179,36 @@ pnpm --filter mock-server dev                   # 3001：预览用的假数据�
 | GET | `/api/source` | 读取源码文本（`?projectId=&file=`） |
 | GET | `/api/templates` | 可插入项模板（「+ 添加」菜单来源） |
 | POST | `/api/edit/plan` \| `/apply` \| `/undo` \| `/redo` | 编辑计划与历史 |
-| GET | `/api/editors` | 探测本机可用编辑器 |
-| POST | `/api/open` | 唤起编辑器并定位到行列 |
+| GET | `/api/editors` | 探测本机可用编辑器（含各种 VS Code 改造版） |
+| GET/PUT | `/api/settings` | 读取 / 写入自定义编辑器命令（写仅回环） |
+| POST | `/api/open` | 唤起编辑器并定位到行列（**只按白名单**，仅回环） |
 
-冒烟（可重复执行）：
+## 7. 测试
+
+三层，都能在干净机器上跑：
 
 ```powershell
-# 先确保服务在跑
+# 1) 分析器 fixture 单测（不依赖任何外部目录）
+pnpm --filter @jl/studio-analyzer test
+
+# 2) 分析器端到端冒烟（跑真实工程 apps/demo）
+node packages\studio\analyzer\test\smoke.mjs [目标工程路径] [路由]
+
+# 3) 服务端单测（路径边界 / 脱敏 / UTF-16 偏移 / 命令模板）
+go -C packages\studio\server test ./...
+
+# 4) API 冒烟（需要服务在跑）
 packages\studio\server\smoke.ps1            # 只读检查
 packages\studio\server\smoke.ps1 -Apply     # 附带「改一个字段 → 撤销还原」的落盘验证
 ```
 
-分析器单独冒烟（不依赖 Go 服务，只在内存里生成编辑计划）：
-
-```powershell
-node packages\studio\analyzer\test\smoke.mjs [目标工程路径] [路由]
-```
+`smoke.ps1` 末尾还有一组**安全断言**（未知编辑器被拒、响应不含 env、敏感值被掩码、
+主题写回保持 oklch、重命名的未覆盖清单要先确认，以及**跨站 Origin 与非 JSON Content-Type 被拒、
+项目白名单之外的路径读不到、失效的 planId 不能被应用**），改动安全相关代码后跑一遍即可发现回退。
 
 ---
 
-## 7. 命令行参数（Go 服务）
+## 8. 命令行参数（Go 服务）
 
 ```
 -addr    监听地址，默认 127.0.0.1:8788
@@ -192,13 +220,30 @@ node packages\studio\analyzer\test\smoke.mjs [目标工程路径] [路由]
 
 ---
 
-## 8. 已知边界
+## 9. 已知边界
 
 - **只支持本仓库内、使用了 `@jl/framework` 的工程**。非框架工程会退化成
   「只读浏览 + 源码跳转 + iframe 预览」。
-- **撤销/重做栈是会话级的**：重启服务后仍能看到历史列表，但不能跨会话撤销。
+- **撤销/重做栈是会话级的**：重启服务后仍能看到历史列表（历史会回读），但不能跨会话撤销。
 - **预览宿主是独立进程**，`start.ps1` 会一起拉起；单独跑 Go 服务时预览会显示「未启动」。
 - 预览里的元素探针是**文本启发式匹配**（出于不改造框架运行时的取舍）：
-  同名的表头/标签会按元素类型择优，但极端情况下仍可能选中同名节点，此时用左栏结构树定位。
-- 编辑元数据由 analyzer 从**当前框架源码**即时提取（枚举 + JSDoc `@name`），
-  不依赖 `packages/framework` 的构建产物（该包当前还没有 `dist`）。
+  按「元素类型 × 容器语义」择优（表头优先匹配列定义、标签优先匹配搜索项/表单项），
+  `th/label/button/legend` 之外的元素（如 `<td>`、`<input>`）点不中，
+  文本重复的极端情况仍可能选到同名节点 —— 此时用左栏结构树定位。
+- 属性面板的字段名/中文标签来自**当前框架源码**（枚举成员上的 JSDoc `@name` + `shared/labels.json`），
+  不依赖 `packages/framework` 的构建产物（该包当前还没有 `dist`）；框架新增字段会自动可见。
+- **未实现**（设计文档 §5.3 承诺过、当前路线已放弃）：从 TS 类型自动生成 200+ 字段的完整编辑元数据；
+  当前只渲染源码里**已经出现**的字段，未写出的字段不可见。
+- `.bak` 备份落在**原文件同目录**（与源码一起进 `.gitignore`），而不是用户配置目录。
+- **值类改动先进草稿，不立刻写盘**：改属性后顶栏出现「待保存 N」，点「保存全部」或按 `Ctrl+S` 才写入源码；
+  结构性改动（删除 / 新增 / 重排 / 重命名）风险更高，仍然走「生成计划 → 看 diff → 确认」。
+  切换页面或项目会丢弃草稿并给出提示（草稿里的目标 id 属于当前页面）。
+- **快捷键**：`Ctrl+S` 保存草稿、`Ctrl+Z` / `Ctrl+Shift+Z` 撤销 / 重做（焦点在输入框内时不拦截，
+  让用户先撤销自己刚敲的字）。
+- **写请求的来源校验**：本机回环访问免 Token，所以写接口额外校验 `Origin` / `Sec-Fetch-Site`
+  并且只接受 `application/json` —— 浏览器的「简单请求」不触发 CORS 预检，这是唯一的防线。
+- **局域网暴露的防呆**：`-addr :8788` 这类空 host 在 Go 里等价于监听所有网卡，服务会直接要求提供
+  `-token` 并拒绝启动；默认只绑 `127.0.0.1`。
+- **未实现**：结构画布的**跨容器移动**（当前用「源容器删除 + 目标容器新增」两步完成，
+  同容器重排已有上移/下移）；源码查看器是**纯文本 + 整行高亮**（未引入 CodeMirror，也没有列级高亮，
+  `anchor.column` 只用于外部编辑器跳转）；SSE 只广播 `files-changed` / `projects-changed` 两种事件。

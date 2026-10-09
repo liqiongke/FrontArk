@@ -9,7 +9,7 @@
  */
 import ts from 'typescript';
 import path from 'node:path';
-import { offsetToLineCol, toPosix } from './fsutil.mjs';
+import { offsetToLineCol, sha1, toPosix } from './fsutil.mjs';
 import {
   CALL_REF_OBJECTS,
   CTRL_LABELS,
@@ -68,12 +68,38 @@ function leadingDoc(sf, node) {
   return { description: rest.join(' '), name };
 }
 
-/** 对象字面量里按属性名找赋值。 */
+/**
+ * 对象字面量里按属性名找赋值 —— 返回**最后一个**匹配。
+ *
+ * `{ id: 'a', id: 'b' }` 在 JS 里 b 生效，取第一个会得到错误的语义；
+ * 之后的引用检查、重命名的 declaredId 会全部跟着错。
+ */
 function findProp(obj, name) {
+  let found = null;
   for (const p of obj.properties) {
-    if (ts.isPropertyAssignment(p) && propName(p.name) === name) return p;
+    if (ts.isPropertyAssignment(p) && propName(p.name) === name) found = p;
   }
-  return null;
+  return found;
+}
+
+/** 属性是否可能被**它后面**的对象展开覆盖（`{ id: 'x', ...base }`）。 */
+function isShadowedBySpread(obj, prop) {
+  const list = obj.properties;
+  const idx = list.indexOf(prop);
+  if (idx < 0) return false;
+  for (let i = idx + 1; i < list.length; i += 1) {
+    if (ts.isSpreadAssignment(list[i])) return true;
+  }
+  return false;
+}
+
+/** 最后一个展开赋值的位置（-1 表示没有展开）。 */
+function lastSpreadIndex(obj) {
+  let last = -1;
+  obj.properties.forEach((p, i) => {
+    if (ts.isSpreadAssignment(p)) last = i;
+  });
+  return last;
 }
 
 function propName(name) {
@@ -132,10 +158,16 @@ function classify(sf, node) {
       }
       return { editability: Editable.EXPR, expr: n.getText(sf) };
     }
+    // 对象/数组里出现展开时**不整体降级**：
+    //   - 展开是「该容器的某个属性可能被覆盖」这一件事，不是「整个容器不可读」；
+    //   - 逐属性的影响在 walkValue 里按 JS 的求值顺序判定（展开之后的同名属性才受影响）；
+    //   - 结构性改动（新增属性 / 插入数组项 / 重排）在 edit.mjs 里单独拒绝。
+    // 早期实现直接在 classify 里标 dynamic，整棵子树变成只读 ——
+    // 用户连"改一个不受影响的属性"都做不到。
     case ts.SyntaxKind.ObjectLiteralExpression:
-      return { editability: Editable.OBJECT, dynamic: hasSpread(n) };
+      return { editability: Editable.OBJECT, hasSpread: hasSpread(n) };
     case ts.SyntaxKind.ArrayLiteralExpression:
-      return { editability: Editable.ARRAY, dynamic: n.elements.some((e) => ts.isSpreadElement(e)) };
+      return { editability: Editable.ARRAY, hasSpread: n.elements.some((e) => ts.isSpreadElement(e)) };
     case ts.SyntaxKind.PropertyAccessExpression: {
       const root = rootIdent(n);
       if (root && ENUM_OBJECTS[root]) {
@@ -230,6 +262,9 @@ function anchorOf(file, text, node) {
     column: begin.column,
     endLine: finish.line,
     endColumn: finish.column,
+    // 该区间文本的指纹：apply 前用它能判断「漂移的是不是一个具体节点」，
+    // 比只看整文件哈希给出的提示精确得多。
+    hash: sha1(text.slice(start, end)),
   };
 }
 
@@ -237,9 +272,16 @@ function anchorOf(file, text, node) {
  * 递归遍历表达式，产出节点。
  * @param {object} ctx 分析上下文
  */
-function walkValue(ctx, node, { id, parentId, name, kind, label, containerKey, index, degraded }) {
+function walkValue(ctx, node, { id, parentId, name, kind, label, containerKey, index, degraded, depth = 0 }) {
   const sf = ctx.sf;
   const inner = unwrap(node);
+
+  // 深度守卫：早期 MAX_DEPTH 定义了却从不使用，遇到深层嵌套会直接把栈打爆。
+  if (depth > MAX_DEPTH) {
+    ctx.nodes.push(truncatedNode(ctx, { id, parentId, name, kind, label, containerKey, index }));
+    return null;
+  }
+
   const info = classify(sf, inner);
   const doc = node.parent && ts.isPropertyAssignment(node.parent)
     ? leadingDoc(sf, node.parent)
@@ -276,36 +318,49 @@ function walkValue(ctx, node, { id, parentId, name, kind, label, containerKey, i
     containerKey: containerKey ?? null,
     index: index ?? null,
     degraded,
+    // 该容器含 `...` 展开：属性可读，但结构性改动（新增属性/重排）会被拒绝。
+    hasSpread: Boolean(info.hasSpread),
     children: [],
   };
 
   ctx.nodes.push(nodeOut);
 
   // 递归：对象属性 / 数组项
-  if (inner && ts.isObjectLiteralExpression(inner) && !info.dynamic) {
-    for (const prop of inner.properties) {
+  if (inner && ts.isObjectLiteralExpression(inner)) {
+    const spreadAt = lastSpreadIndex(inner);
+    const seenKeys = new Map();
+    for (let i = 0; i < inner.properties.length; i += 1) {
+      const prop = inner.properties[i];
       if (ts.isPropertyAssignment(prop)) {
         const key = propName(prop.name);
         if (key == null) continue;
-        const childLabel = childLabelFor(ctx, key, prop);
+
+        // 同名属性重复时（JS 语义是后者生效），id 撞车会让父子关系错乱、可能改错字段。
+        // 用 #N 后缀区分，但**不改锚点**，所以编辑仍然落在正确的那一处。
+        const occ = seenKeys.get(key) ?? 0;
+        seenKeys.set(key, occ + 1);
+        const childId = occ === 0 ? `${id}.${key}` : `${id}.${key}#${occ}`;
+
+        // 属性后面还有展开 → 该属性可能被覆盖，语义不确定，只读。
+        const shadowed = spreadAt > i;
         walkValue(ctx, prop.initializer, {
-          id: `${id}.${key}`,
+          id: childId,
           parentId: id,
           name: key,
           kind: Kind.PROP,
-          label: childLabel,
+          label: childLabelFor(ctx, key, prop),
           // 容器语义往下传：数组项里的嵌套对象也能知道自己属于哪个 items
           containerKey: containerKey ?? null,
-          degraded: false,
+          degraded: shadowed,
+          depth: depth + 1,
         });
       } else if (ts.isShorthandPropertyAssignment(prop)) {
         ctx.nodes.push(shorthandNode(ctx, prop, id));
       }
     }
-  } else if (inner && ts.isArrayLiteralExpression(inner) && !info.dynamic) {
+  } else if (inner && ts.isArrayLiteralExpression(inner)) {
     inner.elements.forEach((el, i) => {
       if (ts.isSpreadElement(el)) return;
-      const elInfo = classify(ctx.sf, unwrap(el));
       walkValue(ctx, el, {
         id: `${id}[${i}]`,
         parentId: id,
@@ -315,13 +370,43 @@ function walkValue(ctx, node, { id, parentId, name, kind, label, containerKey, i
         // 数组自身的字段名就是「容器语义」，例如 items / searchItems / toolList
         containerKey: name,
         index: i,
-        degraded: false,
+        degraded,
+        depth: depth + 1,
       });
-      void elInfo;
     });
   }
 
   return nodeOut;
+}
+
+/** 超过深度上限时用一个"截断"节点占位，保证结构树不出现断链。 */
+function truncatedNode(ctx, meta) {
+  return {
+    id: meta.id,
+    parentId: meta.parentId,
+    kind: meta.kind,
+    name: meta.name,
+    label: `${meta.label ?? meta.name}（嵌套过深，已截断）`,
+    description: `超过 ${MAX_DEPTH} 层嵌套，不再展开，也无法结构化编辑。`,
+    editability: Editable.SOURCE_ONLY,
+    valueType: null,
+    value: null,
+    expr: null,
+    enumObject: null,
+    enumMember: null,
+    handlerMethod: null,
+    moduleRef: null,
+    ref: null,
+    file: ctx.file,
+    anchor: null,
+    containerKey: meta.containerKey ?? null,
+    index: meta.index ?? null,
+    degraded: true,
+    // 与普通节点保持同形：前端按同一套字段读取，缺字段会让"是否有对象展开"
+    // 这类判断在截断节点上失真。
+    hasSpread: false,
+    children: [],
+  };
 }
 
 function childLabelFor(ctx, key, prop) {
@@ -448,7 +533,28 @@ function isClassLike(node) {
  * 主入口。
  * @param {{ project: any, route: string, files: {file:string,text:string}[], labels: Record<string,string>, enums: Record<string, any> }} params
  */
-export function analyzePage({ project, route, files, labels = {}, enums = {} }) {
+/**
+ * 判断页面入口是不是一个「转发壳」（L3）：源码本身不装配任何东西。
+ *
+ * 只认两种**确定**的形态，其余一律按 L2 处理：
+ *   - 重导出：`export { default } from './x'` / `export * from './x'`，
+ *     真正的内容在另一个文件，本文件零信息量；
+ *   - 动态装配：`import(...)` / `React.lazy(...)`，渲染什么要运行时才知道。
+ *
+ * 刻意**不**判「export default 指向标识符」——apps/demo 的页面正是
+ * `const P = () => <ViewRoot .../>; export default P;` 这种写法，
+ * 那样会把正常页面误降成只读。
+ */
+function detectForwardingShell(sf, text) {
+  for (const stmt of sf.statements) {
+    if (ts.isExportDeclaration(stmt) && stmt.moduleSpecifier) return '重导出（export ... from）';
+  }
+  if (/\bimport\s*\(/.test(text)) return '动态 import';
+  if (/\b(?:React\.)?lazy\s*\(/.test(text)) return 'React.lazy';
+  return null;
+}
+
+export function analyzePage({ project, route, files, labels = {}, enums = {}, baseHandlerMethods = null }) {
   const fileMap = new Map(files.map((f) => [toPosix(f.file), f]));
   const issues = [];
   const warnings = [];
@@ -467,6 +573,32 @@ export function analyzePage({ project, route, files, labels = {}, enums = {} }) 
   const assembly = findAssembly({ sf: entrySf, text: entry.text });
 
   if (!assembly) {
+    const shell = detectForwardingShell(entrySf, entry.text);
+    if (shell) {
+      // L3：连"这个入口渲染什么"都无法静态确定，只给导航与源码打开。
+      return {
+        page: {
+          route,
+          level: 'L3',
+          entry: entryPath,
+          entryRel: rel(project, entryPath),
+          files: files.map((f) => ({ file: toPosix(f.file), rel: rel(project, toPosix(f.file)) })),
+          componentFiles: {},
+          className: null,
+        },
+        nodes: [],
+        issues: [
+          {
+            level: 'info',
+            code: 'ST103',
+            message: `页面入口是${shell}，静态无法确定结构（只提供源码导航与打开）。`,
+            file: entryPath,
+          },
+        ],
+        enums,
+      };
+    }
+
     // L2：普通 React 页面（或 index 用了别名导入的 ViewRoot）
     return {
       page: {
@@ -539,9 +671,20 @@ export function analyzePage({ project, route, files, labels = {}, enums = {} }) 
         if (!init || !ts.isObjectLiteralExpression(init)) continue;
 
         const typeProp = findProp(init, 'type');
-        const viewType = enumMemberOf(typeProp?.initializer) ?? null;
         const idProp = findProp(init, 'id');
-        const idLit = idProp ? literalText(unwrap(idProp.initializer)) : null;
+        // 属性被后面的展开覆盖时，静态读到的字面量并不是运行时的值 ——
+        // 拿它去做重复检查、重命名的 declaredId 只会把错误放大。
+        const shadowed = (prop) => (prop ? isShadowedBySpread(init, prop) : false);
+        const idShadowed = shadowed(idProp);
+        const typeShadowed = shadowed(typeProp);
+        if (idShadowed || typeShadowed) {
+          warnings.push(
+            `视图「${memberName}」的 ${idShadowed ? 'id' : 'type'} 之后还有对象展开，运行时值无法静态确定，已按只读处理。`,
+          );
+        }
+
+        const viewType = typeShadowed ? null : (enumMemberOf(typeProp?.initializer) ?? null);
+        const idLit = idProp && !idShadowed ? literalText(unwrap(idProp.initializer)) : null;
 
         viewMembers[memberName] = { memberName, id: idLit, viewType, decl: member };
         viewInfo[memberName] = { id: idLit, type: viewType };
@@ -580,7 +723,11 @@ export function analyzePage({ project, route, files, labels = {}, enums = {} }) 
         const init = unwrap(member.initializer);
         if (!init || !ts.isObjectLiteralExpression(init)) continue;
         const idProp = findProp(init, 'id');
-        const idLit = idProp ? literalText(unwrap(idProp.initializer)) : null;
+        const idShadowed = idProp ? isShadowedBySpread(init, idProp) : false;
+        if (idShadowed) {
+          warnings.push(`数据节点「${memberName}」的 id 之后还有对象展开，运行时值无法静态确定，已按只读处理。`);
+        }
+        const idLit = idProp && !idShadowed ? literalText(unwrap(idProp.initializer)) : null;
         dataMembers[memberName] = { memberName, id: idLit };
         const node = walkValue(ctx, member.initializer, {
           id: `data.${memberName}`,
@@ -645,7 +792,10 @@ export function analyzePage({ project, route, files, labels = {}, enums = {} }) 
           editability: Editable.EXPR,
           valueType: null,
           value: null,
-          expr: `${member.getStart(sf)}`,
+          // expr 的语义是"只读展示文本"（前端会按源码片段渲染它）。
+          // 早期这里塞的是字符偏移，于是界面上显示的是一个数字 —— 既没用又误导。
+          // 这里给方法声明的前若干字符，够看清签名与开头逻辑，又不会把大文件搬一遍。
+          expr: text.slice(member.getStart(sf), Math.min(member.getEnd(), member.getStart(sf) + 400)),
           enumObject: null,
           enumMember: null,
           handlerMethod: memberName,
@@ -684,17 +834,60 @@ export function analyzePage({ project, route, files, labels = {}, enums = {} }) 
     degraded: false,
   };
 
+  // ── 语法错误降级 ──
+  //
+  // 文件本来就有语法错误时（正在手改的中间态、半成品代码），静态分析出的结构可能
+  // 与真实不符。此时给出一条明确诊断，并把该文件产出的节点整体降为只读 ——
+  // "能看清但改不了"远好过"基于错误理解去改源码"。
+  const syntaxIssues = [];
+  for (const [key, file] of Object.entries(componentFiles)) {
+    const entry = fileMap.get(file);
+    if (!entry) continue;
+    const diags = parseSource(file, entry.text).parseDiagnostics ?? [];
+    if (diags.length === 0) continue;
+    const first = diags[0];
+    const pos = offsetToLineCol(entry.text, first.start ?? 0);
+    const detail = ts.flattenDiagnosticMessageText(first.messageText, ' ');
+    syntaxIssues.push({ file: toPosix(file), line: pos.line, column: pos.column, message: detail });
+    issues.push({
+      level: 'error',
+      code: 'ST102',
+      message: `${key}.${file.split('.').pop()} 存在语法错误（第 ${pos.line} 行：${detail}），该文件的节点已降级为只读。`,
+      target: `page`,
+    });
+  }
+  const brokenFiles = new Set(syntaxIssues.map((s) => s.file));
+  if (brokenFiles.size > 0) {
+    for (const n of nodes) {
+      if (n.file && brokenFiles.has(toPosix(n.file))) {
+        n.editability = Editable.SOURCE_ONLY;
+        n.degraded = true;
+      }
+    }
+  }
+
   const allNodes = [pageNode, ...nodes.filter((n) => n.kind !== Kind.PAGE)];
   linkChildren(allNodes);
 
   const structure = buildRefIndex(allNodes, viewMembers, dataMembers, handlerMethods, componentFiles, files, project);
 
-  collectIssues({ route, nodes: allNodes, structure, viewMembers, dataMembers, handlerMethods, fileMap, issues });
+  collectIssues({
+    route,
+    nodes: allNodes,
+    structure,
+    viewMembers,
+    dataMembers,
+    handlerMethods,
+    fileMap,
+    issues,
+    baseHandlerMethods,
+  });
 
   return {
     page: {
       route,
       level: 'L1',
+      syntaxIssues,
       entry: entryPath,
       entryRel: rel(project, entryPath),
       files: files.map((f) => ({ file: toPosix(f.file), rel: rel(project, toPosix(f.file)) })),
@@ -874,7 +1067,17 @@ function buildRefIndex(nodes, viewMembers, dataMembers, handlerMethods, componen
   return { refs, rootId, viewMembers, dataMembers, handlerMethods };
 }
 
-function collectIssues({ route, nodes, structure, viewMembers, dataMembers, handlerMethods, fileMap, issues }) {
+function collectIssues({
+  route,
+  nodes,
+  structure,
+  viewMembers,
+  dataMembers,
+  handlerMethods,
+  fileMap,
+  issues,
+  baseHandlerMethods = null,
+}) {
   void route;
   void fileMap;
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
@@ -933,17 +1136,26 @@ function collectIssues({ route, nodes, structure, viewMembers, dataMembers, hand
     }
   }
 
-  // ST006 handler 引用不存在
+  // ST006 handler 引用不在本类、也不在框架基类里。
+  //
+  // 必须同时查基类：HandlerBase / HandlerViewBase 上定义了大量通用方法
+  // （getData / setData / post …），它们不会出现在页面自己的 handler.ts 里。
+  // 只查本类会给每个正常页面报假错 —— 早期实现因此把级别降成了 warning，
+  // 那等于把"真的写错了方法名"也一起放过去了。
   for (const n of nodes) {
     if (n.editability === Editable.HANDLER_REF && n.handlerMethod) {
-      if (!handlerMethods.includes(n.handlerMethod)) {
-        issues.push({
-          level: 'error',
-          code: 'ST006',
-          message: `引用了 Handler 上不存在的 ${n.handlerMethod}（可能在基类，或在别处拼写错误）。`,
-          target: n.id,
-        });
-      }
+      const inBase = baseHandlerMethods ? baseHandlerMethods.has(n.handlerMethod) : false;
+      if (handlerMethods.includes(n.handlerMethod) || inBase) continue;
+      issues.push({
+        // 拿到基类清单才敢报 error；拿不到（编辑链路没传框架路径）保持 warning，
+        // 宁可不报也不能误伤正常页面。
+        level: baseHandlerMethods ? 'error' : 'warning',
+        code: 'ST006',
+        message: baseHandlerMethods
+          ? `this.handler.${n.handlerMethod} 既不在本类中声明，也不在框架基类（HandlerBase / HandlerViewBase）上。`
+          : `this.handler.${n.handlerMethod} 未在本类中声明；若它来自基类（HandlerBase / HandlerViewBase）可忽略。`,
+        target: n.id,
+      });
     }
   }
 
@@ -970,10 +1182,22 @@ function collectIssues({ route, nodes, structure, viewMembers, dataMembers, hand
     }
   }
 
-  // ST900 对象展开导致只读
+  // ST003 Tab / Modal / Drawer 的 viewId 悬空。
+  // 这三类布局靠 viewId 字符串挂载子视图，写错时页面静默少一块，很难肉眼发现。
+  const viewIds = new Set(Object.values(viewMembers).map((v) => v.id).filter(Boolean));
   for (const n of nodes) {
-    if (n.degraded && (n.editability === Editable.SOURCE_ONLY && n.kind !== Kind.HANDLER)) {
-      continue;
+    if (n.name !== 'viewId' || typeof n.value !== 'string' || !n.value.trim()) continue;
+    const parentMember = n.id.startsWith('view.') ? n.id.split('.')[1] : '';
+    const parentType = viewMembers[parentMember]?.viewType ?? '';
+    const isLayout = /Layout(Tab|Modal|Drawer)/.test(parentType);
+    if (!isLayout) continue;
+    if (!viewIds.has(n.value)) {
+      issues.push({
+        level: 'error',
+        code: 'ST003',
+        message: `${parentType.replace('VType.', '')}「${parentMember}」的 viewId 指向不存在的视图 id「${n.value}」。`,
+        target: n.id,
+      });
     }
   }
 }

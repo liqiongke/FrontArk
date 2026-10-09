@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -95,6 +97,10 @@ func (m *EditManager) projectLock(id string) *sync.Mutex {
 	return m.locks[id]
 }
 
+// ProjectLock 暴露 per-project 串行锁，供「读快照 + 记基线」的调用方使用。
+// 与 Apply / Switch 用的是同一把锁，因此快照一定取在两次写盘之间。
+func (m *EditManager) ProjectLock(id string) *sync.Mutex { return m.projectLock(id) }
+
 func (m *EditManager) PutPlan(plan *EditPlan) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -127,6 +133,22 @@ func (m *EditManager) DropPlan(id string) {
 }
 
 // ── 应用编辑 ───────────────────────────────────────────────────────
+
+// ErrStale 表示「计划生成之后，磁盘上的目标文件被改过」。
+// 单列出来是为了让 HTTP 层回 409（冲突，可重试）而不是 400（请求有错）。
+var ErrStale = errors.New("文件内容已变化，编辑计划失效")
+
+// StaleError 带上具体文件，前端的提示才说得清是哪一个文件被外部改了。
+type StaleError struct {
+	File   string
+	Reason string
+}
+
+func (e *StaleError) Error() string {
+	return fmt.Sprintf("%s：%s", e.File, e.Reason)
+}
+
+func (e *StaleError) Is(target error) bool { return target == ErrStale }
 
 // applyTextEdits 在内存里应用区间替换（降序处理，校验不重叠/不越界）。
 //
@@ -195,27 +217,41 @@ func (m *EditManager) Apply(p *Project, planID string, hub *Hub) (*EditRecord, e
 	}
 	preparedFiles := make([]prepared, 0, len(plan.Files))
 	for _, pf := range plan.Files {
-		full, err := p.ResolvePath(pf.File)
+		// 写权限比读权限窄：只允许工程根内 + 逐文件列出的主题文件。
+		full, err := p.ResolveWritePath(pf.File)
 		if err != nil {
 			return nil, err
 		}
-		if err := checkEditableExtension(full); err != nil {
+		if err := checkEditablePath(full); err != nil {
 			return nil, err
+		}
+		info, err := os.Stat(full)
+		if err != nil {
+			return nil, fmt.Errorf("读取 %s 失败：%w", filepath.Base(full), err)
+		}
+		if info.Size() > maxEditableBytes {
+			return nil, fmt.Errorf("%s 超过 %d KiB，已拒绝结构化编辑（可用源码面板只读查看）",
+				filepath.Base(full), maxEditableBytes>>10)
 		}
 		raw, err := os.ReadFile(full)
 		if err != nil {
 			return nil, fmt.Errorf("读取 %s 失败：%w", filepath.Base(full), err)
 		}
 		before := string(raw)
-		if pf.SHA != "" && sha1Hex(before) != pf.SHA {
-			return nil, fmt.Errorf("文件已被外部修改，编辑计划失效：%s（请刷新后重试）", toSlash(full))
+		// 基线必须存在：没有基线就无从判断"计划是不是针对这份内容生成的"。
+		// 早期实现允许 pf.SHA == "" 短路，等于关掉了乐观锁。
+		if pf.SHA == "" {
+			return nil, fmt.Errorf("编辑计划缺少基线哈希，已拒绝应用：%s", toSlash(full))
+		}
+		if sha1Hex(before) != pf.SHA {
+			return nil, &StaleError{File: toSlash(full), Reason: "文件已被外部修改，请刷新后重试"}
 		}
 		after, err := applyTextEdits(before, pf.Edits)
 		if err != nil {
 			return nil, fmt.Errorf("%s：%w", filepath.Base(full), err)
 		}
 		if pf.NextText != "" && after != pf.NextText {
-			return nil, fmt.Errorf("文件内容与计划基线不一致，编辑计划失效：%s", toSlash(full))
+			return nil, &StaleError{File: toSlash(full), Reason: "结果与计划基线不一致"}
 		}
 		preparedFiles = append(preparedFiles, prepared{path: full, before: before, after: after})
 	}
@@ -225,7 +261,17 @@ func (m *EditManager) Apply(p *Project, planID string, hub *Hub) (*EditRecord, e
 	for _, pf := range preparedFiles {
 		if err := writeFileAtomic(pf.path, []byte(pf.after)); err != nil {
 			m.DropPlan(planID)
-			return nil, fmt.Errorf("写入失败（已成功 %d/%d）：%v", len(written), len(preparedFiles), err)
+			// 关键：前面的文件已经落盘了。若不把这条记录推进历史，undo 栈里就没有它，
+			// 用户只能靠 .bak 手工恢复；推进去则能用「撤销」一键回退已改的那部分。
+			// （record.Files 只含已成功写入的文件，所以撤销不会碰没写成功的那些。）
+			if len(record.Files) > 0 {
+				m.pushHistory(record)
+				m.mu.Lock()
+				m.redo[p.ID] = nil
+				m.mu.Unlock()
+			}
+			return nil, fmt.Errorf("写入失败（已成功 %d/%d）：%v；已改动的文件已记入历史，可用「撤销」回退",
+				len(written), len(preparedFiles), err)
 		}
 		written = append(written, pf.path)
 		record.Files = append(record.Files, FileSnapshot{
@@ -266,46 +312,88 @@ func (m *EditManager) pushHistory(record *EditRecord) {
 	m.persistLocked(record.ProjectID)
 }
 
+// persistLocked 把某个项目的历史落盘。
+//
+// 只写元数据，**不写 Before/After 正文**：撤销/重做栈是会话级的（重启后必然为空），
+// 落盘的正文在重启后再也用不到，却会让源码内容长期留在配置目录里
+// （与「源码正文不进持久缓存」相冲突），并且 200 条 × 多文件全文会让这个文件一直膨胀。
 func (m *EditManager) persistLocked(projectID string) {
-	raw, err := json.MarshalIndent(m.history[projectID], "", "  ")
+	list := m.history[projectID]
+	stripped := make([]*EditRecord, 0, len(list))
+	for _, r := range list {
+		clone := *r
+		files := make([]FileSnapshot, 0, len(r.Files))
+		for _, f := range r.Files {
+			// 只留路径与前后哈希：足以说明"改过哪些文件、改的是哪个版本"。
+			files = append(files, FileSnapshot{
+				Path:      f.Path,
+				SHABefore: f.SHABefore,
+				SHAAfter:  f.SHAAfter,
+			})
+		}
+		clone.Files = files
+		stripped = append(stripped, &clone)
+	}
+	raw, err := json.MarshalIndent(stripped, "", "  ")
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(filepath.Join(m.dir, projectID+".json"), raw, 0o644)
+	// 用原子写：直接 os.WriteFile 遇到崩溃会留下截断的 JSON，
+	// 下次启动就再也读不回历史了。
+	if err := writeFileAtomic(filepath.Join(m.dir, projectID+".json"), append(raw, '\n')); err != nil {
+		log.Printf("写入编辑历史失败（%s）：%v", projectID, err)
+	}
 }
 
-// loadLocked 从磁盘补历史（服务重启后第一次访问该项目时触发）。
-// 注意：撤销/重做栈是会话级的，不持久化 —— 重启后可以查看历史，但不能跨会话撤销。
-func (m *EditManager) loadLocked(projectID string) {
+// loadFromDisk 从磁盘读历史（**不持锁**）。服务重启后第一次访问该项目时触发。
+//
+// 注意：撤销/重做栈是会话级的、不持久化，磁盘上也只存元数据（没有正文）——
+// 两者是一致的：重启后可以查看历史，但不能跨会话撤销。
+func (m *EditManager) loadFromDisk(projectID string) []*EditRecord {
 	raw, err := os.ReadFile(filepath.Join(m.dir, projectID+".json"))
 	if err != nil {
-		m.history[projectID] = []*EditRecord{}
-		return
+		return []*EditRecord{}
 	}
 	var list []*EditRecord
 	if err := json.Unmarshal(raw, &list); err != nil {
-		m.history[projectID] = []*EditRecord{}
+		return []*EditRecord{}
+	}
+	if list == nil {
+		return []*EditRecord{}
+	}
+	return list
+}
+
+// ensureLoaded 保证某项目的历史已载入。读盘刻意放在锁外：
+// 历史是 JSON 文件，持锁读会把所有编辑请求（apply 也走这把锁）一起卡住。
+func (m *EditManager) ensureLoaded(projectID string) {
+	m.mu.Lock()
+	_, loaded := m.history[projectID]
+	m.mu.Unlock()
+	if loaded {
 		return
 	}
-	m.history[projectID] = list
+	list := m.loadFromDisk(projectID)
+	m.mu.Lock()
+	// 读盘期间可能已有别的请求填过，别覆盖它
+	if _, ok := m.history[projectID]; !ok {
+		m.history[projectID] = list
+	}
+	m.mu.Unlock()
 }
 
 func (m *EditManager) History(projectID string) []*EditRecord {
+	m.ensureLoaded(projectID)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if _, ok := m.history[projectID]; !ok {
-		m.loadLocked(projectID)
-	}
 	list := m.history[projectID]
 	out := make([]*EditRecord, len(list))
 	copy(out, list)
 	return out
 }
 
+// findRecord 在已载入的历史里查找。调用方需先 ensureLoaded。
 func (m *EditManager) findRecord(projectID, id string) *EditRecord {
-	if _, ok := m.history[projectID]; !ok {
-		m.loadLocked(projectID)
-	}
 	for _, r := range m.history[projectID] {
 		if r.ID == id {
 			return r
@@ -315,14 +403,28 @@ func (m *EditManager) findRecord(projectID, id string) *EditRecord {
 }
 
 // Switch 依据快照把一批文件改写为指定内容（撤销 = 写 Before，重做 = 写 After）。
+//
+// 走两阶段：先把全部文件的路径、扩展名、当前内容校验完，再逐个写。
+// 早期实现边校验边写，多文件时第 2 个文件失败会留下"第 1 个已改、第 2 个没改"的中间态。
 func (m *EditManager) Switch(p *Project, record *EditRecord, direction string) error {
 	lock := m.projectLock(p.ID)
 	lock.Lock()
 	defer lock.Unlock()
 
+	type task struct {
+		path    string
+		text    string
+		current string
+	}
+	tasks := make([]task, 0, len(record.Files))
+
 	for _, f := range record.Files {
-		full, err := p.ResolvePath(f.Path)
+		full, err := p.ResolveWritePath(f.Path)
 		if err != nil {
+			return err
+		}
+		// 撤销/重做同样要过扩展名与目录黑名单 —— 历史记录也可能是被篡改的。
+		if err := checkEditablePath(full); err != nil {
 			return err
 		}
 		raw, err := os.ReadFile(full)
@@ -335,17 +437,33 @@ func (m *EditManager) Switch(p *Project, record *EditRecord, direction string) e
 			want, target = f.SHABefore, f.After
 		}
 		if sha1Hex(current) != want {
-			return fmt.Errorf("%s 已被外部修改，无法%v（请先刷新）", toSlash(full), direction)
+			return &StaleError{File: toSlash(full), Reason: "文件已被外部修改，请先刷新再" + direction}
 		}
-		if err := writeFileAtomic(full, []byte(target)); err != nil {
-			return err
+		tasks = append(tasks, task{path: full, text: target, current: current})
+	}
+
+	// 写盘；任一失败就把已经写过的文件按原内容回滚。
+	//
+	// 撤销/重做的语义是"把整批文件恢复成某个已知快照"，半成品比整体失败更糟：
+	// 一部分文件停在中间态时，再点一次撤销会因为基线不匹配而永久卡住
+	// （want 是整批的 SHA，而其中几个已经是目标态了）。
+	done := make([]task, 0, len(tasks))
+	for _, t := range tasks {
+		if err := writeFileAtomic(t.path, []byte(t.text)); err != nil {
+			for i := len(done) - 1; i >= 0; i-- {
+				_ = writeFileAtomic(done[i].path, []byte(done[i].current))
+			}
+			return fmt.Errorf("写入 %s 失败（已回滚 %d 个文件，本次 %s 未生效）：%w",
+				filepath.Base(t.path), len(done), direction, err)
 		}
+		done = append(done, t)
 	}
 	return nil
 }
 
 // Undo 撤销最近一次编辑。
 func (m *EditManager) Undo(p *Project, hub *Hub) (*EditRecord, error) {
+	m.ensureLoaded(p.ID)
 	m.mu.Lock()
 	stack := m.undo[p.ID]
 	if len(stack) == 0 {
@@ -376,6 +494,7 @@ func (m *EditManager) Undo(p *Project, hub *Hub) (*EditRecord, error) {
 
 // Redo 重做最近一次撤销。
 func (m *EditManager) Redo(p *Project, hub *Hub) (*EditRecord, error) {
+	m.ensureLoaded(p.ID)
 	m.mu.Lock()
 	stack := m.redo[p.ID]
 	if len(stack) == 0 {

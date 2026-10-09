@@ -9,23 +9,51 @@ import type {
   PageCandidate,
   PreviewInfo,
   Project,
+  StudioSettings,
   ThemeParse,
 } from '@/types';
 
+/**
+ * 带错误码的请求异常。
+ * `code` 用于区分「并发冲突（stale-plan，可刷新重试）」与「请求本身有问题」。
+ */
+export class StudioError extends Error {
+  code: string;
+  status: number;
+  constructor(message: string, code: string, status: number) {
+    super(message);
+    this.name = 'StudioError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+/** 局域网模式下服务端要求 Token；EventSource 不能带 header，所以两边都要能取到。 */
+export const getToken = () => sessionStorage.getItem('studio.token') ?? '';
+export const setToken = (t: string) => {
+  if (t) sessionStorage.setItem('studio.token', t);
+  else sessionStorage.removeItem('studio.token');
+};
+
+function authHeaders(): Record<string, string> {
+  const t = getToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...init,
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers ?? {}) },
   });
   const text = await res.text();
-  let payload: { message?: string } & Record<string, unknown>;
+  let payload: { message?: string; code?: string } & Record<string, unknown>;
   try {
     payload = text ? JSON.parse(text) : {};
   } catch {
     throw new Error(`响应不是 JSON（HTTP ${res.status}）：${text.slice(0, 200)}`);
   }
   if (!res.ok) {
-    throw new Error(payload.message ?? `请求失败（HTTP ${res.status}）`);
+    throw new StudioError(payload.message ?? `请求失败（HTTP ${res.status}）`, payload.code ?? '', res.status);
   }
   return payload as T;
 }
@@ -33,6 +61,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const get = <T>(path: string) => request<T>(path, { method: 'GET' });
 const post = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
+const put = <T>(path: string, body?: unknown) =>
+  request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) });
 
 // ── 健康 ─────────────────────────────────────────────────────────
 export interface Health {
@@ -102,6 +132,12 @@ export const fetchSource = (projectId: string, file: string) =>
   );
 
 // ── 编辑 ─────────────────────────────────────────────────────────
+/** 编辑计划的响应：成功是信封；被未覆盖引用拦住时是 ok:false + code。 */
+export type PlanEditResponse = ApiEnvelope<EditPlan> & {
+  noop?: boolean;
+  uncovered?: { file: string; line: number; column: number }[];
+};
+
 export const planEdit = (body: {
   projectId: string;
   route: string;
@@ -111,8 +147,10 @@ export const planEdit = (body: {
   selector?: string;
   token?: string;
   value?: string;
+  occurrence?: number;
+  acknowledgeUncovered?: boolean;
   title?: string;
-}) => post<ApiEnvelope<EditPlan> & { noop?: boolean }>('/edit/plan', body);
+}) => post<PlanEditResponse>('/edit/plan', body);
 
 export const applyEdit = (projectId: string, planId: string) =>
   post<ApiEnvelope<{ record: EditRecord; message: string }>>('/edit/apply', { projectId, planId });
@@ -124,9 +162,19 @@ export const redoEdit = (projectId: string) =>
   post<ApiEnvelope<{ record: EditRecord; message: string }>>('/edit/redo', { projectId });
 
 export const fetchHistory = (id: string) =>
-  get<ApiEnvelope<{ history: { id: string; route: string; title: string; at: string; files: number }[] }>>(
-    `/projects/${id}/history`,
-  );
+  get<
+    ApiEnvelope<{
+      history: {
+        id: string;
+        route: string;
+        title: string;
+        at: string;
+        files: number;
+        /** 这条记录改了哪几处（before/after 片段），历史详情的展示来源。 */
+        impacts?: { file: string; before: string; after: string; label?: string }[];
+      }[];
+    }>
+  >(`/projects/${id}/history`);
 
 // ── 主题 ─────────────────────────────────────────────────────────
 export const fetchTheme = (id: string) => get<ApiEnvelope<ThemeParse>>(`/projects/${id}/theme`);
@@ -146,14 +194,24 @@ export const fetchMemberTemplate = (projectId: string, memberKind: 'view' | 'dat
 export const fetchEditors = (scan = false) =>
   get<ApiEnvelope<{ editors: EditorInfo[] }>>(`/editors${scan ? '?scan=1' : ''}`);
 
+/**
+ * 唤起外部编辑器。
+ *
+ * 注意这里**不传命令**：命令只能来自服务端白名单（或服务端配置的自定义模板），
+ * 否则这个接口就等于「让请求方在这台机器上执行任意命令」。
+ */
 export const openInEditor = (body: {
   projectId: string;
   file: string;
   line?: number;
   column?: number;
   editor?: string;
-  command?: string;
 }) => post<ApiEnvelope<{ message: string; command: string }>>('/open', body);
+
+// ── 本机设置（仅回环地址可写）────────────────────────────────────
+export const fetchSettings = () => get<ApiEnvelope<StudioSettings>>('/settings');
+export const saveSettings = (body: { editorCommand: string }) =>
+  put<ApiEnvelope<{ editorCommand: string; message: string }>>('/settings', body);
 
 // ── 预览 ─────────────────────────────────────────────────────────
 export const fetchPreview = (id: string) => get<ApiEnvelope<PreviewInfo>>(`/projects/${id}/preview`);
@@ -164,9 +222,17 @@ export interface StudioEvent {
   payload: Record<string, unknown>;
 }
 
+/**
+ * 订阅服务端事件。
+ *
+ * `EventSource` 这个浏览器 API 不支持自定义请求头，所以 Token 只能走 query ——
+ * 这也正是服务端对 /api/events 额外放行 `?token=` 的原因。
+ * 事件名与服务端实际广播的保持一致，避免"前端等一个永远不会来的事件"。
+ */
 export function subscribeEvents(onEvent: (event: StudioEvent) => void): () => void {
-  const source = new EventSource('/api/events');
-  const types = ['files-changed', 'projects-changed', 'plan-applied', 'preview-status'];
+  const token = getToken();
+  const source = new EventSource(`/api/events${token ? `?token=${encodeURIComponent(token)}` : ''}`);
+  const types = ['files-changed', 'projects-changed'];
   const handlers: [string, (e: MessageEvent) => void][] = types.map((type) => [
     type,
     (e: MessageEvent) => {

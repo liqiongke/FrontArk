@@ -3,7 +3,7 @@ import { AlertOctagon, Database, ServerCog } from 'lucide-react';
 import { subscribeEvents } from '@/lib/api';
 import { useStudio } from '@/store/studio';
 import { Badge, Empty, Spinner } from '@/ui';
-import { DiffDialog, Toasts } from '@/comp/DiffDialog';
+import { ConfirmDialog, DiffDialog, Toasts, UncoveredDialog } from '@/comp/DiffDialog';
 import { CenterPane } from '@/views/CenterPane';
 import { Inspector } from '@/views/Inspector';
 import { ProjectBar } from '@/views/ProjectBar';
@@ -39,6 +39,39 @@ export default function App() {
         void state.loadProjects();
       }
     });
+  }, []);
+
+  /**
+   * 全局快捷键。
+   *
+   *   Ctrl+S        保存草稿（并阻止浏览器的"保存网页"）
+   *   Ctrl+Z / Ctrl+Shift+Z  撤销 / 重做（走服务端编辑历史，不是浏览器撤销）
+   *
+   * 焦点在输入框里时不拦 Ctrl+Z：用户此刻要撤销的多半是自己刚敲的字。
+   */
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      const key = e.key.toLowerCase();
+      if (key === 's') {
+        e.preventDefault();
+        const state = useStudio.getState();
+        if (state.staged.length > 0) void state.saveAllStaged();
+        else state.notice('info', '没有待保存的改动');
+        return;
+      }
+      if (key !== 'z') return;
+      const target = e.target as HTMLElement | null;
+      const inField =
+        !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (inField) return;
+      e.preventDefault();
+      const state = useStudio.getState();
+      if (e.shiftKey) void state.redo();
+      else void state.undo();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   if (serverError) {
@@ -125,6 +158,8 @@ export default function App() {
       )}
 
       <DiffDialog />
+      <UncoveredDialog />
+      <ConfirmDialog />
       <Toasts />
     </div>
   );

@@ -13,8 +13,8 @@ import { probeProject } from './probe.mjs';
 import { listPages, collectPageFiles, findDeclarationFile } from './pages.mjs';
 import { analyzePage } from './analyze.mjs';
 import { planEdit, PlanError } from './edit.mjs';
-import { extractEnums } from './enums.mjs';
-import { parseTheme, planThemeSet } from './theme.mjs';
+import { extractEnums, extractHandlerBaseMethods } from './enums.mjs';
+import { parseTheme, planThemeSet, validateTheme } from './theme.mjs';
 import { candidatesFor, pageTemplates, viewTemplate, dataTemplate } from './templates.mjs';
 import { toPosix } from './fsutil.mjs';
 
@@ -76,6 +76,8 @@ const handlers = {
       files,
       labels: LABELS,
       enums: meta.enums,
+      // 传框架基类方法：ST006 才能区分"来自基类的合法调用"与"方法名写错了"
+      baseHandlerMethods: extractHandlerBaseMethods({ frameworkSrc: params.frameworkSrc }),
     });
     return { ...result, labels: LABELS, enums: meta.enums };
   },
@@ -103,7 +105,12 @@ const handlers = {
   },
 
   /** 主题 token 的解析与改写。 */
-  'theme.parse': (params) => parseTheme({ files: params.files ?? [] }),
+  'theme.parse': (params) => {
+    const files = params.files ?? [];
+    const parsed = parseTheme({ files });
+    const { issues, checks } = validateTheme({ files: parsed.files });
+    return { ...parsed, issues, checks };
+  },
 
   'theme.plan': (params) => {
     try {
@@ -113,6 +120,7 @@ const handlers = {
         selector: params.selector,
         token: params.token,
         value: params.value,
+        occurrence: Number(params.occurrence ?? 0),
       });
     } catch (err) {
       return { error: { message: err.message, code: err.code ?? 'EPLAN' } };

@@ -43,6 +43,28 @@ export function routeOf(pagesDir, file) {
   return `/${noIndex}`.replace(/\[\.\.\.all\]/g, '[...all]');
 }
 
+/**
+ * 页面入口的**廉价**分级：只读一次文本，不做完整 AST。
+ *
+ * 存在的意义是让左栏在"点开之前"就能区分哪些页面可编辑 —— 完整判定要解析
+ * 三个类 + 递归 AST，不可能为 100 个页面都跑一遍（设计 §5.2.3「按需解析」）。
+ *
+ * 判据刻意保守：只用来提示。真正的级别以 page.analyze 的结果为准。
+ */
+function cheapLevel(file) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch {
+    return 'L2';
+  }
+  if (/ViewRoot/.test(text)) return 'L1';
+  // 转发壳 / 动态装配：渲染什么要运行时才知道
+  if (/\bexport\s*(\*|\{[^}]*\})\s*from\b/.test(text)) return 'L3';
+  if (/\bimport\s*\(/.test(text) || /\b(?:React\.)?lazy\s*\(/.test(text)) return 'L3';
+  return 'L2';
+}
+
 /** 列出全部页面候选。 */
 export function listPages({ pagesDir, frameworkSrc }) {
   if (!pagesDir || !fs.existsSync(pagesDir)) return [];
@@ -53,6 +75,7 @@ export function listPages({ pagesDir, frameworkSrc }) {
       route: routeOf(pagesDir, file),
       dir: toPosix(path.dirname(file)),
       entry: toPosix(file),
+      level: cheapLevel(file),
       isFrameworkProject: Boolean(frameworkSrc),
     }))
     .sort((a, b) => a.route.localeCompare(b.route));

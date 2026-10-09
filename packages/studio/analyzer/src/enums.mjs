@@ -88,3 +88,62 @@ export function extractEnums({ frameworkSrc }) {
   }
   return { enums: out, missing };
 }
+
+// ── handler 基类方法 ────────────────────────────────────────────────
+
+/** 框架 handler 基类所在文件（相对 frameworkSrc）。 */
+const HANDLER_BASE_FILES = ['handler/handlerBase.ts', 'handler/handlerViewBase.ts'];
+
+/** 按 frameworkSrc 缓存：page.analyze 每次都会问一遍，重复 parse 框架文件太浪费。 */
+const handlerBaseCache = new Map();
+
+/**
+ * 提取框架 handler 基类上的成员名。
+ *
+ * 为什么需要：页面自己的 handler.ts 只声明自己新增的方法，getData / setData / post
+ * 这些都来自 HandlerBase。ST006 若只查本类，就等于给每个正常页面报假错
+ * （早期实现只好把级别降成 warning 来掩盖这个误报）。
+ */
+export function extractHandlerBaseMethods({ frameworkSrc }) {
+  const empty = new Set();
+  if (!frameworkSrc || !fs.existsSync(frameworkSrc)) return empty;
+
+  let newest = 0;
+  const files = [];
+  for (const rel of HANDLER_BASE_FILES) {
+    const file = path.join(frameworkSrc, rel);
+    try {
+      newest = Math.max(newest, fs.statSync(file).mtimeMs);
+      files.push(file);
+    } catch {
+      /* 该文件不存在就跳过：框架可能换了目录结构 */
+    }
+  }
+  if (files.length === 0) return empty;
+
+  const cached = handlerBaseCache.get(frameworkSrc);
+  if (cached && cached.mtime === newest) return cached.methods;
+
+  const out = new Set();
+  for (const file of files) {
+    let sf;
+    try {
+      sf = parseSource(toPosix(file), fs.readFileSync(file, 'utf8'));
+    } catch {
+      continue;
+    }
+    const visit = (node) => {
+      if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
+        for (const member of node.members) {
+          const name = member.name;
+          if (name && (ts.isIdentifier(name) || ts.isStringLiteral(name))) out.add(name.text);
+        }
+        return; // 不深入类体：方法内部的局部名不是类成员
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+  }
+  handlerBaseCache.set(frameworkSrc, { mtime: newest, methods: out });
+  return out;
+}

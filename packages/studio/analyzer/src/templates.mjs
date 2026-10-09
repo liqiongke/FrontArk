@@ -128,7 +128,21 @@ class Handler extends HandlerBase {
 export default Handler;
 `;
 
-  return { index, data, view, handler };
+  // ST011：新增页面是**两步走**，这里必须把第二步说出来。
+  // 路由由 vite-plugin-pages 扫 src/pages 自动发现（建目录即生效），
+  // 但后端菜单是另一份数据（mock 的 menuData，key 就是路由路径），不会自动同步。
+  // 把它作为结构化提示随模板一起返回，前端在"新增页面"流程里直接展示，
+  // 免得用户以为菜单也跟着建好了。
+  const notes = [
+    {
+      code: 'ST011',
+      level: 'info',
+      message:
+        '新增页面后，前端路由会被 vite-plugin-pages 自动发现；但后端菜单需要单独登记（mock 的 menuData.key 用该路由路径）。',
+    },
+  ];
+
+  return { index, data, view, handler, notes };
 }
 
 /**

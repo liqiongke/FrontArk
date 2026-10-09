@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, PaintBucket, RotateCcw, Save } from 'lucide-react';
+import { AlertTriangle, Check, CircleAlert, Contrast, PaintBucket, RotateCcw, Save } from 'lucide-react';
 import { Badge, Button, Empty, Input, Select } from '@/ui';
 import { cn, relOf } from '@/lib/utils';
 import { useStudio } from '@/store/studio';
@@ -8,8 +8,10 @@ import type { ThemeToken } from '@/types';
 /**
  * 主题配色编辑。
  *
- * 关键取舍：值就是 CSS 原文（框架用的是 oklch()），所以这里不引入颜色空间换算库 ——
- * 直接让浏览器渲染色块，再用原生取色器写 hex（同样是合法 CSS 值）。
+ * 值就是 CSS 原文（框架用的是 oklch()）。取色器只能给 HEX，
+ * 但**写回时会转回该 token 原本的色空间**（analyzer 的 color.mjs 负责）——
+ * 不这么做，一张 token 表里会混进两种色空间，之后任何基于色空间的计算都不再可信。
+ *
  * 草稿只推给预览 iframe 做即时预览，**落盘必须显式点保存**。
  */
 export function ThemePanel() {
@@ -26,10 +28,13 @@ export function ThemePanel() {
   const groups = theme?.groups ?? [];
   const [group, setGroup] = useState('all');
   const [selector, setSelector] = useState(':root');
+  const [showChecks, setShowChecks] = useState(false);
 
   const visible = tokens.filter(
     (t) => t.selector === selector && (group === 'all' || t.group === group),
   );
+  const themeIssues = theme?.issues ?? [];
+  const contrastChecks = (theme?.checks ?? []).filter((c) => c.selector === selector);
 
   if (!theme) return <Empty>主题解析中…</Empty>;
   if (tokens.length === 0) {
@@ -69,6 +74,15 @@ export function ThemePanel() {
           {draftCount > 0 ? <Badge tone="warn">{draftCount} 处未保存</Badge> : null}
           <Button
             size="sm"
+            variant={showChecks ? 'default' : 'ghost'}
+            onClick={() => setShowChecks((v) => !v)}
+            title="查看对比度检查与主题诊断"
+          >
+            <Contrast className="h-3.5 w-3.5" />
+            {themeIssues.length + contrastChecks.length}
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
             onClick={() => {
               clearThemeDraft();
@@ -82,32 +96,87 @@ export function ThemePanel() {
         </div>
       </div>
 
+      {showChecks && (
+        <div className="max-h-[190px] shrink-0 overflow-auto scroll-thin border-b border-border bg-surface px-2 py-1.5">
+          <div className="mb-1 text-[11px] font-semibold text-muted-foreground">对比度（WCAG AA 正文 ≥ 4.5:1）</div>
+          {contrastChecks.length === 0 && (
+            <div className="text-[11px] text-muted-foreground">当前选择器下没有可计算的配对。</div>
+          )}
+          {contrastChecks.map((c) => (
+            <div key={`${c.selector}-${c.fg}`} className="flex items-center gap-1.5 py-[2px] text-[11px]">
+              <span
+                className={cn(
+                  'w-[46px] shrink-0 text-center tabular-nums',
+                  c.level === 'pass' ? 'text-emerald-600' : c.level === 'large-only' ? 'text-amber-600' : 'text-destructive',
+                )}
+              >
+                {c.ratio}:1
+              </span>
+              <span className="mono truncate">
+                --{c.fg} / --{c.bg}
+              </span>
+              <Badge tone={c.level === 'pass' ? 'muted' : 'warn'} className="ml-auto shrink-0">
+                {c.level === 'pass' ? '通过' : c.level === 'large-only' ? '仅大字号' : '偏低'}
+              </Badge>
+            </div>
+          ))}
+          {themeIssues.length > 0 && (
+            <>
+              <div className="mt-1.5 mb-1 text-[11px] font-semibold text-muted-foreground">诊断</div>
+              {themeIssues.map((iss, i) => (
+                <div key={`${iss.code}-${i}`} className="flex items-start gap-1.5 py-[2px] text-[11px] leading-4">
+                  <span
+                    className={cn(
+                      'shrink-0',
+                      iss.level === 'error' ? 'text-destructive' : iss.level === 'warning' ? 'text-amber-600' : 'text-muted-foreground',
+                    )}
+                  >
+                    {iss.level === 'error' ? <CircleAlert className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                  </span>
+                  <span>{iss.message}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-auto scroll-thin">
-        {visible.map((token) => (
-          <TokenRow
-            key={`${token.file}|${token.selector}|${token.token}`}
-            token={token}
-            root={root}
-            draft={themeDraft[`${token.file}|${token.selector}|${token.token}`]}
-            onDraft={(v) => draftTheme(`${token.file}|${token.selector}|${token.token}`, v)}
-            onSave={() =>
-              void saveThemeToken({
-                file: token.file,
-                selector: token.selector,
-                token: token.token,
-                value: themeDraft[`${token.file}|${token.selector}|${token.token}`] ?? token.value,
-              })
-            }
-          />
-        ))}
+        {visible.map((token) => {
+          const key = tokenKey(token);
+          return (
+            <TokenRow
+              key={key}
+              token={token}
+              root={root}
+              draft={themeDraft[key]}
+              onDraft={(v) => draftTheme(key, v)}
+              onSave={() =>
+                void saveThemeToken({
+                  file: token.file,
+                  selector: token.selector,
+                  token: token.token,
+                  occurrence: token.occurrence ?? 0,
+                  value: themeDraft[key] ?? token.value,
+                })
+              }
+            />
+          );
+        })}
       </div>
 
       <div className="shrink-0 border-t border-border px-2 py-1.5 text-[11px] leading-5 text-muted-foreground">
-        草稿会即时推到预览（不落盘）；点「保存」才写入 CSS 文件。框架 token 落在 packages/framework，
-        改动会影响所有应用。
+        草稿会即时推到预览（不落盘）；点「保存」才写入 CSS 文件。
+        写回时会**沿用该 token 原本的色空间**（oklch 的仍是 oklch），避免一张表里混两种写法。
+        框架 token 落在 packages/framework，改动会影响所有应用。
       </div>
     </div>
   );
+}
+
+/** 草稿 key 必须带上 occurrence：同一选择器内同名 token 是可以重复声明的。 */
+function tokenKey(t: ThemeToken): string {
+  return `${t.file}|${t.selector}|${t.token}#${t.occurrence ?? 0}`;
 }
 
 function TokenRow({
@@ -136,6 +205,14 @@ function TokenRow({
           --{token.token}
         </span>
         {dirty ? <Badge tone="warn">未保存</Badge> : null}
+        {token.duplicate ? (
+          <Badge
+            tone="warn"
+            title={`同一选择器内重复声明，这是第 ${(token.occurrence ?? 0) + 1} 处（CSS 里最后一条生效）`}
+          >
+            第 {(token.occurrence ?? 0) + 1} 处
+          </Badge>
+        ) : null}
         <span className="mono ml-auto shrink-0 truncate text-[10px] text-muted-foreground/60" title={relOf(root, token.file)}>
           {fileLabel}
         </span>

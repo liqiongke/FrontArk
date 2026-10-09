@@ -175,7 +175,14 @@ export function probeProject({ rootPath, overrides = {} }) {
 
   const { env, envSources } = readEnv(abs, overrides.mode ?? 'dev');
   const mockBaseUrl = overrides.mockBaseUrl ?? env.VITE_BASE_URL ?? null;
-  const devPort = overrides.devServer?.port ?? readDevPort(abs);
+  // 端口优先级：显式覆盖 > .env 里的 VITE_SERVER_PORT > vite.config 里的字面量。
+  //
+  // 之所以把 .env 排在 vite.config 前面：dev 脚本是 `vite --mode dev`，真正的端口
+  // 来自 .env.dev 的 VITE_SERVER_PORT；vite.config 里那个 `|| 3000` 只是兜底，
+  // 直接读它会把端口认成 3000（那是 .env.production 的口径）。
+  const envPort = Number(env.VITE_SERVER_PORT);
+  const devPort =
+    overrides.devServer?.port ?? (Number.isFinite(envPort) && envPort > 0 ? envPort : readDevPort(abs));
 
   let kind = 'unknown';
   if (hasFramework && fs.existsSync(pagesDirFinal)) kind = 'frontark';

@@ -31,13 +31,15 @@ export function CenterPane() {
 
   const src = useMemo(() => {
     if (!project || !preview || !analysis?.page?.entry) return '';
+    // 环境变量**不进 URL**（会留在浏览器历史与访问日志里），
+    // 改由预览宿主挂起、通过 fa-want-env / fa-env 一对消息取走。
     const params = new URLSearchParams({
       page: analysis.page.entry,
       route,
       project: project.id,
       api: preview.apiBase,
       base: preview.mockBase ?? '',
-      env: JSON.stringify(preview.env ?? {}),
+      studio: window.location.origin,
       t: String(previewTick),
     });
     return `${preview.baseUrl}?${params.toString()}`;
@@ -50,16 +52,33 @@ export function CenterPane() {
     return () => window.clearTimeout(timer);
   }, [src]);
 
-  // 预览宿主发来的消息：点选元素 / 报错 / 提示
+  // 与预览宿主通信：点选元素 / 报错 / 提示 / 索取环境变量
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      const data = event.data as { type?: string; nodeId?: string; message?: string; title?: string; detail?: string; level?: string };
+      // 只接受预览宿主的消息：Studio 里同时挂着目标工程的代码，
+      // 不校验来源等于让任意嵌套页面冒充预览回传指令。
+      const state = useStudio.getState();
+      const previewOrigin = state.preview?.baseUrl ? new URL(state.preview.baseUrl).origin : null;
+      if (previewOrigin && event.origin !== previewOrigin) return;
+
+      const data = event.data as {
+        type?: string;
+        nodeId?: string;
+        message?: string;
+        title?: string;
+        detail?: string;
+        level?: string;
+      };
       if (!data?.type?.startsWith('fa-')) return;
+
       if (data.type === 'fa-select' && data.nodeId) {
         selectNode(data.nodeId);
-        useStudio.getState().setInspectorTab('property');
+        state.setInspectorTab('property');
       }
       if (data.type === 'fa-mounted') setBooting(false);
+      if (data.type === 'fa-want-env') {
+        state.postToPreview({ type: 'fa-env', env: state.preview?.env ?? {} });
+      }
       if (data.type === 'fa-notice') notice(data.level === 'warn' ? 'warn' : 'info', data.message ?? '');
       if (data.type === 'fa-error') notice('error', `${data.title}：${data.detail?.slice(0, 300) ?? ''}`);
     }
@@ -97,6 +116,17 @@ export function CenterPane() {
             点表头 / 标签 / 按钮可直接选中对应节点
           </span>
         )}
+
+        {centerMode === 'preview' && !preview?.mockBase && (
+          <Badge tone="warn" className="shrink-0" title="目标工程的 VITE_BASE_URL 未探测到，预览里的请求可能拿不到数据">
+            数据源未配置
+          </Badge>
+        )}
+        {preview?.maskedEnvKeys && preview.maskedEnvKeys.length > 0 ? (
+          <Badge tone="muted" className="shrink-0" title={`已掩码：${preview.maskedEnvKeys.join('、')}`}>
+            {preview.maskedEnvKeys.length} 个敏感变量已掩码
+          </Badge>
+        ) : null}
 
         <div className="ml-auto flex items-center gap-1">
           {centerMode === 'preview' && (

@@ -81,17 +81,43 @@ function findNode(analysis, id) {
   return node;
 }
 
+/**
+ * 漂移校验：前端提交的 op 是**基于它加载分析结果那一刻**的节点。
+ *
+ * 如果磁盘上的文件在这之后被改过（外部编辑器保存、git 切分支、另一个浏览器标签），
+ * 同一个 nodeId 可能已经指向别的内容 —— 照旧执行会改错位置，而 diff 上看起来
+ * 又"改的确实是那个字面量"，非常难察觉。
+ *
+ * 做法：把前端看到的 anchor.hash 带上来，与**用当前文本重新分析**出的同一节点对比，
+ * 不一致就拒绝，让用户先刷新。缺少 anchorHash 时跳过（不阻断合法操作）；
+ * 最后一道防线仍是 Go 侧 apply 时的文件级 SHA 比对。
+ */
+function assertNoDrift(analysis, op) {
+  const expected = op.anchorHash;
+  if (typeof expected !== 'string' || expected === '') return;
+  const id =
+    typeof op.target === 'string' && op.target
+      ? op.target
+      : typeof op.member === 'string' && op.member
+        ? op.member
+        : null;
+  if (!id) return;
+  const node = analysis.nodes.find((n) => n.id === id);
+  const actual = node?.anchor?.hash;
+  // 找不到节点/节点无锚点时不在这一层拦：真正的"目标不存在"由各分支的 findNode
+  // 报 ENOTARGET，那个语义更准确。
+  if (!actual || actual === expected) return;
+  throw new PlanError(
+    `目标位置的源码已被外部修改（${node.anchor.file}:${node.anchor.line}），请刷新后重试`,
+    'EANCHOR',
+  );
+}
+
 function fileOf(files, abs) {
   const target = toPosix(abs);
   const found = files.find((f) => toPosix(f.file) === target);
   if (!found) throw new PlanError(`文件不在本次快照内：${abs}`, 'ENOFILE');
   return found;
-}
-
-/** 对象字面量里两个属性之间的「连接区间」计算（插入/删除共用）。 */
-function arrayElementRange(text, arrayNode, elements, index) {
-  const el = elements[index];
-  return { el, start: el.getStart(), end: el.getEnd() };
 }
 
 /**
@@ -103,6 +129,9 @@ export function planEdit(params) {
   if (!op || typeof op.kind !== 'string') throw new PlanError('缺少 op.kind', 'EBADOP');
 
   const analysis = analyzePage({ project, route, files, labels, enums });
+
+  // 先校验「用户看到的节点」与「当前源码里的节点」是否还是同一个
+  assertNoDrift(analysis, op);
 
   switch (op.kind) {
     case 'set':
@@ -131,14 +160,21 @@ export function planEdit(params) {
 }
 
 function wrap(result, files) {
-  // 逐个文件先做一次「内存应用 + 重新 parse」自检，保证结果仍是合法 TS
+  // 逐个文件先做一次「内存应用 + 重新 parse」自检，保证结果仍是合法 TS。
+  //
+  // 关键点：只关心**这次编辑新引入的**语法错误。文件本来就是坏的（半成品代码、
+  // 正在手改的中间态）时，早期实现会把既有错误算到本次编辑头上，用户会看到
+  // 「你的修改语法错误」这种误导性结论。
   for (const group of result.files) {
     const source = fileOf(files, group.file);
     const next = applyEdits(source.text, group.edits);
-    const sf = parseSource(group.file, next);
-    const diags = sf.parseDiagnostics ?? [];
-    if (diags.length > 0) {
-      const first = diags[0];
+    const beforeDiags = parseDiagnosticsOf(source.file, source.text);
+    const afterDiags = parseDiagnosticsOf(group.file, next);
+    const introduced = afterDiags.filter(
+      (d) => !beforeDiags.some((b) => sameDiag(b, d)),
+    );
+    if (introduced.length > 0) {
+      const first = introduced[0];
       const pos = offsetToLineCol(next, first.start ?? 0);
       throw new PlanError(
         `修改后语法校验未通过（${group.file}:${pos.line}）：${ts.flattenDiagnosticMessageText(first.messageText, ' ')}`,
@@ -148,6 +184,23 @@ function wrap(result, files) {
     group.nextText = next;
   }
   return result;
+}
+
+/** 取一个源文件的语法诊断（仅语法层，不含类型错误）。 */
+function parseDiagnosticsOf(file, text) {
+  try {
+    return parseSource(file, text).parseDiagnostics ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function sameDiag(a, b) {
+  return a.start === b.start && a.length === b.length && diagText(a) === diagText(b);
+}
+
+function diagText(d) {
+  return ts.flattenDiagnosticMessageText(d.messageText, ' ');
 }
 
 function groupEdits(edits) {
@@ -167,7 +220,9 @@ function planSetLiteral(analysis, files, op) {
   }
   const source = fileOf(files, node.anchor.file);
   const before = source.text.slice(node.anchor.start, node.anchor.end);
-  const after = serializeScalar(op.value, node, source.text, node.anchor.start);
+  // 把原字面量一起传下去：新值的引号风格必须沿用**被替换的那个字面量**，
+  // 而不是附近 400 字符内的"多数派"。
+  const after = serializeScalar(op.value, node, source.text, node.anchor.start, before);
   if (before === after) return { files: [], impacts: [], noop: true };
 
   return wrap(
@@ -181,8 +236,8 @@ function planSetLiteral(analysis, files, op) {
   );
 }
 
-function serializeScalar(value, node, text, near) {
-  if (node.valueType === 'string') return stringLiteral(value, text, near);
+function serializeScalar(value, node, text, near, original = '') {
+  if (node.valueType === 'string') return stringLiteral(value, text, near, original);
   if (node.valueType === 'number') {
     const num = Number(value);
     if (!Number.isFinite(num)) throw new PlanError(`不是合法数字：${value}`, 'EBADVALUE');
@@ -190,7 +245,7 @@ function serializeScalar(value, node, text, near) {
   }
   if (node.valueType === 'boolean') return value ? 'true' : 'false';
   if (node.valueType === 'null') return 'null';
-  if (typeof value === 'string') return stringLiteral(value, text, near);
+  if (typeof value === 'string') return stringLiteral(value, text, near, original);
   if (typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   throw new PlanError(`无法序列化的值类型：${typeof value}`, 'EBADVALUE');
@@ -313,10 +368,35 @@ function findNodeAt(sf, start, end) {
   return found;
 }
 
+// ── 数组：元素区间的计算 ───────────────────────────────────────────
+
+/** 元素 i 的「带前置 trivia」起点：上一个是首个元素时为 `[` 之后。 */
+function elementLeadStart(arrayExpr, elements, i) {
+  return i === 0 ? arrayExpr.getStart() + 1 : elements[i - 1].getEnd() + 1;
+}
+
+/**
+ * 删除元素 i 时该抹掉的区间。
+ *
+ * 取「带前置注释」的起点 → 元素结束（并带上它自己的逗号），
+ * 这样注释不会变成悬空注释、也不会在数组里留下空行。
+ * 最后一个元素改为「连带前一个元素的逗号」，避免留下 `[a, b,]` 这种尾逗号。
+ */
+function elementDeleteRange(text, arrayExpr, elements, i) {
+  const last = elements.length - 1;
+  if (i === last) {
+    return { start: elements[i - 1].getEnd(), end: elements[i].getEnd() };
+  }
+  return { start: elementLeadStart(arrayExpr, elements, i), end: elements[i].getEnd() + 1 };
+}
+
 // ── 数组：删除 ─────────────────────────────────────────────────────
 function planDeleteArrayItem(analysis, files, op) {
   const node = findNode(analysis, op.target);
   if (node.editability !== Editable.ARRAY) throw new PlanError('目标不是数组', 'ENOTARRAY');
+  if (node.hasSpread) {
+    throw new PlanError('数组内含展开表达式（...），无法安全删除元素', 'EDYNAMIC');
+  }
   const index = Number(op.index);
   const source = fileOf(files, node.anchor.file);
   const text = source.text;
@@ -328,34 +408,19 @@ function planDeleteArrayItem(analysis, files, op) {
   const elements = arrayExpr.elements;
   if (index < 0 || index >= elements.length) throw new PlanError(`数组下标越界：${index}`, 'EBADINDEX');
 
-  const el = elements[index];
-  let start;
-  let end;
-  if (index < elements.length - 1) {
-    const next = elements[index + 1];
-    start = el.getStart();
-    end = next.getStart();
-  } else if (index > 0) {
-    const prev = elements[index - 1];
-    start = prev.getEnd();
-    end = el.getEnd();
-  } else {
-    start = arrayExpr.getStart();
-    end = arrayExpr.getEnd();
-  }
-
   if (elements.length === 1) {
+    const start = arrayExpr.getStart();
+    const end = arrayExpr.getEnd();
     return wrap(
       {
-        files: groupEdits([
-          { file: node.anchor.file, start: arrayExpr.getStart(), end: arrayExpr.getEnd(), newText: '[]' },
-        ]),
+        files: groupEdits([{ file: node.anchor.file, start, end, newText: '[]' }]),
         impacts: [{ nodeId: node.id, file: node.anchor.file, before: text.slice(start, end), after: '[]' }],
       },
       files,
     );
   }
 
+  const { start, end } = elementDeleteRange(text, arrayExpr, elements, index);
   const before = text.slice(start, end);
   return wrap(
     {
@@ -367,6 +432,10 @@ function planDeleteArrayItem(analysis, files, op) {
 }
 
 // ── 数组：重排 / 跨位置移动 ────────────────────────────────────────
+//
+// 用「删掉一处 + 在另一处插入」两步实现，**不重排整个数组**。
+// 早期实现把整个数组重新渲染一遍（还顺手补了尾逗号），既违反「永不整体重写」，
+// 也会把元素上的注释、空行、自定义换行全部洗掉。
 function planMoveArrayItem(analysis, files, op) {
   const node = findNode(analysis, op.target);
   if (node.editability !== Editable.ARRAY) throw new PlanError('目标不是数组', 'ENOTARRAY');
@@ -383,42 +452,57 @@ function planMoveArrayItem(analysis, files, op) {
   if (from < 0 || from >= elements.length) throw new PlanError(`源下标越界：${from}`, 'EBADINDEX');
   if (to < 0 || to >= elements.length) throw new PlanError(`目标下标越界：${to}`, 'EBADINDEX');
   if (from === to) return { files: [], impacts: [], noop: true };
-
-  const blocks = elements.map((el, i) => {
-    const prevEnd = i === 0 ? arrayExpr.getStart() + 1 : elements[i - 1].getEnd();
-    const comments = extractComments(text.slice(prevEnd, el.getStart()));
-    return { comments, text: el.getText() };
-  });
-
-  const [moved] = blocks.splice(from, 1);
-  blocks.splice(to, 0, moved);
+  if (elements.some((e) => ts.isSpreadElement(e))) {
+    throw new PlanError('数组内含展开表达式，无法安全重排', 'EDYNAMIC');
+  }
 
   const eol = detectEol(text);
   const parentIndent = indentAt(text, node.anchor.start);
   const unit = detectIndentUnit(text);
-  const itemIndent = elements.length > 0 ? indentAt(text, elements[0].getStart()) || parentIndent + unit : parentIndent + unit;
+  const itemIndent =
+    indentAt(text, elements[0].getStart()) || parentIndent + unit;
 
-  const rendered = blocks
-    .map((b) => {
-      const body = reindent(b.text, itemIndent);
-      const head = b.comments.map((c) => `${itemIndent}${c}`).join(eol);
-      return head ? `${head}${eol}${body}` : body;
-    })
-    .join(`,${eol}`);
+  // 单行数组沿用 `, `，多行数组沿用「逗号 + 换行 + 同级缩进」
+  const multiLine =
+    elements.length > 1 && /[\r\n]/.test(text.slice(elements[0].getEnd(), elements[1].getStart()));
+  const sep = multiLine ? `,${eol}${itemIndent}` : ', ';
 
-  const after = `[${eol}${rendered},${eol}${parentIndent}]`;
+  // 被搬运的「注释 + 原文」整体搬走，不做重新缩进（同级移动，缩进不变）
+  const comments = extractComments(text.slice(elementLeadStart(arrayExpr, elements, from), elements[from].getStart()));
+  const body = text.slice(elements[from].getStart(), elements[from].getEnd());
+  const payload = comments.length
+    ? `${comments.map((c) => `${itemIndent}${c}`).join(eol)}${eol}${body}`
+    : body;
+
+  const del = elementDeleteRange(text, arrayExpr, elements, from);
+  const movingDown = from < to;
+  const insertAt = movingDown ? elements[to].getEnd() : elements[to].getStart();
+  const insertText = movingDown ? `${sep}${payload}` : `${payload}${sep}`;
+
+  if (insertAt >= del.start && insertAt <= del.end) {
+    throw new PlanError('内部不一致：重排的删除区间与插入点重叠', 'EINTERNAL');
+  }
+
+  const file = node.anchor.file;
+  const beforeAll = text.slice(arrayExpr.getStart(), arrayExpr.getEnd());
+  const afterAll = applyEdits(text, [
+    { start: del.start, end: del.end, newText: '' },
+    { start: insertAt, end: insertAt, newText: insertText },
+  ]).slice(arrayExpr.getStart(), arrayExpr.getEnd());
+
   return wrap(
     {
       files: groupEdits([
-        { file: node.anchor.file, start: arrayExpr.getStart(), end: arrayExpr.getEnd(), newText: after },
+        { file, start: del.start, end: del.end, newText: '' },
+        { file, start: insertAt, end: insertAt, newText: insertText },
       ]),
       impacts: [
         {
           nodeId: node.id,
-          file: node.anchor.file,
-          before: text.slice(arrayExpr.getStart(), arrayExpr.getEnd()),
-          after,
-          note: '数组重排会重新渲染该数组；元素上的注释已尽力保留。',
+          file,
+          before: beforeAll,
+          after: afterAll,
+          note: `仅搬运第 ${from + 1} 项到第 ${to + 1} 位；数组其余部分与注释保持原样。`,
         },
       ],
     },
@@ -437,6 +521,11 @@ function extractComments(chunk) {
 // ── 对象属性：删除 / 插入 ──────────────────────────────────────────
 function planDeleteProp(analysis, files, op) {
   const node = findNode(analysis, op.target);
+  // 被同名展开覆盖的属性：删掉它不改变运行时行为（展开本来就赢），
+  // 但会在源码里留下"少了一个属性"的假象。宁可拒绝。
+  if (node.editability === Editable.SOURCE_ONLY || node.degraded) {
+    throw new PlanError('该属性可能被后面的对象展开覆盖，语义不确定，已拒绝删除', 'EDYNAMIC');
+  }
   const parentId = node.parentId;
   if (!parentId) throw new PlanError('目标没有父容器', 'ENOTARGET');
   const parent = findNode(analysis, parentId);
@@ -486,6 +575,11 @@ function planInsertProp(analysis, files, op) {
   const sf = parseSource(parent.anchor.file, text);
   const objExpr = findNodeAt(sf, parent.anchor.start, parent.anchor.end);
   if (!objExpr || !ts.isObjectLiteralExpression(objExpr)) throw new PlanError('内部不一致：目标不是对象', 'EINTERNAL');
+  // 含展开时，插入的属性可能被展开对象里的同名属性覆盖（或反过来），
+  // 语义不再确定。数组插入早就拒绝了这种容器，这里对齐。
+  if (objExpr.properties.some((p) => ts.isSpreadAssignment(p))) {
+    throw new PlanError('对象内含展开表达式（...），无法安全新增属性', 'EDYNAMIC');
+  }
   if (objExpr.properties.some((p) => propName(p.name) === key)) {
     throw new PlanError(`属性 ${key} 已存在`, 'EEXISTS');
   }
@@ -590,7 +684,8 @@ function planInsertMember(analysis, files, op) {
   } else {
     insertAt = cls.getStart() + 1;
   }
-  const body = reindent(String(op.text ?? '').trim(), memberIndent);
+  // reindent 必须传文件自己的 EOL，否则 CRLF 文件里新增成员会混进 LF。
+  const body = reindent(String(op.text ?? '').trim(), memberIndent, eol);
   const newText = `${eol}${eol}${body}`;
 
   return wrap(

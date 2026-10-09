@@ -26,17 +26,40 @@ const apiBase = params.get('api') ?? '';
 const mockBase = params.get('base') ?? '';
 const projectId = params.get('project') ?? '';
 const route = params.get('route') ?? '/';
-const envRaw = params.get('env');
-
-// 目标工程的 import.meta.env.* 由 vite 插件改写到这里（见 vite.config.ts 的 studioEnv）
-try {
-  window.__STUDIO_ENV__ = envRaw ? JSON.parse(envRaw) : {};
-} catch {
-  window.__STUDIO_ENV__ = {};
-}
+// Studio 自己的 origin：postMessage 定向投递，而不是 '*' 广播。
+// 预览里跑的是目标工程的真实代码，把环境变量广播给任意 opener 不合适。
+const studioOrigin = params.get('studio') || '*';
 
 function post(payload: Record<string, unknown>) {
-  window.parent?.postMessage(payload, '*');
+  window.parent?.postMessage(payload, studioOrigin);
+}
+
+/**
+ * 向 Studio 要目标工程的 import.meta.env.*。
+ *
+ * 为什么不走 URL query：环境变量值会留在浏览器历史 / 地址栏 / 访问日志里。
+ * 这里改成挂起等一条 `fa-env` 消息，拿到之后才开始 import 页面模块 ——
+ * 因为页面模块在**导入期**就会读 `window.__STUDIO_ENV__`。
+ */
+function requestEnv(timeoutMs = 600): Promise<Record<string, string>> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (env: Record<string, string>) => {
+      if (done) return;
+      done = true;
+      window.removeEventListener('message', onMsg);
+      resolve(env);
+    };
+    const onMsg = (event: MessageEvent) => {
+      if (event.source !== window.parent) return;
+      const data = event.data as { type?: string; env?: Record<string, string> } | null;
+      if (data?.type !== 'fa-env') return;
+      finish(data.env ?? {});
+    };
+    window.addEventListener('message', onMsg);
+    post({ type: 'fa-want-env' });
+    window.setTimeout(() => finish({}), timeoutMs);
+  });
 }
 
 function renderFatal(title: string, detail: string) {
@@ -64,8 +87,11 @@ function renderFatal(title: string, detail: string) {
 localStorage.setItem('@authtoken', 'studio-preview');
 localStorage.removeItem('@authtoken_expire');
 
+// baseURL 缺省刻意不留 '/api' 兜底：目标工程没配 VITE_BASE_URL 时，
+// 请求会打到预览宿主自己的 7099 端口（那里没有 /api 代理，只会得到 404 HTML），
+// 反而掩盖了「数据源没配」这个真正的问题。
 NetUtils.init(
-  mockBase || '/api',
+  mockBase,
   '/login',
   '/login',
   (code, msg, type) => {
@@ -78,6 +104,9 @@ async function bootstrap() {
     renderFatal('缺少参数', '预览地址必须带 page 参数（目标页面 index.tsx 的绝对路径）。');
     return;
   }
+
+  // 先取环境变量（页面模块在导入期就会读 window.__STUDIO_ENV__）
+  window.__STUDIO_ENV__ = await requestEnv();
 
   const url = `/@fs/${pagePath.replace(/\\/g, '/')}`;
   let mod: Record<string, unknown>;

@@ -7,7 +7,8 @@
   "main": "src/index.mjs",
   "scripts": {
     "start": "node src/index.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node test/smoke.mjs",
+    "test:rpc": "node test/rpc.test.mjs"
   },
   "dependencies": {
     "typescript": "~5.9.3"

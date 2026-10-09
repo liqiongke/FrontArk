@@ -187,23 +187,42 @@ func (s *Sidecar) Status() map[string]any {
 func (s *Sidecar) Call(method string, params any, timeout time.Duration) (json.RawMessage, error) {
 	result, err := s.callOnce(method, params, timeout)
 	if err == nil {
+		// 成功就清零：否则计数只增不减，长跑一段时间后必然永久停止重启。
+		s.mu.Lock()
+		if s.restarts != 0 {
+			log.Printf("analyzer 恢复正常，重启计数清零（此前 %d 次）", s.restarts)
+		}
+		s.restarts = 0
+		s.mu.Unlock()
 		return result, nil
 	}
+
 	s.mu.Lock()
-	canRestart := s.restarts < 5
+	attempt := s.restarts
+	canRestart := attempt < maxRestarts
 	if canRestart {
 		s.restarts++
 	}
 	s.mu.Unlock()
 	if !canRestart {
-		return nil, fmt.Errorf("analyzer 连续失败，已停止自动重启：%w", err)
+		return nil, fmt.Errorf("analyzer 连续失败 %d 次，已停止自动重启（重建服务可恢复）：%w", maxRestarts, err)
 	}
-	log.Printf("analyzer 调用失败（%s），尝试重启后重试：%v", method, err)
+
+	// 指数退避：连续崩溃时不要每 300ms 就 fork 一次 Node。
+	delay := time.Duration(300*(1<<attempt)) * time.Millisecond
+	if delay > 5*time.Second {
+		delay = 5 * time.Second
+	}
+	log.Printf("analyzer 调用失败（%s），%s 后重启（第 %d/%d 次）：%v", method, delay, attempt+1, maxRestarts, err)
+	time.Sleep(delay)
 	if rerr := s.restart(); rerr != nil {
 		return nil, fmt.Errorf("%w；重启失败：%v", err, rerr)
 	}
 	return s.callOnce(method, params, timeout)
 }
+
+// maxRestarts 连续失败多少次后放弃自动重启。
+const maxRestarts = 5
 
 func (s *Sidecar) restart() error {
 	s.mu.Lock()
@@ -213,7 +232,6 @@ func (s *Sidecar) restart() error {
 	s.cmd = nil
 	s.stdin = nil
 	s.mu.Unlock()
-	time.Sleep(300 * time.Millisecond)
 	return s.start()
 }
 

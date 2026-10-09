@@ -115,6 +115,115 @@ export function DiffDialog() {
   );
 }
 
+/**
+ * 未覆盖引用的确认弹窗。
+ *
+ * 语义重命名遇到「同名但无法静态归因」的标识符时，服务端**不给可应用的计划**，
+ * 而是把清单甩回来要求显式确认 —— 否则一键重命名就等于一次隐式的全局替换。
+ */
+export function UncoveredDialog() {
+  const pending = useStudio((s) => s.uncovered);
+  const project = useStudio((s) => s.project);
+  const confirmUncovered = useStudio((s) => s.confirmUncovered);
+  const dismissUncovered = useStudio((s) => s.dismissUncovered);
+
+  if (!pending) return null;
+  const root = project?.rootPath ?? '';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/25 p-6">
+      <div className="flex max-h-[80vh] w-full max-w-[620px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <div className="text-[13px] font-semibold">{pending.title}</div>
+            <Badge tone="warn">{pending.items.length} 处未确认</Badge>
+          </div>
+          <Button size="icon" variant="ghost" onClick={dismissUncovered} title="取消">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-auto scroll-thin px-4 py-3 text-[12px] leading-5">
+          <div className="mb-2 rounded-[6px] border border-amber-500/30 bg-amber-500/8 px-2.5 py-2 text-amber-800">
+            {pending.message}
+            <div className="mt-1">
+              下面这些同名标识符<strong>不会被自动改写</strong>。它们是字符串拼接、变量传递等
+              无法静态归因的用法，请改完后人工复核。
+            </div>
+          </div>
+          <div className="mono max-h-[240px] space-y-0.5 overflow-auto scroll-thin rounded-[6px] border border-border bg-surface px-2 py-1.5 text-[11.5px]">
+            {pending.items.map((u, i) => (
+              <div key={`${u.file}-${u.line}-${i}`}>
+                {relOf(root, u.file)}:{u.line}:{u.column}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/40 px-4 py-2.5">
+          <Button variant="ghost" onClick={dismissUncovered}>
+            取消
+          </Button>
+          <Button variant="default" onClick={confirmUncovered}>
+            我已复核，继续生成计划
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 危险动作确认弹窗。
+ *
+ * 目前最典型的用途是「在本机唤起外部编辑器」——后端只保证命令一定来自白名单，
+ * 但"这一次到底要不要在这台机器上起进程"只有人能判断。勾选"以后不再询问"后
+ * 记在 localStorage，避免高频操作被反复打断。
+ */
+export function ConfirmDialog() {
+  const confirm = useStudio((s) => s.confirm);
+  const setConfirmSkip = useStudio((s) => s.setConfirmSkip);
+  const answerConfirm = useStudio((s) => s.answerConfirm);
+
+  if (!confirm) return null;
+
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center bg-foreground/25 p-6">
+      <div className="flex w-full max-w-[520px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+          <div className="text-[13px] font-semibold">{confirm.title}</div>
+        </div>
+
+        <div className="px-4 py-3 text-[12px] leading-5">
+          <div>{confirm.message}</div>
+          {confirm.detail ? (
+            <div className="mono mt-2 break-all rounded-[6px] border border-border bg-surface px-2 py-1.5 text-[11.5px] text-muted-foreground">
+              {confirm.detail}
+            </div>
+          ) : null}
+          {confirm.skipKey ? (
+            <label className="mt-3 flex items-center gap-2 text-[12px] text-muted-foreground">
+              <Switch checked={confirm.skip} onChange={setConfirmSkip} />
+              以后不再询问
+            </label>
+          ) : null}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/40 px-4 py-2.5">
+          <Button variant="ghost" onClick={() => answerConfirm(false)}>
+            取消
+          </Button>
+          <Button variant="default" onClick={() => answerConfirm(true)}>
+            {confirm.confirmText ?? '确认'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** 右下角通知。 */
 export function Toasts() {
   const notices = useStudio((s) => s.notices);

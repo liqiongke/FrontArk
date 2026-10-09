@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -28,7 +30,10 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]any{"message": msg})
 }
 
-// okPayload 统一成功信封：{ ok, data, issues, meta }
+// okPayload 统一成功信封：{ ok, data }。
+//
+// 诊断/元信息不塞进信封：它们要么挂在 data 里（随使用方定义），
+// 要么由失败路径的 { ok:false, message, code } 表达 —— 说清楚比"什么都放"更好用。
 func okPayload(data any) map[string]any {
 	return map[string]any{"ok": true, "data": data}
 }
@@ -100,10 +105,15 @@ var editableExt = map[string]bool{
 	".ts": true, ".tsx": true, ".js": true, ".jsx": true, ".json": true, ".css": true,
 }
 
+// blockedDir 命中的目录段一律拒绝读写。这些目录里是产物或依赖，
+// 被写坏既没有价值、又会造成难以排查的问题。
 var blockedDir = map[string]bool{
 	"node_modules": true, "dist": true, "dist-desktop": true, ".git": true,
-	".turbo": true, "build": true, "coverage": true,
+	".turbo": true, "build": true, "coverage": true, "target": true, "gen": true,
 }
+
+// maxEditableBytes 单文件上限：超过则不做结构化编辑（可由 /api/source 只读查看）。
+const maxEditableBytes = 1 << 20 // 1 MiB
 
 func checkEditableExtension(path string) error {
 	ext := strings.ToLower(filepath.Ext(path))
@@ -111,6 +121,59 @@ func checkEditableExtension(path string) error {
 		return fmt.Errorf("不允许编辑该类型文件：%s", ext)
 	}
 	return nil
+}
+
+// checkBlockedDir 拒绝落在产物/依赖目录里的路径。
+// 按路径段比对，所以 `dist` 只匹配真正的目录段，不会误伤 `dist-utils.ts`。
+func checkBlockedDir(path string) error {
+	clean := filepath.ToSlash(filepath.Clean(path))
+	for _, seg := range strings.Split(clean, "/") {
+		if seg == "" || seg == "." {
+			continue
+		}
+		if blockedDir[strings.ToLower(seg)] {
+			return fmt.Errorf("不允许编辑 %s 目录下的文件：%s", seg, clean)
+		}
+	}
+	return nil
+}
+
+// checkEditablePath 一次做完扩展名 + 目录黑名单校验（写盘前唯一入口）。
+func checkEditablePath(path string) error {
+	if err := checkEditableExtension(path); err != nil {
+		return err
+	}
+	return checkBlockedDir(path)
+}
+
+// ── 值掩码 ─────────────────────────────────────────────────────────
+
+// sensitiveKey 判断一个环境变量名是否属于「不该明文下发/落盘」的类别。
+// 目标工程的 .env 里 VITE_* 本来就会进前端 bundle，但 Token / 密钥这类值
+// 没有任何理由出现在 Studio 的响应或配置目录里。
+var sensitiveKey = regexp.MustCompile(`(?i)(token|secret|password|passwd|pwd|apikey|api_key|credential|private|auth)`)
+
+func isSensitiveKey(k string) bool { return sensitiveKey.MatchString(k) }
+
+const maskedValue = "******"
+
+// maskEnv 返回脱敏副本；同时给出被掩码的键名清单（供 UI 提示）。
+func maskEnv(env map[string]string) (map[string]string, []string) {
+	if len(env) == 0 {
+		return map[string]string{}, nil
+	}
+	out := make(map[string]string, len(env))
+	masked := make([]string, 0, 4)
+	for k, v := range env {
+		if isSensitiveKey(k) && v != "" {
+			out[k] = maskedValue
+			masked = append(masked, k)
+			continue
+		}
+		out[k] = v
+	}
+	sort.Strings(masked)
+	return out, masked
 }
 
 // ── 原子写 ─────────────────────────────────────────────────────────

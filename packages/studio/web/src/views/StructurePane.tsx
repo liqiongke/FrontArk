@@ -6,6 +6,12 @@ import { basename, cn } from '@/lib/utils';
 import { useStudio } from '@/store/studio';
 import type { SemanticNode } from '@/types';
 
+/** 只读页面的级别提示：L2 与 L3 的能力不同，别都只说"只读"。 */
+const PAGE_LEVEL_HINT: Record<string, string> = {
+  L2: '普通 React 页面：只读浏览 + 源码跳转',
+  L3: '入口是转发壳（重导出/动态装配）：仅源码导航',
+};
+
 /** 左栏：页面清单 + 当前页面的语义结构树。 */
 export function StructurePane() {
   const pages = useStudio((s) => s.pages);
@@ -86,6 +92,14 @@ export function StructurePane() {
                   )}
                 >
                   <span className="truncate">{page.route === '/' ? '(根)' : page.route}</span>
+                  {page.level && page.level !== 'L1' ? (
+                    <span
+                      className="ml-auto shrink-0 text-[10px] text-muted-foreground/70"
+                      title={PAGE_LEVEL_HINT[page.level]}
+                    >
+                      {page.level}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -97,8 +111,9 @@ export function StructurePane() {
       <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2.5">
         <span className="text-[12px] font-semibold">结构</span>
         {analysis?.page && (
+          // 带上级别：L2（普通 React）与 L3（转发壳）能力不同，只说"只读"分不出来
           <Badge tone={analysis.page.level === 'L1' ? 'success' : 'warn'}>
-            {analysis.page.level === 'L1' ? '可编辑' : '只读'}
+            {analysis.page.level === 'L1' ? '可编辑' : `只读 · ${analysis.page.level}`}
           </Badge>
         )}
         {loading && <Spinner className="ml-auto" />}

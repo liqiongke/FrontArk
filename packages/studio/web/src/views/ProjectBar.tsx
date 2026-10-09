@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { FolderPlus, History, Plus, RefreshCw, Redo2, Undo2, Wrench, X } from 'lucide-react';
+import { Check, FolderPlus, History, Plus, RefreshCw, Redo2, Save, Undo2, Wrench, X } from 'lucide-react';
 import { Badge, Button, Input, Select, Switch } from '@/ui';
 import { useStudio } from '@/store/studio';
 import * as api from '@/lib/api';
+import { relOf, snippet } from '@/lib/utils';
 import type { PageCandidate } from '@/types';
 
 /** 顶栏：项目、路由、编辑器、撤销重做、自动落盘开关。 */
@@ -17,7 +18,14 @@ export function ProjectBar() {
   const editors = useStudio((s) => s.editors);
   const editorId = useStudio((s) => s.editorId);
   const customEditor = useStudio((s) => s.customEditor);
+  const editorCommandSaved = useStudio((s) => s.editorCommandSaved);
+  const setCustomEditor = useStudio((s) => s.setCustomEditor);
+  const saveEditorCommand = useStudio((s) => s.saveEditorCommand);
+  const health = useStudio((s) => s.health);
   const history = useStudio((s) => s.history);
+  const staged = useStudio((s) => s.staged);
+  const saveAllStaged = useStudio((s) => s.saveAllStaged);
+  const discardStaged = useStudio((s) => s.discardStaged);
   const openProject = useStudio((s) => s.openProject);
   const openRoute = useStudio((s) => s.openRoute);
   const undo = useStudio((s) => s.undo);
@@ -95,6 +103,22 @@ export function ProjectBar() {
           <span className="tabular-nums">{history.length}</span>
         </Button>
 
+        {staged.length > 0 ? (
+          <>
+            <div className="h-4 w-px bg-border" />
+            <Badge tone="warn" title="这些改动还只在草稿里，尚未写入源码">
+              待保存 {staged.length}
+            </Badge>
+            <Button size="sm" variant="default" onClick={() => void saveAllStaged()} title="写入源码（Ctrl+S）">
+              <Save className="h-3.5 w-3.5" />
+              保存全部
+            </Button>
+            <Button size="icon" variant="ghost" onClick={discardStaged} title="丢弃全部未保存的改动">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </>
+        ) : null}
+
         <div className="ml-auto flex items-center gap-3">
           <label className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground" title="开启后，「单文件单点」改动会直接落盘">
             <Switch
@@ -132,18 +156,44 @@ export function ProjectBar() {
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
             {editorId === '__custom__' && (
-              <Input
-                className="mono w-[240px]"
-                placeholder="myide --goto {file}:{line}:{column}"
-                value={customEditor}
-                onChange={(e) => {
-                  setState({ customEditor: e.target.value });
-                  localStorage.setItem('studio.editorCommand', e.target.value);
-                }}
-                title="可用占位符：{file} {line} {column} {project}"
-              />
+              <>
+                <Input
+                  className="mono w-[230px]"
+                  placeholder="myide --goto {file}:{line}:{column}"
+                  value={customEditor}
+                  onChange={(e) => setCustomEditor(e.target.value)}
+                  title="占位符：{file} {line} {column} {project}。命令保存在服务端配置里，不进请求体。"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !editorCommandSaved) void saveEditorCommand(customEditor);
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant={editorCommandSaved ? 'ghost' : 'default'}
+                  disabled={editorCommandSaved}
+                  onClick={() => void saveEditorCommand(customEditor)}
+                  title="保存到服务端配置（仅本机可写）"
+                >
+                  {editorCommandSaved ? <Check className="h-3.5 w-3.5 opacity-50" /> : <Save className="h-3.5 w-3.5" />}
+                  保存
+                </Button>
+              </>
             )}
           </div>
+
+          {health?.authNeeded && (
+            <div className="flex items-center gap-1.5" title="服务端要求 Token；因为 EventSource 无法设置请求头，SSE 走 query 传递">
+              <span className="text-[11.5px] text-muted-foreground">Token</span>
+              <Input
+                className="mono w-[120px]"
+                type="password"
+                placeholder="访问 Token"
+                defaultValue={api.getToken()}
+                onChange={(e) => api.setToken(e.target.value)}
+                onBlur={() => window.location.reload()}
+              />
+            </div>
+          )}
 
           <div className="flex items-center gap-1.5" title={preview?.hint}>
             <span className={`h-2 w-2 rounded-full ${preview?.ready ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`} />
@@ -327,35 +377,67 @@ function HistoryDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+/**
+ * 单条编辑记录的详情：这次到底改了哪几处（before/after 片段）。
+ *
+ * 历史接口本来就带着 impacts，之前这里却是"再拉一次列表然后打印一句请用撤销"，
+ * 等于给了个假详情 —— 用户点开是想看改了什么，不是想知道怎么撤销。
+ */
 function HistoryDetail({ projectId, recordId }: { projectId: string | null; recordId: string }) {
   const root = useStudio((s) => s.project?.rootPath ?? '');
-  const [lines, setLines] = useState<string[]>(['加载中…']);
+  const [impacts, setImpacts] = useState<HistoryImpact[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
     void api
       .fetchHistory(projectId)
-      .then(() => {
+      .then((res) => {
         if (cancelled) return;
-        // 历史列表接口只给摘要，这里直接提示可撤销而不是伪造 diff
-        setLines([
-          `记录 ${recordId}`,
-          '撤销/重做请使用顶栏按钮：撤销按「最近一次」回退，并用内容 sha 校验确认文件没有被外部改动。',
-        ]);
+        const rec = res.data.history.find((h) => h.id === recordId);
+        setImpacts(rec?.impacts ?? []);
       })
-      .catch((err: Error) => setLines([err.message]));
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      });
     return () => {
       cancelled = true;
     };
   }, [projectId, recordId]);
 
+  if (error) return <div className="mt-1 text-[11px] text-destructive">{error}</div>;
+  if (!impacts) return <div className="mt-1 text-[11px] text-muted-foreground">加载改动明细…</div>;
+  if (impacts.length === 0) {
+    return (
+      <div className="mt-1 text-[11px] text-muted-foreground">
+        该记录没有可展示的明细（服务重启前写入的历史只保留了元数据）。
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-1 rounded-[6px] border border-border bg-surface px-2 py-1.5 text-[11px] text-muted-foreground">
-      <div className="mono break-all">{root}</div>
-      {lines.map((l, i) => (
-        <div key={i}>{l}</div>
+    <div className="mt-1.5 space-y-1">
+      {impacts.map((im, i) => (
+        <div key={`${im.file}-${i}`} className="rounded-[5px] border border-border bg-surface px-2 py-1">
+          <div className="mono truncate text-[10.5px] text-muted-foreground">
+            {im.label ? `${im.label} · ` : ''}
+            {relOf(root, im.file)}
+          </div>
+          <div className="mono break-all text-[11px]">
+            <span className="text-destructive/90">{snippet(im.before, 120) || '(空)'}</span>
+            <span className="mx-1 text-muted-foreground">→</span>
+            <span className="text-emerald-700">{snippet(im.after, 120) || '(删除)'}</span>
+          </div>
+        </div>
       ))}
     </div>
   );
+}
+
+interface HistoryImpact {
+  file: string;
+  before: string;
+  after: string;
+  label?: string;
 }

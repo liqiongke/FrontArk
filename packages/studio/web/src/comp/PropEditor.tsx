@@ -54,9 +54,12 @@ function Row({ node, byId, depth }: { node: SemanticNode; byId: Map<string, Sema
   const labels = useStudio((s) => s.analysis?.labels) ?? EMPTY_LABELS;
   const selectedNodeId = useStudio((s) => s.selectedNodeId);
   const selectNode = useStudio((s) => s.selectNode);
+  const staged = useStudio((s) => s.staged);
   const isContainer = node.editability === 'object' || node.editability === 'array';
   const [open, setOpen] = useState(depth === 0);
   const selected = selectedNodeId === node.id;
+  // 该节点是否有暂存未落盘的改动（草稿去重键以 target 结尾，正是节点 id）
+  const dirty = staged.some((entry) => 'target' in entry.op && entry.op.target === node.id);
 
   const label = labels[node.name] ?? node.label ?? node.name;
 
@@ -96,7 +99,13 @@ function Row({ node, byId, depth }: { node: SemanticNode; byId: Map<string, Sema
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5 pt-[2px]">
+          {dirty ? (
+            <Badge tone="warn" title="已改动但尚未写入源码：点顶栏「保存」或按 Ctrl+S">
+              未保存
+            </Badge>
+          ) : null}
           <ReadonlyBadge node={node} />
+          {node.anchor ? <LocateButton node={node} /> : null}
           {node.kind === 'arrayItem' || node.kind === 'prop' ? <DeleteNodeButton node={node} /> : null}
         </div>
       </div>
@@ -131,6 +140,30 @@ function ReadonlyBadge({ node }: { node: SemanticNode }) {
     );
   }
   return null;
+}
+
+/** 定位到源码：切到「源码」Tab 并滚到该节点的锚点行。 */
+function LocateButton({ node }: { node: SemanticNode }) {
+  const project = useStudio((s) => s.project);
+  const selectNode = useStudio((s) => s.selectNode);
+  const setInspectorTab = useStudio((s) => s.setInspectorTab);
+  const anchor = node.anchor;
+  if (!anchor) return null;
+  const rel = project ? relOf(project.rootPath, anchor.file) : anchor.file;
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      title={`定位到源码 ${rel}:${anchor.line}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        selectNode(node.id);
+        setInspectorTab('source');
+      }}
+    >
+      <Crosshair className="h-3.5 w-3.5" />
+    </Button>
+  );
 }
 
 function DeleteNodeButton({ node }: { node: SemanticNode }) {
@@ -179,13 +212,20 @@ function Control({ node }: { node: SemanticNode }) {
   }
 }
 
-function useCommit() {
-  const submit = useStudio((s) => s.submit);
-  return (op: Op, title: string) => void submit(op, title);
+/**
+ * 值类改动的入口：只**暂存**，不落盘。
+ *
+ * 改一个列宽就写一次磁盘既没有回头路，也会把 git diff 打成一堆碎片。
+ * 统一进草稿区（顶栏显示待保存数量），由用户点「保存」或 Ctrl+S 再落盘。
+ * 结构性改动（删除 / 新增 / 重排 / 重命名）风险更高，仍走「生成计划 → 看 diff」。
+ */
+function useCommit(node: SemanticNode) {
+  const stageOp = useStudio((s) => s.stageOp);
+  return (op: Op, title: string) => stageOp(op, title, node.label || node.name);
 }
 
 function LiteralControl({ node }: { node: SemanticNode }) {
-  const commit = useCommit();
+  const commit = useCommit(node);
   const [value, setValue] = useState(() => stringify(node.value));
 
   useEffect(() => {
@@ -234,7 +274,7 @@ function LiteralControl({ node }: { node: SemanticNode }) {
 }
 
 function EnumControl({ node }: { node: SemanticNode }) {
-  const commit = useCommit();
+  const commit = useCommit(node);
   const enums = useStudio((s) => s.analysis?.enums) ?? EMPTY_ENUMS;
   const def = node.enumObject ? enums[node.enumObject] : undefined;
   const current = `${node.enumObject}.${node.enumMember}`;
@@ -273,7 +313,7 @@ function EnumControl({ node }: { node: SemanticNode }) {
 }
 
 function MemberControl({ node }: { node: SemanticNode }) {
-  const commit = useCommit();
+  const commit = useCommit(node);
   const page = useStudio((s) => s.analysis?.page);
   const refKind = node.ref?.kind;
 
@@ -316,7 +356,7 @@ function MemberControl({ node }: { node: SemanticNode }) {
 }
 
 function HandlerControl({ node }: { node: SemanticNode }) {
-  const commit = useCommit();
+  const commit = useCommit(node);
   const methods = useStudio((s) => s.analysis?.page?.handlerMethods ?? []);
   const current = node.handlerMethod ?? '';
 
@@ -337,7 +377,7 @@ function HandlerControl({ node }: { node: SemanticNode }) {
 }
 
 function ActiveBindingControl({ node }: { node: SemanticNode }) {
-  const commit = useCommit();
+  const commit = useCommit(node);
   const page = useStudio((s) => s.analysis?.page);
   const members = Object.keys(page?.viewMembers ?? {});
   const current = node.ref?.member ?? '';
@@ -369,7 +409,7 @@ function ActiveBindingControl({ node }: { node: SemanticNode }) {
 }
 
 function RawExprControl({ node }: { node: SemanticNode }) {
-  const commit = useCommit();
+  const commit = useCommit(node);
   const [value, setValue] = useState(node.expr ?? '');
 
   useEffect(() => {

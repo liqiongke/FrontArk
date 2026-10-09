@@ -177,40 +177,67 @@ export function installProbe(opts: { apiBase: string; projectId: string; route: 
     const el = (event.target as HTMLElement | null)?.closest?.('[data-fa-node]');
     if (el) el.classList.add('fa-hover');
   });
+
   document.addEventListener('mouseout', (event) => {
     const el = (event.target as HTMLElement | null)?.closest?.('[data-fa-node]');
     if (el) el.classList.remove('fa-hover');
   });
 
-  // 5) 响应 Studio 的指令
+  // 5) 响应 Studio 的指令（主题草稿 / 重新打标 / 选中同步）
   window.addEventListener('message', (event) => {
-    const msg = event.data as { type?: string; nodeId?: string; vars?: Record<string, string> } | null;
+    // 只接受父窗口：预览里跑的是目标工程的真实代码，
+    // 不校验来源等于允许任意嵌套页面遥控这里的 DOM。
+    if (event.source !== window.parent) return;
+    const msg = event.data as {
+      type?: string;
+      nodeId?: string;
+      groups?: Record<string, Record<string, string>>;
+    } | null;
     if (!msg?.type) return;
-    if (msg.type === 'fa-highlight' && msg.nodeId) {
-      selectedId = msg.nodeId;
-      paintSelected(msg.nodeId);
+    if (msg.type === 'fa-select' || msg.type === 'fa-highlight') {
+      if (msg.nodeId) {
+        selectedId = msg.nodeId;
+        paintSelected(msg.nodeId);
+      }
+      return;
     }
-    if (msg.type === 'fa-clear') {
+    if (msg.type === 'fa-deselect' || msg.type === 'fa-clear') {
       selectedId = null;
       for (const el of Array.from(document.querySelectorAll('.fa-selected'))) el.classList.remove('fa-selected');
+      return;
     }
-    if (msg.type === 'fa-theme' && msg.vars) applyThemeVars(msg.vars);
+    if (msg.type === 'fa-theme') applyThemeVars(msg.groups ?? {});
     if (msg.type === 'fa-retag') scheduleTag();
   });
 
   post({ type: 'fa-mounted', route: opts.route });
 }
 
-/** 主题即时预览：把变量写到一张独立 style 上，**不落盘**。 */
-export function applyThemeVars(vars: Record<string, string>) {
+/**
+ * 主题即时预览：把变量写到一张独立 style 上，**不落盘**。
+ *
+ * 按选择器分组下发（`{ ':root': {...}, '.dark': {...} }`），而不是全部塞进 `:root`：
+ * `.dark` 里的 token 如果被当成 `:root` 变量预览，看到的颜色是错的，而保存走的
+ * 是精确选择器 —— 预览与落盘结果就会不一致。
+ *
+ * 变量名必须真的是合法的自定义属性名（`--xxx`）。Studio 早期版本传错过 key
+ * （把选择器当成 token），生成 `--:root: ...` 这种声明，浏览器直接丢弃 ——
+ * 表现就是"功能看起来在、颜色完全不变"。这里再兜一层。
+ */
+export function applyThemeVars(groups: Record<string, Record<string, string>>) {
   let style = document.getElementById('fa-theme-preview') as HTMLStyleElement | null;
   if (!style) {
     style = document.createElement('style');
     style.id = 'fa-theme-preview';
-    document.head.appendChild(style);
+    (document.head ?? document.documentElement).appendChild(style);
   }
-  const body = Object.entries(vars)
-    .map(([k, v]) => `  ${k}: ${v};`)
-    .join('\n');
-  style.textContent = `:root {\n${body}\n}\n`;
+  const blocks: string[] = [];
+  for (const [selector, vars] of Object.entries(groups ?? {})) {
+    if (!selector.trim()) continue;
+    const decls = Object.entries(vars ?? {})
+      .filter(([k, v]) => /^--[A-Za-z0-9_-]+$/.test(k) && String(v).trim() !== '')
+      .map(([k, v]) => `  ${k}: ${v};`);
+    if (decls.length > 0) blocks.push(`${selector} {\n${decls.join('\n')}\n}`);
+  }
+  style.textContent = blocks.join('\n');
 }

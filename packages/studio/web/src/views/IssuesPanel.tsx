@@ -9,6 +9,7 @@ export function IssuesPanel() {
   const analysis = useStudio((s) => s.analysis);
   const selectNode = useStudio((s) => s.selectNode);
   const setInspectorTab = useStudio((s) => s.setInspectorTab);
+  const focusSource = useStudio((s) => s.focusSource);
   const [open, setOpen] = useState(false);
 
   const issues = analysis?.issues ?? [];
@@ -49,9 +50,15 @@ export function IssuesPanel() {
                 key={`${issue.code}-${i}`}
                 type="button"
                 onClick={() => {
-                  if (!issue.target) return;
-                  selectNode(issue.target);
-                  setInspectorTab('property');
+                  // 诊断都带 file/line（ST008 之类压根没有对应语义节点），
+                  // 所以优先把源码面板指到那一行，而不是只选中节点。
+                  if (issue.target) selectNode(issue.target);
+                  if (issue.file) {
+                    focusSource(issue.file, issue.line ?? 1);
+                    setInspectorTab('source');
+                  } else if (issue.target) {
+                    setInspectorTab('property');
+                  }
                 }}
                 className={cn(
                   'flex w-full items-start gap-2 border-b border-border/60 px-3 py-1.5 text-left text-[12px] hover:bg-muted/50',

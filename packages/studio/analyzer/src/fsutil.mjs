@@ -17,10 +17,15 @@ export function detectEol(text) {
 }
 
 /**
- * 探测引号风格：统计全文单双引号出现次数，取多者为默认；
- * 传入 near 时优先看目标位置附近的上下文（同一对象内部的风格更可信）。
+ * 引号风格：**优先沿用被替换字面量自己的引号**。
+ *
+ * 早期实现统计 ±400 字符内的"多数派引号"，结果一个双引号属性可能被改写成单引号 ——
+ * 这直接违反「保留引号风格」。只有拿不到原字面量（新增元素）时，才退回附近多数派。
  */
-export function detectQuote(text, near = -1) {
+export function detectQuote(text, near = -1, original = '') {
+  const head = original.trimStart()[0];
+  if (head === "'" || head === '"' || head === '`') return head;
+
   const scope = near >= 0 ? text.slice(Math.max(0, near - 400), near + 400) : text;
   let single = 0;
   let double = 0;
@@ -41,9 +46,12 @@ export function detectQuote(text, near = -1) {
   return double > single ? '"' : "'";
 }
 
-/** 把值序列化成符合目标文件风格的字符串字面量。 */
-export function stringLiteral(value, text, near) {
-  const quote = detectQuote(text, near);
+/**
+ * 把值序列化成符合目标文件风格的字符串字面量。
+ * original 是**被替换区间原本的文本**，有它就用它的引号。
+ */
+export function stringLiteral(value, text, near, original = '') {
+  const quote = detectQuote(text, near, original);
   const escaped = String(value)
     .replace(/\\/g, '\\\\')
     .replace(new RegExp(`\\${quote}`, 'g'), `\\${quote}`)
@@ -56,18 +64,39 @@ export function propertyKey(name, text, near) {
   return /^[A-Za-z_$][\w$]*$/.test(name) ? name : stringLiteral(name, text, near);
 }
 
+// ── 偏移 → 行列 ───────────────────────────────────────────────────
+//
+// 单条目缓存：一次分析里同一个文件会被问上千次（每个节点问两次起步），
+// 每次从文件头线性扫描就是 O(节点数 × 文件长度)。缓存一份行首偏移表后，
+// 单次查询变成二分，整份文件的全部查询合起来是 O(n + q·log n)。
+
+let lineCacheText = null;
+let lineCacheStarts = null;
+
+function lineStartsOf(text) {
+  if (lineCacheText === text) return lineCacheStarts;
+  const starts = [0];
+  for (let i = 0; i < text.length; i += 1) {
+    if (text.charCodeAt(i) === 10) starts.push(i + 1);
+  }
+  lineCacheText = text;
+  lineCacheStarts = starts;
+  return starts;
+}
+
 /** 偏移 → 1-based 行列（供前端跳转）。 */
 export function offsetToLineCol(text, offset) {
-  let line = 1;
-  let lineStart = 0;
-  const limit = Math.min(offset, text.length);
-  for (let i = 0; i < limit; i += 1) {
-    if (text.charCodeAt(i) === 10) {
-      line += 1;
-      lineStart = i + 1;
-    }
+  const starts = lineStartsOf(text);
+  const limit = Math.min(Math.max(offset, 0), text.length);
+  // 找到最后一个 <= limit 的行首
+  let lo = 0;
+  let hi = starts.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (starts[mid] <= limit) lo = mid;
+    else hi = mid - 1;
   }
-  return { line, column: limit - lineStart + 1 };
+  return { line: lo + 1, column: limit - starts[lo] + 1 };
 }
 
 /** 取包含 offset 的整行内容。 */
@@ -191,8 +220,8 @@ export function stripJsonc(text) {
   return out.replace(/,(\s*[}\]])/g, '$1');
 }
 
-/** 把多行文本按给定缩进基准重新缩进（跳过空行）。 */
-export function reindent(block, baseIndent) {
+/** 把多行文本按给定缩进基准重新缩进（跳过空行）。eol 必须传文件的换行风格。 */
+export function reindent(block, baseIndent, eol = '\n') {
   const lines = block.split(/\r?\n/);
   const nonEmpty = lines.filter((l) => l.trim());
   if (nonEmpty.length === 0) return block;
@@ -203,7 +232,7 @@ export function reindent(block, baseIndent) {
   }
   return lines
     .map((line) => (line.trim() ? baseIndent + line.slice(min) : line))
-    .join('\n');
+    .join(eol);
 }
 
 /** 相对路径统一成正斜杠。 */

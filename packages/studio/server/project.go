@@ -5,20 +5,65 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 )
 
 // ProjectSource 从 analyzer 的探测结果里带回来的源码位置信息。
+//
+// Env / EnvSources 是**内存态**：探测时读进来，但序列化时一律丢掉。
+// 用自定义 Marshal/Unmarshal 而不是 `json:"-"`，因为后者会把反序列化也一起屏蔽 ——
+// 探测结果就再也读不进来了。这样正好同时满足两件事：
+//   - 从 analyzer 的探测结果**读得进** env；
+//   - 写 projects.json 与任何 HTTP 响应时**带不出** env（里面可能有 Token）。
 type ProjectSource struct {
+	PagesDir     string
+	Aliases      map[string]string
+	FrameworkSrc string
+	DevPort      *int
+	MockBaseURL  string
+	Env          map[string]string
+	EnvSources   map[string]string
+}
+
+// projectSourceWire 是 ProjectSource 的可序列化投影。
+// 持久化用**不带 env** 的那一半，读取探测结果用**带 env** 的那一半。
+type projectSourceWire struct {
 	PagesDir     string            `json:"pagesDir"`
-	Aliases      map[string]string `json:"aliases"`
+	Aliases      map[string]string `json:"aliases,omitempty"`
 	FrameworkSrc string            `json:"frameworkSrc"`
 	DevPort      *int              `json:"devPort,omitempty"`
 	MockBaseURL  string            `json:"mockBaseUrl,omitempty"`
-	// 目标工程的 .env 家族合并结果（供预览宿主注入 import.meta.env）
-	Env        map[string]string `json:"env,omitempty"`
-	EnvSources map[string]string `json:"envSources,omitempty"`
+	Env          map[string]string `json:"env,omitempty"`
+	EnvSources   map[string]string `json:"envSources,omitempty"`
+}
+
+// MarshalJSON 只输出非敏感字段（env 不进配置文件、不进响应）。
+func (s ProjectSource) MarshalJSON() ([]byte, error) {
+	return json.Marshal(projectSourceWire{
+		PagesDir:     s.PagesDir,
+		Aliases:      s.Aliases,
+		FrameworkSrc: s.FrameworkSrc,
+		DevPort:      s.DevPort,
+		MockBaseURL:  s.MockBaseURL,
+	})
+}
+
+// UnmarshalJSON 接受完整形状（含 env），用于读取 analyzer 的探测结果。
+func (s *ProjectSource) UnmarshalJSON(raw []byte) error {
+	var w projectSourceWire
+	if err := json.Unmarshal(raw, &w); err != nil {
+		return err
+	}
+	s.PagesDir = w.PagesDir
+	s.Aliases = w.Aliases
+	s.FrameworkSrc = w.FrameworkSrc
+	s.DevPort = w.DevPort
+	s.MockBaseURL = w.MockBaseURL
+	s.Env = w.Env
+	s.EnvSources = w.EnvSources
+	return nil
 }
 
 // Project 一个被 Studio 接管的「目标工程」。
@@ -35,24 +80,35 @@ type Project struct {
 	Notes         []string      `json:"notes"`
 	Warnings      []string      `json:"warnings"`
 	CreatedAt     string        `json:"createdAt"`
+
+	// envLoaded 是运行期标记：Env 不落盘，服务重启后需要按需重新探测一次。
+	envLoaded bool
 }
 
-// AllowedRoots 允许被读写的根：目标工程根 + 框架源码根 + 主题文件所在目录。
-// 主题 token 落在 packages/framework 里属于「系统层改动」，是用户明确要求的能力。
-func (p *Project) AllowedRoots() []string {
+// readRoots 允许**读取**的根：目标工程 + 框架源码。
+// 读框架源码是为了在右栏「源码」里查看接口定义与枚举来源，不涉及写入。
+func (p *Project) readRoots() []string {
 	roots := []string{p.RootPath}
 	if p.Source.FrameworkSrc != "" {
-		// FrameworkSrc 指向 .../packages/framework/src，取其上两级作为框架包根
-		roots = append(roots, filepath.Dir(filepath.Dir(p.Source.FrameworkSrc)))
-	}
-	for _, f := range p.ThemeFiles {
-		roots = append(roots, filepath.Dir(f))
+		roots = append(roots, p.Source.FrameworkSrc)
 	}
 	return roots
 }
 
-// ResolvePath 校验并规范化一个绝对路径，确保它落在允许的根之内。
+// ResolvePath 校验并规范化一个绝对路径，确保它落在允许**读取**的根之内。
+// 注意：写入另有更严格的 ResolveWritePath。
 func (p *Project) ResolvePath(raw string) (string, error) {
+	return p.resolveWithin(raw, p.readRoots())
+}
+
+// ResolveWritePath 校验并规范化一个**可写**路径。
+//
+// 写权限刻意比读权限窄得多：
+//   - 目标工程根内：放行（再受扩展名 + 目录黑名单约束）；
+//   - 工程之外：**只允许逐文件列出的 ThemeFiles**，而不是它们所在的目录。
+//     早期实现把整个 packages/framework 放进白名单，导致一次主题编辑就能
+//     把 .bak 写进框架源码树 —— 这里收紧到「一个一个文件」。
+func (p *Project) ResolveWritePath(raw string) (string, error) {
 	if raw == "" {
 		return "", fmt.Errorf("路径为空")
 	}
@@ -60,7 +116,31 @@ func (p *Project) ResolvePath(raw string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for _, root := range p.AllowedRoots() {
+	if root, err := resolveExisting(p.RootPath); err == nil && isWithin(root, real) {
+		return filepath.Clean(real), nil
+	}
+	target := normalizePath(real)
+	for _, f := range p.ThemeFiles {
+		realFile, err := resolveExisting(f)
+		if err != nil {
+			continue
+		}
+		if normalizePath(realFile) == target {
+			return filepath.Clean(realFile), nil
+		}
+	}
+	return "", fmt.Errorf("路径越界（不在该项目允许写入的范围内）：%s", raw)
+}
+
+func (p *Project) resolveWithin(raw string, roots []string) (string, error) {
+	if raw == "" {
+		return "", fmt.Errorf("路径为空")
+	}
+	real, err := resolveExisting(raw)
+	if err != nil {
+		return "", err
+	}
+	for _, root := range roots {
 		realRoot, err := resolveExisting(root)
 		if err != nil {
 			continue
@@ -111,21 +191,80 @@ func NewRegistry(configDir string) (*Registry, error) {
 
 func (r *Registry) Path() string { return r.path }
 
+// List 返回深拷贝。调用方可能在锁外读写这些结构（例如按需补探测环境变量），
+// 直接下发共享指针会与 Put/Delete 形成 data race。
 func (r *Registry) List() []*Project {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]*Project, 0, len(r.byID))
 	for _, p := range r.byID {
-		out = append(out, p)
+		out = append(out, p.Clone())
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
 }
 
+// Get 返回深拷贝，理由同 List。
 func (r *Registry) Get(id string) (*Project, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	p, ok := r.byID[id]
-	return p, ok
+	if !ok {
+		return nil, false
+	}
+	return p.Clone(), true
+}
+
+// Update 在一个写锁内读改写，避免「读出 → 改 → 写回」之间被其它请求插队。
+func (r *Registry) Update(id string, mutate func(*Project)) (*Project, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.byID[id]
+	if !ok {
+		return nil, false
+	}
+	mutate(p)
+	if err := r.saveLocked(); err != nil {
+		// 保存失败不回滚内存态：下次 Put/Update 会再写一遍。
+		return p.Clone(), true
+	}
+	return p.Clone(), true
+}
+
+// Clone 深拷贝项目（含 map / slice），供跨锁传递。
+func (p *Project) Clone() *Project {
+	if p == nil {
+		return nil
+	}
+	out := *p
+	out.ThemeFiles = append([]string(nil), p.ThemeFiles...)
+	out.Notes = append([]string(nil), p.Notes...)
+	out.Warnings = append([]string(nil), p.Warnings...)
+	out.Source = p.Source.clone()
+	return &out
+}
+
+func (s ProjectSource) clone() ProjectSource {
+	out := s
+	if s.Aliases != nil {
+		out.Aliases = make(map[string]string, len(s.Aliases))
+		for k, v := range s.Aliases {
+			out.Aliases[k] = v
+		}
+	}
+	if s.Env != nil {
+		out.Env = make(map[string]string, len(s.Env))
+		for k, v := range s.Env {
+			out.Env[k] = v
+		}
+	}
+	if s.EnvSources != nil {
+		out.EnvSources = make(map[string]string, len(s.EnvSources))
+		for k, v := range s.EnvSources {
+			out.EnvSources[k] = v
+		}
+	}
+	return out
 }
 
 func (r *Registry) Put(p *Project) error {

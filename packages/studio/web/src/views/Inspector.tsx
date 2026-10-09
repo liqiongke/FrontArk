@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Crosshair, ExternalLink, Info, Layers, PencilLine, ShieldAlert } from 'lucide-react';
 import { Badge, Button, Empty, Input, Switch, Tabs } from '@/ui';
 import { cn, relOf } from '@/lib/utils';
-import * as api from '@/lib/api';
 import { ancestorsOf, nodeById, useStudio, type InspectorTab } from '@/store/studio';
 import { PropEditor } from '@/comp/PropEditor';
 import { ThemePanel } from './ThemePanel';
@@ -17,6 +16,13 @@ const KIND_LABEL: Record<string, string> = {
   arrayItem: '数组项',
 };
 
+/** 页面识别级别 → 展示文案（L3 是转发壳，能力比 L2 更少）。 */
+const PAGE_LEVEL_LABEL: Record<string, string> = {
+  L1: '框架页面（可编辑）',
+  L2: '普通 React 页面（只读）',
+  L3: '入口为转发壳（仅源码导航）',
+};
+
 /** 右栏：属性 / 结构 / 数据 / 主题 / 源码。 */
 export function Inspector() {
   const analysis = useStudio((s) => s.analysis);
@@ -24,7 +30,6 @@ export function Inspector() {
   const tab = useStudio((s) => s.inspectorTab);
   const setTab = useStudio((s) => s.setInspectorTab);
   const project = useStudio((s) => s.project);
-  const notice = useStudio((s) => s.notice);
 
   const node = nodeById(analysis, selectedNodeId);
   const issueCount = analysis?.issues.length ?? 0;
@@ -38,20 +43,13 @@ export function Inspector() {
   ];
 
   async function openExternally() {
-    if (!project || !node?.anchor) return;
-    try {
-      const res = await api.openInEditor({
-        projectId: project.id,
-        file: node.anchor.file,
-        line: node.anchor.line,
-        column: node.anchor.column,
-        editor: useStudio.getState().editorId,
-        command: useStudio.getState().customEditor || undefined,
-      });
-      notice('success', `${res.data.message}：${res.data.command}`);
-    } catch (err) {
-      notice('error', (err as Error).message);
-    }
+    if (!node?.anchor) return;
+    // 走 store 的统一入口：它会在真正落盘/起进程前弹一次确认
+    await useStudio.getState().openExternally({
+      file: node.anchor.file,
+      line: node.anchor.line,
+      column: node.anchor.column,
+    });
   }
 
   return (
@@ -132,7 +130,7 @@ export function Inspector() {
       <div className="shrink-0 border-t border-border px-2.5 py-1 text-[10.5px] text-muted-foreground">
         {analysis?.page ? (
           <>
-            {analysis.page.level === 'L1' ? '框架页面（可编辑）' : '普通 React 页面（只读）'} · 节点 {analysis.nodes.length} · 诊断 {issueCount}
+            {PAGE_LEVEL_LABEL[analysis.page.level] ?? '未知类型'} · 节点 {analysis.nodes.length} · 诊断 {issueCount}
           </>
         ) : (
           '尚未解析页面'

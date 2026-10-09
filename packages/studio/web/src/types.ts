@@ -20,6 +20,8 @@ export interface Anchor {
   column: number;
   endLine: number;
   endColumn: number;
+  /** 该区间文本的 sha1：apply 时用于判断「漂移的是不是这一处」。 */
+  hash?: string;
 }
 
 export interface SemanticNode {
@@ -43,6 +45,8 @@ export interface SemanticNode {
   containerKey?: string | null;
   index?: number | null;
   degraded?: boolean;
+  /** 容器含 `...` 展开：属性可读，但新增/重排这类结构性改动会被拒绝。 */
+  hasSpread?: boolean;
   children: string[];
   viewType?: string | null;
   declaredId?: string | null;
@@ -54,11 +58,18 @@ export interface Issue {
   code: string;
   message: string;
   target?: string;
+  file?: string;
+  line?: number | null;
 }
 
 export interface PageInfo {
   route: string;
-  level: 'L1' | 'L2';
+  /**
+   * 识别级别：
+   *   L1 框架页面（可编辑）／L2 普通 React 页面（只读浏览）／
+   *   L3 入口是转发壳（重导出、动态装配）：连渲染什么都无法静态确定。
+   */
+  level: 'L1' | 'L2' | 'L3';
   entry: string;
   entryRel: string;
   files: { file: string; rel: string }[];
@@ -68,6 +79,8 @@ export interface PageInfo {
   dataMembers: Record<string, { memberName: string; id: string | null }>;
   handlerMethods: string[];
   rootId: string | null;
+  /** 组件文件自身的语法错误（有值 → 该文件节点已降级只读）。 */
+  syntaxIssues?: { file: string; line: number; column: number; message: string }[];
 }
 
 export interface EnumMember {
@@ -98,6 +111,11 @@ export interface PageCandidate {
   route: string;
   dir: string;
   entry: string;
+  /**
+   * 廉价分级（只读入口文本推断），用于左栏在点开前就能区分可编辑与只读；
+   * 精确级别以 page.analyze 返回的 page.level 为准。
+   */
+  level?: 'L1' | 'L2' | 'L3';
 }
 
 export interface ProjectSource {
@@ -173,6 +191,10 @@ export interface ThemeToken {
   token: string;
   value: string;
   group: string;
+  /** 同一选择器内同名 token 的第几处声明（0 起）。 */
+  occurrence?: number;
+  /** 该 token 在选择器内重复声明。 */
+  duplicate?: boolean;
 }
 
 export interface ThemeFile {
@@ -181,11 +203,25 @@ export interface ThemeFile {
   tokens: ThemeToken[];
 }
 
+/** 一组前景/背景的对比度检查结果。 */
+export interface ThemeContrastCheck {
+  selector: string;
+  file: string;
+  fg: string;
+  bg: string;
+  fgValue: string;
+  bgValue: string;
+  ratio: number;
+  level: 'pass' | 'large-only' | 'fail';
+}
+
 export interface ThemeParse {
   files: ThemeFile[];
   groups: { id: string; label: string; tokens: string[] }[];
   relPaths: Record<string, string>;
   failed: string[];
+  issues?: Issue[];
+  checks?: ThemeContrastCheck[];
 }
 
 export interface PreviewInfo {
@@ -196,7 +232,15 @@ export interface PreviewInfo {
   apiBase: string;
   framework: string;
   env: Record<string, string>;
+  maskedEnvKeys?: string[];
   hint: string;
+}
+
+export interface StudioSettings {
+  editorCommand: string;
+  customEditorHelp: string;
+  previewPort: number;
+  studioPort: number;
 }
 
 /** 统一的成功信封。 */
@@ -207,7 +251,18 @@ export interface ApiEnvelope<T> {
   code?: string;
 }
 
-export type Op =
+/**
+ * 提交编辑意图时附带的锚点哈希。
+ *
+ * 服务端用它判断「用户当时看到的那个节点」是否还是当前源码里的同一个节点：
+ * 文件被外部改过时同一个 nodeId 可能已指向别的位置，照旧执行会**静默改错地方**。
+ * 由 store 自动从选中节点填充，各调用点不需要关心。
+ */
+export interface OpDriftGuard {
+  anchorHash?: string;
+}
+
+export type Op = (
   | { kind: 'set'; target: string; value: unknown }
   | { kind: 'set-ref'; target: string; ref: string }
   | { kind: 'insert-array-item'; target: string; text: string }
@@ -217,4 +272,6 @@ export type Op =
   | { kind: 'insert-prop'; target: string; key: string; text: string }
   | { kind: 'delete-member'; memberKind: 'view' | 'data'; member: string; force?: boolean }
   | { kind: 'insert-member'; memberKind: 'view' | 'data'; text: string; memberName: string }
-  | { kind: 'rename-member'; memberKind: 'view' | 'data'; from: string; to: string; syncId?: boolean };
+  | { kind: 'rename-member'; memberKind: 'view' | 'data'; from: string; to: string; syncId?: boolean }
+) &
+  OpDriftGuard;
