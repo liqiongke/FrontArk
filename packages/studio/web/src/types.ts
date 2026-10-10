@@ -112,6 +112,13 @@ export interface PageCandidate {
   dir: string;
   entry: string;
   /**
+   * 页面别名（可选）：在页面入口文件里用一行注释声明，例如
+   *   // @studio-name 系统表格页面
+   * 有别名时左栏「页面」列表用它代替路由显示，路由退到 hover tooltip；
+   * 没写则直接显示路由。解析见 analyzer/src/pages.mjs 的 pageNameOf。
+   */
+  name?: string | null;
+  /**
    * 廉价分级（只读入口文本推断），用于左栏在点开前就能区分可编辑与只读；
    * 精确级别以 page.analyze 返回的 page.level 为准。
    */

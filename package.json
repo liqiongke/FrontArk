@@ -11,6 +11,7 @@
     "dev:desktop": "pnpm --filter web exec tauri dev",
     "build:desktop": "pnpm --filter web exec tauri build --bundles nsis",
     "desktop:info": "pnpm --filter web exec tauri info",
+    "studio": "powershell -NoProfile -ExecutionPolicy Bypass -File packages/studio/start.ps1",
     "dev:studio": "pnpm --filter @jl/studio-web dev",
     "build:studio": "pnpm --filter @jl/studio-web build",
     "server:studio": "go -C packages/studio/server run . -root ../.."

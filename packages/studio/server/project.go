@@ -237,9 +237,11 @@ func (p *Project) Clone() *Project {
 		return nil
 	}
 	out := *p
-	out.ThemeFiles = append([]string(nil), p.ThemeFiles...)
-	out.Notes = append([]string(nil), p.Notes...)
-	out.Warnings = append([]string(nil), p.Warnings...)
+	// 用非 nil 空切片而非 append(..., nil...)：nil 切片会被 json 序列化成 null，
+	// 而前端把这些字段声明为 string[]，一旦读 .length 就会崩（如 project.warnings）。
+	out.ThemeFiles = append([]string{}, p.ThemeFiles...)
+	out.Notes = append([]string{}, p.Notes...)
+	out.Warnings = append([]string{}, p.Warnings...)
 	out.Source = p.Source.clone()
 	return &out
 }

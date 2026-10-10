@@ -1,16 +1,57 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Crosshair, FileCode2, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, ChevronRight, Copy, Crosshair, FileCode2, ListFilter, Search, Unlink } from 'lucide-react';
 
-import { Badge, Empty, Input, Spinner } from '@/ui';
+import { Badge, Button, Empty, Input, Spinner } from '@/ui';
 import { basename, cn } from '@/lib/utils';
+import { buildStructureTree, filterByKind, searchTree, type TreeItem, type TreeSearch } from '@/lib/structureTree';
 import { useStudio } from '@/store/studio';
 import type { SemanticNode } from '@/types';
 
-/** 只读页面的级别提示：L2 与 L3 的能力不同，别都只说"只读"。 */
-const PAGE_LEVEL_HINT: Record<string, string> = {
-  L2: '普通 React 页面：只读浏览 + 源码跳转',
-  L3: '入口是转发壳（重导出/动态装配）：仅源码导航',
-};
+/** 页面行的展示名：优先别名，其次路由（根路由显示为「(根)」）。 */
+function pageLabel(page: { route: string; name?: string | null }): string {
+  const alias = page.name?.trim();
+  if (alias) return alias;
+  return page.route === '/' ? '(根)' : page.route;
+}
+
+/**
+ * 写剪贴板：优先 Clipboard API，被拒或不可用时退回 execCommand。
+ *
+ * 需要兜底的原因：Clipboard API 只在安全上下文可用，且要求文档获得焦点与用户手势；
+ * 用局域网 IP 打开、或页面未聚焦时它会直接 reject —— 用户的点击反而没反应。
+ */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // 落到下面的兜底
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/** 过滤菜单里可切换显示的节点类型。 */
+const FILTER_KINDS: { kind: SemanticNode['kind']; label: string }[] = [
+  { kind: 'view', label: '视图' },
+  { kind: 'data', label: '数据' },
+  { kind: 'handler', label: '处理器' },
+  { kind: 'prop', label: '属性' },
+  { kind: 'arrayItem', label: '数组项' },
+];
 
 /** 左栏：页面清单 + 当前页面的语义结构树。 */
 export function StructurePane() {
@@ -22,40 +63,38 @@ export function StructurePane() {
 
   const [keyword, setKeyword] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [hiddenKinds, setHiddenKinds] = useState<Set<SemanticNode['kind']>>(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
+  /** 刚复制过的路由：用它把图标短暂切成对勾做反馈。 */
+  const [copiedRoute, setCopiedRoute] = useState<string | null>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const notice = useStudio((s) => s.notice);
 
-  // 换页面时重置展开状态，并把结构的主体默认展开
+  const copyRoute = async (target: string) => {
+    if (!(await copyText(target))) {
+      notice('error', '复制失败：浏览器拒绝了剪贴板访问，请改用 localhost 打开');
+      return;
+    }
+    setCopiedRoute(target);
+    window.setTimeout(() => setCopiedRoute((cur) => (cur === target ? null : cur)), 1200);
+  };
+
+  // 换页面时重置展开状态：默认全部折叠。
+  useEffect(() => setExpanded(new Set()), [analysis]);
+
+  // 过滤菜单：点击面板外部关闭。
   useEffect(() => {
-    if (!analysis) return;
-    const seed = new Set<string>(['page']);
-    for (const node of analysis.nodes) {
-      if (node.kind === 'view' || node.kind === 'data' || node.kind === 'handler') seed.add(node.id);
-    }
-    setExpanded(seed);
-  }, [analysis]);
+    if (!filterOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [filterOpen]);
 
-  const byId = useMemo(() => new Map((analysis?.nodes ?? []).map((n) => [n.id, n])), [analysis]);
-
-  const matched = useMemo(() => {
-    if (!analysis) return null;
-    const kw = keyword.trim().toLowerCase();
-    if (!kw) return null;
-    const hits = new Set<string>();
-    for (const node of analysis.nodes) {
-      if (
-        node.id.toLowerCase().includes(kw) ||
-        node.label.toLowerCase().includes(kw) ||
-        String(node.value ?? '').toLowerCase().includes(kw)
-      ) {
-        hits.add(node.id);
-        let parent = node.parentId;
-        while (parent) {
-          hits.add(parent);
-          parent = byId.get(parent)?.parentId ?? null;
-        }
-      }
-    }
-    return hits;
-  }, [analysis, keyword, byId]);
+  const tree = useMemo(() => (analysis ? buildStructureTree(analysis) : []), [analysis]);
+  const visible = useMemo(() => filterByKind(tree, hiddenKinds), [tree, hiddenKinds]);
+  const matched = useMemo(() => (keyword.trim() ? searchTree(visible, keyword.trim()) : null), [visible, keyword]);
 
   const groups = useMemo(() => {
     const map = new Map<string, typeof pages>();
@@ -66,6 +105,22 @@ export function StructurePane() {
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [pages]);
+
+  const toggle = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const toggleKind = (kind: SemanticNode['kind']) =>
+    setHiddenKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-card">
@@ -86,20 +141,31 @@ export function StructurePane() {
                   key={page.route}
                   type="button"
                   onClick={() => void openRoute(page.route)}
+                  // 别名为主，路由退到 tooltip：悬停即可看到真实路径。
+                  title={page.route}
                   className={cn(
-                    'flex w-full items-center gap-1.5 rounded-[5px] px-1.5 py-1 text-left text-[12px] transition-colors',
+                    'group flex w-full items-center gap-1.5 rounded-[5px] px-1.5 py-1 text-left text-[12px] transition-colors',
                     page.route === route ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-muted',
                   )}
                 >
-                  <span className="truncate">{page.route === '/' ? '(根)' : page.route}</span>
-                  {page.level && page.level !== 'L1' ? (
-                    <span
-                      className="ml-auto shrink-0 text-[10px] text-muted-foreground/70"
-                      title={PAGE_LEVEL_HINT[page.level]}
-                    >
-                      {page.level}
-                    </span>
-                  ) : null}
+                  <span className="truncate">{pageLabel(page)}</span>
+                  <span
+                    role="button"
+                    aria-label="复制页面路径"
+                    title="复制页面路径"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void copyRoute(page.route);
+                    }}
+                    className={cn(
+                      'ml-auto hidden shrink-0 items-center rounded-[4px] p-0.5 group-hover:flex',
+                      copiedRoute === page.route
+                        ? 'flex text-emerald-600'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {copiedRoute === page.route ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </span>
                 </button>
               ))}
             </div>
@@ -116,7 +182,56 @@ export function StructurePane() {
             {analysis.page.level === 'L1' ? '可编辑' : `只读 · ${analysis.page.level}`}
           </Badge>
         )}
-        {loading && <Spinner className="ml-auto" />}
+        <div ref={filterRef} className="relative ml-auto flex items-center gap-1">
+          {loading && <Spinner />}
+          <Button
+            size="icon"
+            variant="ghost"
+            title="过滤节点类型"
+            aria-label="过滤节点类型"
+            aria-expanded={filterOpen}
+            onClick={() => setFilterOpen((v) => !v)}
+          >
+            <ListFilter className="h-3.5 w-3.5" />
+          </Button>
+          {filterOpen && (
+            <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-[6px] border border-border bg-card p-1 shadow-lg">
+              <div className="flex items-center justify-between px-1.5 py-1 text-[11px] text-muted-foreground">
+                <button type="button" className="hover:text-foreground" onClick={() => setHiddenKinds(new Set())}>
+                  全选
+                </button>
+                <button
+                  type="button"
+                  className="hover:text-foreground"
+                  onClick={() => setHiddenKinds(new Set(FILTER_KINDS.map((k) => k.kind)))}
+                >
+                  清空
+                </button>
+              </div>
+              {FILTER_KINDS.map(({ kind, label }) => {
+                const on = !hiddenKinds.has(kind);
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => toggleKind(kind)}
+                    className="flex w-full items-center gap-1.5 rounded-[5px] px-1.5 py-1 text-left text-[12px] transition-colors hover:bg-muted"
+                  >
+                    <span
+                      className={cn(
+                        'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border',
+                        on ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
+                      )}
+                    >
+                      {on ? <Check className="h-3 w-3" /> : null}
+                    </span>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="shrink-0 border-b border-border px-2 py-1.5">
@@ -133,27 +248,11 @@ export function StructurePane() {
 
       <div className="min-h-0 flex-1 overflow-auto scroll-thin py-1">
         {!analysis && !loading && <Empty>选择一个页面后显示结构</Empty>}
-        {analysis &&
-          analysis.nodes
-            .filter((n) => n.parentId === null)
-            .map((root) => (
-              <TreeNode
-                key={root.id}
-                node={root}
-                depth={0}
-                byId={byId}
-                matched={matched}
-                expanded={expanded}
-                onToggle={(id) =>
-                  setExpanded((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(id)) next.delete(id);
-                    else next.add(id);
-                    return next;
-                  })
-                }
-              />
-            ))}
+        {analysis && visible.length === 0 && <Empty>当前过滤条件下没有可显示的节点</Empty>}
+        {analysis && visible.length > 0 && matched && matched.hits.size === 0 && <Empty>没有匹配的节点</Empty>}
+        {visible.map((item) => (
+          <TreeNode key={item.key} item={item} depth={0} matched={matched} expanded={expanded} onToggle={toggle} />
+        ))}
       </div>
 
       {analysis?.page && (
@@ -190,50 +289,49 @@ const KIND_MARK: Record<string, string> = {
 };
 
 function TreeNode({
-  node,
+  item,
   depth,
-  byId,
   matched,
   expanded,
   onToggle,
 }: {
-  node: SemanticNode;
+  item: TreeItem;
   depth: number;
-  byId: Map<string, SemanticNode>;
-  matched: Set<string> | null;
+  matched: TreeSearch | null;
   expanded: Set<string>;
-  onToggle: (id: string) => void;
+  onToggle: (key: string) => void;
 }) {
   const selectedNodeId = useStudio((s) => s.selectedNodeId);
   const selectNode = useStudio((s) => s.selectNode);
 
-  if (matched && !matched.has(node.id)) return null;
+  // 搜索时只保留「命中节点 + 其祖先路径」，并自动展开。
+  if (matched && !matched.expand.has(item.key)) return null;
 
-  const children = node.children.filter((id) => {
-    const child = byId.get(id);
-    if (!child) return false;
-    if (matched && !matched.has(child.id)) return false;
-    return true;
-  });
-  const isOpen = expanded.has(node.id) || Boolean(matched);
-  const selected = selectedNodeId === node.id;
+  const node = item.node;
+  const children = matched ? item.children.filter((c) => matched.expand.has(c.key)) : item.children;
+  const isOpen = matched ? true : expanded.has(item.key);
+  const selected = node !== null && selectedNodeId === node.id;
 
   return (
     <>
       <div
-        onClick={() => selectNode(node.id)}
-        onDoubleClick={() => onToggle(node.id)}
+        onClick={() => {
+          if (node && !item.synthetic) selectNode(node.id);
+        }}
+        onDoubleClick={() => {
+          if (children.length) onToggle(item.key);
+        }}
         className={cn(
           'group flex w-full cursor-pointer items-center gap-1 rounded-[5px] py-[3px] pr-1.5 text-left transition-colors',
           selected ? 'bg-primary/12' : 'hover:bg-muted/70',
         )}
         style={{ paddingLeft: depth * 12 + 4 }}
-        title={node.id}
+        title={node?.id ?? item.label}
       >
         <span
           onClick={(e) => {
             e.stopPropagation();
-            if (children.length) onToggle(node.id);
+            if (children.length) onToggle(item.key);
           }}
           className={cn('flex h-3.5 w-3.5 shrink-0 items-center justify-center', children.length ? '' : 'opacity-0')}
         >
@@ -241,21 +339,28 @@ function TreeNode({
         </span>
 
         <span
+          title={item.orphan ? '未被任何布局引用（孤悬节点）' : undefined}
           className={cn(
             'flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] text-[10px] font-bold',
-            KIND_TONE[node.kind] ?? 'bg-muted',
+            item.synthetic
+              ? 'bg-muted text-muted-foreground'
+              : item.orphan
+                ? 'bg-amber-500/15 text-amber-700'
+                : (KIND_TONE[item.kind] ?? 'bg-muted'),
           )}
         >
-          {KIND_MARK[node.kind] ?? '·'}
+          {item.orphan ? <Unlink className="h-3 w-3" /> : (KIND_MARK[item.kind] ?? '·')}
         </span>
 
-        <span className={cn('truncate text-[12px]', selected && 'font-medium')}>
-          {node.label || node.name}
+        <span className={cn('truncate text-[12px]', selected && 'font-medium', item.orphan && 'text-muted-foreground')}>
+          {item.label}
         </span>
-        <span className="mono shrink-0 text-[11px] text-muted-foreground/70">{node.name}</span>
+        {node && !item.synthetic ? (
+          <span className="mono shrink-0 text-[11px] text-muted-foreground/70">{node.name}</span>
+        ) : null}
 
         <span className="ml-auto flex shrink-0 items-center gap-1 pl-1">
-          {selected && node.anchor ? (
+          {selected && node?.anchor ? (
             <button
               type="button"
               className="mono hidden group-hover:flex items-center gap-0.5 text-[10.5px] text-primary hover:underline"
@@ -269,26 +374,25 @@ function TreeNode({
               {basename(node.anchor.file)}:{node.anchor.line}
             </button>
           ) : null}
-          {node.degraded ? <Badge tone="warn" title="该节点含动态写法，只读">只读</Badge> : null}
+          {node?.degraded ? (
+            <Badge tone="warn" title="该节点含动态写法，只读">
+              只读
+            </Badge>
+          ) : null}
         </span>
       </div>
 
       {isOpen &&
-        children.map((id) => {
-          const child = byId.get(id);
-          if (!child) return null;
-          return (
-            <TreeNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              byId={byId}
-              matched={matched}
-              expanded={expanded}
-              onToggle={onToggle}
-            />
-          );
-        })}
+        children.map((child) => (
+          <TreeNode
+            key={child.key}
+            item={child}
+            depth={depth + 1}
+            matched={matched}
+            expanded={expanded}
+            onToggle={onToggle}
+          />
+        ))}
     </>
   );
 }

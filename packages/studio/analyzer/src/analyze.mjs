@@ -704,6 +704,12 @@ export function analyzePage({ project, route, files, labels = {}, enums = {}, ba
       }
 
       // 结构图：layout items / getRootId / viewId 引用
+      //
+      // buildStructure 靠 `node.children` 找到 items 数组项，但 children 平时是等所有节点建完后
+      // 由 linkChildren 统一填充的（那次调用在本行之后）。不先补一次，itemsNode.children 恒为空，
+      // layoutItems 就永远解析不出布局引用。这里先对已建好的视图节点链接一次；
+      // 末尾的 linkChildren(allNodes) 会重置并按 parentId 重新填充，二者不冲突。
+      linkChildren(nodes);
       buildStructure(ctx, cls, viewMembers, nodes, issues, warnings);
     }
   }
